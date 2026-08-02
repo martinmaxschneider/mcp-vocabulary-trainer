@@ -42,14 +42,34 @@ const FR_PERSONS: ConjugationPerson[] = [
   { index: 5, label: "ils/elles" },
 ];
 
+const DE_PERSONS: ConjugationPerson[] = [
+  { index: 0, label: "ich" },
+  { index: 1, label: "du" },
+  { index: 2, label: "er/sie/es" },
+  { index: 3, label: "wir" },
+  { index: 4, label: "ihr" },
+  { index: 5, label: "sie" },
+];
+
 /** Languages that support verb conjugation paradigms in this app. */
-export const CONJUGATABLE_LANGS = ["en", "es", "fr"] as const;
+export const CONJUGATABLE_LANGS = ["de", "en", "es", "fr"] as const;
 export type ConjugatableLang = (typeof CONJUGATABLE_LANGS)[number];
 
 export const CONJUGATION_CATALOG: Record<
   ConjugatableLang,
   LanguageConjugationProfile
 > = {
+  de: {
+    lang: "de",
+    persons: DE_PERSONS,
+    tenses: [
+      { key: "present", label: "Präsens", sortOrder: 1 },
+      { key: "past", label: "Präteritum", sortOrder: 2 },
+      { key: "perfect", label: "Perfekt", sortOrder: 3 },
+      { key: "future", label: "Futur I", sortOrder: 4 },
+      { key: "conditional", label: "Konjunktiv II", sortOrder: 5 },
+    ],
+  },
   en: {
     lang: "en",
     persons: EN_PERSONS,

@@ -12,7 +12,7 @@ import {
 } from "./conjugation-catalog";
 
 describe("conjugation-catalog", () => {
-  it("exposes en/es/fr profiles with 6 persons", () => {
+  it("exposes de/en/es/fr profiles with 6 persons", () => {
     for (const lang of CONJUGATABLE_LANGS) {
       const profile = getConjugationProfile(lang);
       expect(profile).not.toBeNull();
@@ -21,12 +21,17 @@ describe("conjugation-catalog", () => {
     }
   });
 
-  it("does not treat gsw as conjugatable", () => {
+  it("does not treat gsw or pt as conjugatable", () => {
     expect(isConjugatableLang("gsw")).toBe(false);
+    expect(isConjugatableLang("pt")).toBe(false);
     expect(getConjugationProfile("gsw")).toBeNull();
   });
 
   it("validates language-specific tenses", () => {
+    expect(isValidTense("de", "present")).toBe(true);
+    expect(isValidTense("de", "past")).toBe(true);
+    expect(isValidTense("de", "conditional")).toBe(true);
+    expect(isValidTense("de", "imperfect")).toBe(false);
     expect(isValidTense("en", "present")).toBe(true);
     expect(isValidTense("en", "imperfect")).toBe(false);
     expect(isValidTense("es", "imperfect")).toBe(true);
@@ -41,6 +46,8 @@ describe("conjugation-catalog", () => {
   });
 
   it("returns person and tense labels", () => {
+    expect(personLabels("de")[0]).toBe("ich");
+    expect(tenseLabel("de", "perfect")).toBe("Perfekt");
     expect(personLabels("es")[0]).toBe("yo");
     expect(tenseLabel("fr", "imperfect")).toBe("Imparfait");
     expect(tenseLabel("en", "unknown")).toBe("unknown");
