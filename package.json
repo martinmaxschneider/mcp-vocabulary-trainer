@@ -19,6 +19,7 @@
     "docker:logs": "docker compose logs -f",
     "docker:restart": "docker compose restart",
     "mcp:tunnel": "node scripts/mcp-tunnel.mjs",
+    "mcp:install-client": "bash scripts/install-tunnel-client.sh",
     "test": "vitest run",
     "test:watch": "vitest"
   },

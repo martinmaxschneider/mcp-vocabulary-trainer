@@ -75,12 +75,39 @@ The app exposes a Streamable HTTP MCP server at **`/mcp`**. ChatGPT connects via
 
 ### Prerequisites
 
-1. Install [`tunnel-client`](https://github.com/openai/tunnel-client/releases) (e.g. to `~/.local/bin/tunnel-client`).
+1. Install [`tunnel-client`](https://github.com/openai/tunnel-client/releases) to `~/.local/bin` (must be on `PATH`).
+
+   **Easiest (auto-detects Intel vs Apple Silicon):**
+
+   ```bash
+   ./scripts/install-tunnel-client.sh
+   # bash (kein zsh nötig):
+   echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bash_profile
+   source ~/.bash_profile
+   which tunnel-client
+   ```
+
+   **Intel Mac (x86_64) — manuell (bash):**
+
+   ```bash
+   mkdir -p ~/.local/bin && cd /tmp
+   curl -L -o tunnel-client.zip \
+     https://github.com/openai/tunnel-client/releases/latest/download/tunnel-client-v0.0.10-darwin-amd64.zip
+   unzip -o tunnel-client.zip
+   chmod +x tunnel-client
+   mv tunnel-client ~/.local/bin/tunnel-client
+   echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bash_profile
+   source ~/.bash_profile
+   which tunnel-client
+   ```
+
+   Apple Silicon uses `darwin-arm64` instead of `darwin-amd64`. If macOS blocks the binary: System Settings → Privacy & Security → Open Anyway.
+
 2. Create an org API key with **Tunnels Read + Use**:  
    https://platform.openai.com/settings/organization/api-keys
-3. Put it in `.env` as `CONTROL_PLANE_API_KEY=...`
+3. Put it in `.env` as `CONTROL_PLANE_API_KEY=...` (may be the same value as `OPENAI_API_KEY` if that key has tunnel scope).
 4. Configure a tunnel profile named `sprachen` (or set `TUNNEL_PROFILE`) that points to  
-   `http://localhost:4800/mcp`, with health listener on **4801** (next to the app port):
+   `http://localhost:4800/mcp`, with health listener on **4801** (next to the app port) — **once per machine**:
 
 ```bash
 tunnel-client init \
