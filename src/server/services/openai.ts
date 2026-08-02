@@ -240,6 +240,7 @@ ${existingWords.length > 0 ? existingWords.join(", ") : "(keine)"}
 Regeln:
 - Schlage NUR NEUE ${categoryName} auf ${sourceName} vor, die NICHT in der obigen Liste sind
 - Die Vorschläge müssen in ${sourceName} sein (Muttersprache/Quellsprache)
+- "note" (falls gesetzt) muss ebenfalls auf ${sourceName} sein: kurzer Kontext/Disambiguierung in der Muttersprache — NIEMALS eine Übersetzung in eine andere Sprache (sonst wird die Lösung in der Abfrage verraten)
 - Priorisiere nach:
   1. Häufigkeit im Alltag
   2. Nützlichkeit für Sprachlerner
@@ -252,7 +253,7 @@ Gib nur valides JSON zurück im folgenden Format:
   "suggestions": [
     {
       "text": "${sourceName}-Wort oder Phrase",
-      "note": "optionaler Kontext/Hinweis"
+      "note": "optionaler Kontext/Hinweis auf ${sourceName}"
     }
   ]
 }`;
@@ -308,6 +309,7 @@ Deine Aufgabe ist es, die wichtigsten und nützlichsten ${sourceName}-Wörter un
 
 Regeln:
 - Die Vorschläge müssen in ${sourceName} sein (Muttersprache/Quellsprache)
+- "note" (falls gesetzt) muss ebenfalls auf ${sourceName} sein: kurzer Kontext/Disambiguierung in der Muttersprache — NIEMALS eine Übersetzung in eine andere Sprache (sonst wird die Lösung in der Abfrage verraten)
 - Wähle die WICHTIGSTEN und HÄUFIGSTEN Wörter/Phrasen für diesen Bereich
 - Mix aus einzelnen Wörtern (type: "WORD") und nützlichen Redewendungen/Phrasen (type: "PROVERB")
 - Priorisiere praktische, alltagsrelevante Vokabeln
@@ -321,7 +323,7 @@ Gib nur valides JSON zurück im folgenden Format:
     {
       "text": "${sourceName}-Wort oder Phrase",
       "type": "WORD" oder "PROVERB",
-      "note": "optionaler Kontext/Hinweis"
+      "note": "optionaler Kontext/Hinweis auf ${sourceName}"
     }
   ]
 }`;
