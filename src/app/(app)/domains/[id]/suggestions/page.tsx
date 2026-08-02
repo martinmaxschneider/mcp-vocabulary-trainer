@@ -36,12 +36,23 @@ export default function DomainSuggestionsPage({
   const tToasts = useTranslations("toasts");
   const tErrors = useTranslations("errors.codes");
   const tErrorsPage = useTranslations("errors");
+  const tCategories = useTranslations("categories");
 
   const [maxCount, setMaxCount] = useState<string>("");
   const [suggestions, setSuggestions] = useState<
     Array<{
       text: string;
       type: "WORD" | "PROVERB";
+      category:
+        | "VERB"
+        | "NOUN"
+        | "ADJECTIVE"
+        | "PROVERB"
+        | "ADVERB"
+        | "PREPOSITION"
+        | "CONJUNCTION"
+        | "PRONOUN"
+        | "OTHER";
       note?: string;
       selected: boolean;
     }>
@@ -138,6 +149,7 @@ export default function DomainSuggestionsPage({
             mainText: suggestion.text,
             note: suggestion.note,
             targetLangs: [...TARGET_LANG_CODES],
+            category: suggestion.category,
           });
 
           const translationsList = Object.entries(translations).map(
@@ -147,11 +159,13 @@ export default function DomainSuggestionsPage({
               example: tr.example,
               regionTag: tr.regionTag,
               variants: tr.variants,
+              conjugations: tr.conjugations,
             })
           );
 
           await createEntryMutation.mutateAsync({
             type: suggestion.type,
+            category: suggestion.category,
             mainLang: SOURCE_LANG.code,
             mainText: suggestion.text,
             note: suggestion.note,
@@ -364,9 +378,18 @@ export default function DomainSuggestionsPage({
                           {suggestion.text}
                         </span>
                         <Badge variant="outline" className="text-xs">
-                          {suggestion.type === "WORD"
-                            ? t("typeWord")
-                            : t("typePhrase")}
+                          {tCategories(
+                            suggestion.category.toLowerCase() as
+                              | "verb"
+                              | "noun"
+                              | "adjective"
+                              | "proverb"
+                              | "adverb"
+                              | "preposition"
+                              | "conjunction"
+                              | "pronoun"
+                              | "other",
+                          )}
                         </Badge>
                       </div>
                       {suggestion.note && (

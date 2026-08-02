@@ -72,17 +72,46 @@ function sanitizeConjugations(
 
 export type TranslationResult = z.infer<typeof translationOutputSchema>;
 
+const WORD_CATEGORIES = [
+  "VERB",
+  "NOUN",
+  "ADJECTIVE",
+  "PROVERB",
+  "ADVERB",
+  "PREPOSITION",
+  "CONJUNCTION",
+  "PRONOUN",
+  "OTHER",
+] as const;
+
+const wordCategorySchema = z.enum(WORD_CATEGORIES);
+
 const vocabSuggestionSchema = z.object({
   suggestions: z.array(
     z.object({
       text: z.string(),
       type: z.enum(["WORD", "PROVERB"]),
+      category: wordCategorySchema,
       note: z.string().optional(),
     }),
   ),
 });
 
 export type VocabSuggestionResult = z.infer<typeof vocabSuggestionSchema>;
+
+/** Keep type/category consistent after model output. */
+function normalizeVocabSuggestions(
+  result: VocabSuggestionResult,
+): VocabSuggestionResult {
+  return {
+    suggestions: result.suggestions.map((s) => {
+      if (s.type === "PROVERB" || s.category === "PROVERB") {
+        return { ...s, type: "PROVERB" as const, category: "PROVERB" as const };
+      }
+      return s;
+    }),
+  };
+}
 
 export async function generateTranslations(params: {
   mainText: string;
@@ -304,14 +333,20 @@ export async function generateVocabSuggestions(params: {
 
   const sourceName = getLanguageName(sourceLang);
 
+  const categoryList = WORD_CATEGORIES.join(", ");
+
   const systemPrompt = `Du bist ein Experte für Sprachenlernen und Vokabelauswahl. 
 Deine Aufgabe ist es, die wichtigsten und nützlichsten ${sourceName}-Wörter und Phrasen für einen bestimmten Lebensbereich/Domain vorzuschlagen.
 
 Regeln:
 - Die Vorschläge müssen in ${sourceName} sein (Muttersprache/Quellsprache)
 - "note" (falls gesetzt) muss ebenfalls auf ${sourceName} sein: kurzer Kontext/Disambiguierung in der Muttersprache — NIEMALS eine Übersetzung in eine andere Sprache (sonst wird die Lösung in der Abfrage verraten)
+- Jeder Vorschlag MUSS eine "category" haben. Erlaubte Werte (exakt so schreiben): ${categoryList}
+- "type": "WORD" für Einzelwörter, "PROVERB" für Redewendungen/Phrasen
+- Wenn type "PROVERB" ist, muss category ebenfalls "PROVERB" sein
+- Wenn type "WORD" ist, wähle die passende Wortart (VERB, NOUN, ADJECTIVE, ADVERB, PREPOSITION, CONJUNCTION, PRONOUN oder OTHER) — nicht PROVERB
 - Wähle die WICHTIGSTEN und HÄUFIGSTEN Wörter/Phrasen für diesen Bereich
-- Mix aus einzelnen Wörtern (type: "WORD") und nützlichen Redewendungen/Phrasen (type: "PROVERB")
+- Mix aus einzelnen Wörtern und nützlichen Redewendungen/Phrasen
 - Priorisiere praktische, alltagsrelevante Vokabeln
 - Keine zu spezifischen oder seltenen Begriffe
 - Qualität über Quantität - lieber weniger, aber relevante Vorschläge
@@ -323,6 +358,7 @@ Gib nur valides JSON zurück im folgenden Format:
     {
       "text": "${sourceName}-Wort oder Phrase",
       "type": "WORD" oder "PROVERB",
+      "category": "eine von: ${categoryList}",
       "note": "optionaler Kontext/Hinweis auf ${sourceName}"
     }
   ]
@@ -351,7 +387,7 @@ Gib nur das JSON-Objekt zurück.`;
     const parsed = JSON.parse(content) as unknown;
     const validated = vocabSuggestionSchema.parse(parsed);
 
-    return validated;
+    return normalizeVocabSuggestions(validated);
   } catch (error) {
     console.error("OpenAI vocab suggestion error:", error);
 
