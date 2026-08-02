@@ -145,6 +145,41 @@ export function tenseLabel(lang: string, tenseKey: string): string {
   return tense?.label ?? tenseKey;
 }
 
+/**
+ * Strip a leading subject pronoun from a stored form ("I see" → "see").
+ * Leaves auxiliaries intact ("will see", "have seen", "he visto").
+ */
+export function stripPersonPronoun(lang: string, form: string): string {
+  const trimmed = form.trim();
+  if (!trimmed) return trimmed;
+
+  const labels = personLabels(lang)
+    .slice()
+    .sort((a, b) => b.length - a.length);
+
+  for (const label of labels) {
+    const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(`^${escaped}\\s+`, "i");
+    if (re.test(trimmed)) {
+      return trimmed.replace(re, "").trim();
+    }
+  }
+  return trimmed;
+}
+
+/** Preferred drill answer (verb form only) plus full stored form as variant. */
+export function conjugationAnswerTargets(
+  lang: string,
+  form: string,
+): { expected: string; variants: string[] } {
+  const full = form.trim();
+  const verbOnly = stripPersonPronoun(lang, full);
+  if (!verbOnly || verbOnly === full) {
+    return { expected: full, variants: [] };
+  }
+  return { expected: verbOnly, variants: [full] };
+}
+
 /** Flatten a legacy conjugations JSON object into form rows (catalog-valid only). */
 export function flattenConjugationsJson(
   lang: string,
@@ -165,7 +200,11 @@ export function flattenConjugationsJson(
         form.trim() &&
         isValidPersonIndex(lang, personIndex)
       ) {
-        rows.push({ tenseKey: tense.key, personIndex, form: form.trim() });
+        rows.push({
+          tenseKey: tense.key,
+          personIndex,
+          form: stripPersonPronoun(lang, form.trim()),
+        });
       }
     });
   }

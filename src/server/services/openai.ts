@@ -7,6 +7,7 @@ import {
   getConjugationProfile,
   groupFormsByTense,
   isConjugatableLang,
+  personLabels,
 } from "~/lib/conjugation-catalog";
 import { getLanguageName, SOURCE_LANG } from "~/lib/languages";
 
@@ -49,6 +50,10 @@ function buildConjugationPromptNote(targetLangs: string[]): string {
   return `\n\nDies ist ein VERB. Für Sprachen mit Konjugationen (${langs.join(", ")}), füge "conjugations" hinzu.
 
 WICHTIG: Generiere NUR die Katalog-Zeiten der jeweiligen Sprache. Keine zusätzlichen Zeiten.
+WICHTIG: Jede Array-Form ist NUR die Verbform OHNE Subjektpronomen.
+- Richtig: "see", "sees", "saw", "have seen", "will see" / "komme", "kommst", "bin gekommen"
+- Falsch: "I see", "you see", "he/she/it sees", "ich komme", "yo veo"
+Die Personen-Reihenfolge [${langs.map((l) => personLabels(l).join(", ")).join(" | ")}] gilt nur als Slot-Reihenfolge, nicht als Text in der Form.
 
 ${blocks.join("\n\n")}
 

@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { WordCategory } from "@prisma/client";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import {
+  conjugationAnswerTargets,
   getAllConjugationProfiles,
   getConjugationProfile,
   groupFormsByTense,
@@ -219,6 +220,8 @@ export const conjugationRouter = createTRPCRouter({
         domainIds: z.array(z.string()).optional(),
         tenseKeys: z.array(z.string()).optional(),
         onlyIrregular: z.boolean().optional(),
+        /** single = one random form; paradigm = all persons for selected tenses of one verb */
+        mode: z.enum(["single", "paradigm"]).default("single"),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -241,6 +244,10 @@ export const conjugationRouter = createTRPCRouter({
           message: "No valid tenses selected",
         });
       }
+
+      const tenseSort = new Map(
+        profile.tenses.map((t) => [t.key, t.sortOrder]),
+      );
 
       const forms = await ctx.db.conjugationForm.findMany({
         where: {
@@ -266,31 +273,87 @@ export const conjugationRouter = createTRPCRouter({
             },
           },
         },
-        take: 500,
+        take: 2000,
       });
 
       if (forms.length === 0) {
-        return { card: null, totalAvailable: 0 };
+        return {
+          mode: input.mode,
+          card: null,
+          paradigm: null,
+          totalAvailable: 0,
+        };
       }
 
-      const pick = forms[Math.floor(Math.random() * forms.length)]!;
+      if (input.mode === "single") {
+        const pick = forms[Math.floor(Math.random() * forms.length)]!;
+
+        return {
+          mode: "single" as const,
+          totalAvailable: forms.length,
+          paradigm: null,
+          card: {
+            formId: pick.id,
+            entryId: pick.translation.entryId,
+            translationId: pick.translationId,
+            mainText: pick.translation.entry.mainText,
+            infinitive: pick.translation.text,
+            lang: pick.translation.lang,
+            isIrregular: pick.translation.isIrregular,
+            tenseKey: pick.tenseKey,
+            tenseLabel: tenseLabel(pick.translation.lang, pick.tenseKey),
+            personIndex: pick.personIndex,
+            personLabel:
+              personLabels(pick.translation.lang)[pick.personIndex] ??
+              `Person ${pick.personIndex + 1}`,
+          },
+        };
+      }
+
+      const byTranslation = new Map<string, typeof forms>();
+      for (const form of forms) {
+        const list = byTranslation.get(form.translationId) ?? [];
+        list.push(form);
+        byTranslation.set(form.translationId, list);
+      }
+
+      const translationIds = [...byTranslation.keys()];
+      const pickId =
+        translationIds[Math.floor(Math.random() * translationIds.length)]!;
+      const group = byTranslation.get(pickId)!;
+      const head = group[0]!;
+
+      const slots = group
+        .slice()
+        .sort((a, b) => {
+          const tenseDiff =
+            (tenseSort.get(a.tenseKey) ?? 999) -
+            (tenseSort.get(b.tenseKey) ?? 999);
+          if (tenseDiff !== 0) return tenseDiff;
+          return a.personIndex - b.personIndex;
+        })
+        .map((form) => ({
+          formId: form.id,
+          tenseKey: form.tenseKey,
+          tenseLabel: tenseLabel(form.translation.lang, form.tenseKey),
+          personIndex: form.personIndex,
+          personLabel:
+            personLabels(form.translation.lang)[form.personIndex] ??
+            `Person ${form.personIndex + 1}`,
+        }));
 
       return {
-        totalAvailable: forms.length,
-        card: {
-          formId: pick.id,
-          entryId: pick.translation.entryId,
-          translationId: pick.translationId,
-          mainText: pick.translation.entry.mainText,
-          infinitive: pick.translation.text,
-          lang: pick.translation.lang,
-          isIrregular: pick.translation.isIrregular,
-          tenseKey: pick.tenseKey,
-          tenseLabel: tenseLabel(pick.translation.lang, pick.tenseKey),
-          personIndex: pick.personIndex,
-          personLabel:
-            personLabels(pick.translation.lang)[pick.personIndex] ??
-            `Person ${pick.personIndex + 1}`,
+        mode: "paradigm" as const,
+        totalAvailable: translationIds.length,
+        card: null,
+        paradigm: {
+          entryId: head.translation.entryId,
+          translationId: head.translationId,
+          mainText: head.translation.entry.mainText,
+          infinitive: head.translation.text,
+          lang: head.translation.lang,
+          isIrregular: head.translation.isIrregular,
+          slots,
         },
       };
     }),
@@ -319,15 +382,20 @@ export const conjugationRouter = createTRPCRouter({
         });
       }
 
+      const { expected, variants } = conjugationAnswerTargets(
+        form.translation.lang,
+        form.form,
+      );
       const match = matchAnswer({
         userAnswer: input.answer,
-        expected: form.form,
+        expected,
+        variants,
       });
 
       return {
         isCorrect: match.isCorrect,
         typo: match.isTypo,
-        expected: form.form,
+        expected,
         mainText: form.translation.entry.mainText,
         tenseKey: form.tenseKey,
         tenseLabel: tenseLabel(form.translation.lang, form.tenseKey),
@@ -335,6 +403,65 @@ export const conjugationRouter = createTRPCRouter({
         personLabel:
           personLabels(form.translation.lang)[form.personIndex] ??
           `Person ${form.personIndex + 1}`,
+      };
+    }),
+
+  submitParadigmAnswers: publicProcedure
+    .input(
+      z.object({
+        answers: z
+          .array(
+            z.object({
+              formId: z.string(),
+              answer: z.string(),
+            }),
+          )
+          .min(1)
+          .max(80),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const forms = await ctx.db.conjugationForm.findMany({
+        where: { id: { in: input.answers.map((a) => a.formId) } },
+        include: { translation: { select: { lang: true } } },
+      });
+      const byId = new Map(forms.map((f) => [f.id, f]));
+
+      const results = input.answers.map((a) => {
+        const form = byId.get(a.formId);
+        if (!form) {
+          return {
+            formId: a.formId,
+            isCorrect: false,
+            typo: false,
+            expected: "",
+            missing: true as const,
+          };
+        }
+        const { expected, variants } = conjugationAnswerTargets(
+          form.translation.lang,
+          form.form,
+        );
+        const match = matchAnswer({
+          userAnswer: a.answer,
+          expected,
+          variants,
+        });
+        return {
+          formId: a.formId,
+          isCorrect: match.isCorrect,
+          typo: match.isTypo,
+          expected,
+          missing: false as const,
+        };
+      });
+
+      const correctCount = results.filter((r) => r.isCorrect).length;
+
+      return {
+        results,
+        correctCount,
+        totalCount: results.length,
       };
     }),
 });

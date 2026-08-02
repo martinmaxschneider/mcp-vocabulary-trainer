@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CONJUGATABLE_LANGS,
+  conjugationAnswerTargets,
   flattenConjugationsJson,
   getConjugationProfile,
   groupFormsByTense,
@@ -8,6 +9,7 @@ import {
   isValidPersonIndex,
   isValidTense,
   personLabels,
+  stripPersonPronoun,
   tenseLabel,
 } from "./conjugation-catalog";
 
@@ -51,6 +53,25 @@ describe("conjugation-catalog", () => {
     expect(personLabels("es")[0]).toBe("yo");
     expect(tenseLabel("fr", "imperfect")).toBe("Imparfait");
     expect(tenseLabel("en", "unknown")).toBe("unknown");
+  });
+
+  it("strips leading person pronouns from forms", () => {
+    expect(stripPersonPronoun("en", "I see")).toBe("see");
+    expect(stripPersonPronoun("en", "he/she/it sees")).toBe("sees");
+    expect(stripPersonPronoun("en", "will see")).toBe("will see");
+    expect(stripPersonPronoun("de", "ich komme")).toBe("komme");
+    expect(stripPersonPronoun("es", "vería")).toBe("vería");
+  });
+
+  it("prefers verb-only answers for drills", () => {
+    expect(conjugationAnswerTargets("en", "I see")).toEqual({
+      expected: "see",
+      variants: ["I see"],
+    });
+    expect(conjugationAnswerTargets("en", "have seen")).toEqual({
+      expected: "have seen",
+      variants: [],
+    });
   });
 
   it("flattens and groups conjugations JSON for catalog tenses only", () => {
