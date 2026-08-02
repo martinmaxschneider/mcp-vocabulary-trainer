@@ -191,6 +191,12 @@
   "settings": {
     "title": "Paramètres",
     "subtitle": "Langues et système d'apprentissage",
+    "themeTitle": "Apparence",
+    "themeDesc": "Clair, sombre ou selon le système",
+    "themeHelp": "« Système » suit le réglage de votre appareil.",
+    "themeLight": "Clair",
+    "themeDark": "Sombre",
+    "themeSystem": "Système",
     "uiLanguage": "Langue de l'application",
     "uiLanguageDesc": "Langue de l'interface utilisateur",
     "uiLanguageHelp": "S'applique à toute l'application. Ce ne sont pas les langues d'apprentissage.",

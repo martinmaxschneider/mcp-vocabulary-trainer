@@ -19,6 +19,7 @@ import {
   ChevronDown,
   Library,
 } from "lucide-react";
+import { ThemeToggle } from "~/components/theme-toggle";
 
 function isActive(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/";
@@ -146,16 +147,19 @@ export function Nav() {
           </div>
         </div>
 
-        <Button
-          asChild
-          variant="ghost"
-          size="icon"
-          aria-label={t("settingsAriaLabel")}
-        >
-          <Link href="/settings">
-            <Settings className="h-5 w-5" />
-          </Link>
-        </Button>
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
+          <Button
+            asChild
+            variant="ghost"
+            size="icon"
+            aria-label={t("settingsAriaLabel")}
+          >
+            <Link href="/settings">
+              <Settings className="h-5 w-5" />
+            </Link>
+          </Button>
+        </div>
       </div>
     </nav>
   );

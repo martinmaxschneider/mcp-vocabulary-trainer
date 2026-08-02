@@ -191,6 +191,12 @@
   "settings": {
     "title": "Settings",
     "subtitle": "Languages and learning system",
+    "themeTitle": "Appearance",
+    "themeDesc": "Light, dark, or match system",
+    "themeHelp": "“System” follows your device setting.",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeSystem": "System",
     "uiLanguage": "App language",
     "uiLanguageDesc": "Language of the user interface",
     "uiLanguageHelp": "Applies to the entire app. These are not the learning languages.",

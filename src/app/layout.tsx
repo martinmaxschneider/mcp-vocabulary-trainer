@@ -7,6 +7,7 @@ import { getLocale, getMessages, getTranslations } from "next-intl/server";
 
 import { TRPCReactProvider } from "~/trpc/client";
 import { Toaster } from "~/components/ui/toaster";
+import { ThemeProvider } from "~/components/theme-provider";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("metadata");
@@ -26,10 +27,17 @@ export default async function RootLayout({
   return (
     <html lang={locale} className={GeistSans.variable} suppressHydrationWarning>
       <body className="font-sans antialiased">
-        <NextIntlClientProvider locale={locale} messages={messages}>
-          <TRPCReactProvider>{children}</TRPCReactProvider>
-          <Toaster />
-        </NextIntlClientProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <NextIntlClientProvider locale={locale} messages={messages}>
+            <TRPCReactProvider>{children}</TRPCReactProvider>
+            <Toaster />
+          </NextIntlClientProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

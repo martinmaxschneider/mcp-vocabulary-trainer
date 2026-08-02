@@ -39,6 +39,7 @@ import {
   Trash2,
   Loader2,
   Languages,
+  Palette,
 } from "lucide-react";
 import { getLeitnerIntervalsForDisplay } from "~/lib/leitner";
 import { SOURCE_LANG, TARGET_LANGS } from "~/lib/languages";
@@ -49,6 +50,7 @@ import {
   type Locale,
 } from "~/i18n/config";
 import { resolveErrorCode } from "~/lib/trpc-error";
+import { ThemeToggle } from "~/components/theme-toggle";
 
 export default function SettingsPage() {
   const t = useTranslations("settings");
@@ -235,6 +237,20 @@ export default function SettingsPage() {
       </div>
 
       <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Palette className="h-5 w-5" />
+              <CardTitle>{t("themeTitle")}</CardTitle>
+            </div>
+            <CardDescription>{t("themeDesc")}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <ThemeToggle variant="buttons" />
+            <p className="text-sm text-muted-foreground">{t("themeHelp")}</p>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">

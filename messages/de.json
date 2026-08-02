@@ -191,6 +191,12 @@
   "settings": {
     "title": "Einstellungen",
     "subtitle": "Sprachen und Lernsystem",
+    "themeTitle": "Erscheinungsbild",
+    "themeDesc": "Hell, dunkel oder Systemeinstellung",
+    "themeHelp": "„System“ folgt der Einstellung deines Geräts.",
+    "themeLight": "Hell",
+    "themeDark": "Dunkel",
+    "themeSystem": "System",
     "uiLanguage": "App-Sprache",
     "uiLanguageDesc": "Sprache der Benutzeroberfläche",
     "uiLanguageHelp": "Gilt für die gesamte App. Das sind nicht die Lernsprachen.",

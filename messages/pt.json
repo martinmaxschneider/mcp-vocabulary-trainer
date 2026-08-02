@@ -191,6 +191,12 @@
   "settings": {
     "title": "Definições",
     "subtitle": "Línguas e sistema de aprendizagem",
+    "themeTitle": "Aspeto",
+    "themeDesc": "Claro, escuro ou conforme o sistema",
+    "themeHelp": "“Sistema” segue a definição do seu dispositivo.",
+    "themeLight": "Claro",
+    "themeDark": "Escuro",
+    "themeSystem": "Sistema",
     "uiLanguage": "Língua da aplicação",
     "uiLanguageDesc": "Língua da interface de utilizador",
     "uiLanguageHelp": "Aplica-se a toda a aplicação. Estas não são as línguas de aprendizagem.",
