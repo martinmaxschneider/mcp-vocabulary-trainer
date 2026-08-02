@@ -105,7 +105,9 @@ App: [http://localhost:4800](http://localhost:4800).
 Persistence MCP at `/mcp` (domains, entries, conjugations, review/Leitner, stats). Details for `tunnel-client` and ChatGPT Developer Mode: [SETUP.md](SETUP.md).
 
 ```bash
-npm run dev          # app + tunnel
+npm run dev          # app + tunnel (development)
+npm run start        # app + tunnel (after npm run build)
+npm run start:web    # production web only
 npm run mcp:tunnel   # tunnel only
 ```
 
