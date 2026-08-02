@@ -197,7 +197,7 @@
     "uiLanguageHelp": "Gilt für die gesamte App. Das sind nicht die Lernsprachen.",
     "languages": "Lernsprachen",
     "languagesDesc": "Aktive Sprachen für Vokabeln",
-    "languagesFutureNote": "Hinweis: Sprachverwaltung wird in einem künftigen Update ergänzt. Derzeit sind alle Sprachen standardmäßig aktiv.",
+    "languagesFutureNote": "Aktive Zielsprachen legst du in der .env über NEXT_PUBLIC_TARGET_LANGS fest (z. B. en,es,fr). Leer = alle außer Muttersprache.",
     "leitner": "Leitner-System",
     "leitnerDesc": "Wiederholungsintervalle (nur Anzeige)",
     "leitnerHelp": "Richtige Antworten erhöhen die Box, falsche setzen auf Box 1 zurück.",

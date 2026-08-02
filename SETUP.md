@@ -31,6 +31,12 @@ cp .env.example .env
 # SQLite (path relative to prisma/)
 DATABASE_URL="file:../data/sprachen.db"
 
+# Mother tongue (set once)
+NEXT_PUBLIC_NATIVE_LANG=de
+
+# Optional: only train these targets (omit = all except native)
+# NEXT_PUBLIC_TARGET_LANGS=en,es,fr
+
 # OpenAI - https://platform.openai.com/api-keys
 OPENAI_API_KEY="sk-..."
 

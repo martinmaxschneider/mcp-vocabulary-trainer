@@ -197,7 +197,7 @@
     "uiLanguageHelp": "Aplica-se a toda a aplicação. Estas não são as línguas de aprendizagem.",
     "languages": "Línguas de aprendizagem",
     "languagesDesc": "Línguas ativas para vocabulário",
-    "languagesFutureNote": "Nota: A gestão de línguas será adicionada numa atualização futura. Atualmente, todas as línguas estão ativas por predefinição.",
+    "languagesFutureNote": "Define as línguas alvo no .env com NEXT_PUBLIC_TARGET_LANGS (ex. en,es,fr). Vazio = todas exceto a língua materna.",
     "leitner": "Sistema Leitner",
     "leitnerDesc": "Intervalos de revisão (apenas visualização)",
     "leitnerHelp": "Respostas corretas aumentam a caixa; respostas incorretas voltam à Caixa 1.",

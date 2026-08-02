@@ -197,7 +197,7 @@
     "uiLanguageHelp": "Applies to the entire app. These are not the learning languages.",
     "languages": "Learning languages",
     "languagesDesc": "Active languages for vocabulary",
-    "languagesFutureNote": "Note: Language management will be added in a future update. All languages are currently active by default.",
+    "languagesFutureNote": "Set active target languages in .env via NEXT_PUBLIC_TARGET_LANGS (e.g. en,es,fr). Empty = all except your native language.",
     "leitner": "Leitner system",
     "leitnerDesc": "Review intervals (display only)",
     "leitnerHelp": "Correct answers increase the box, incorrect answers reset to Box 1.",

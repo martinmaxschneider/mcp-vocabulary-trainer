@@ -36,16 +36,32 @@ function resolveNativeLang(): LearningLangCode {
   return "de";
 }
 
+function resolveTargetLangs(sourceCode: LearningLangCode): LangMeta[] {
+  const allTargets = LEARNING_LANGS.filter((l) => l.code !== sourceCode);
+  const raw = process.env.NEXT_PUBLIC_TARGET_LANGS?.trim();
+  if (!raw) {
+    return [...allTargets];
+  }
+
+  const wanted = new Set(
+    raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean),
+  );
+
+  return allTargets.filter((l) => wanted.has(l.code));
+}
+
 const nativeCode = resolveNativeLang();
 
 export const SOURCE_LANG: LangMeta =
   LEARNING_LANGS.find((l) => l.code === nativeCode) ?? LEARNING_LANGS[0]!;
 
-export const TARGET_LANGS: LangMeta[] = LEARNING_LANGS.filter(
-  (l) => l.code !== SOURCE_LANG.code,
-);
+/** Active target languages (all except native, or subset from NEXT_PUBLIC_TARGET_LANGS). */
+export const TARGET_LANGS: LangMeta[] = resolveTargetLangs(SOURCE_LANG.code);
 
-export type TargetLangCode = (typeof LEARNING_LANG_CODES)[number];
+export type TargetLangCode = LearningLangCode;
 
 export const TARGET_LANG_CODES = TARGET_LANGS.map((l) => l.code);
 
@@ -63,4 +79,8 @@ export function getTargetLang(code: string): LangMeta | undefined {
 
 export function isLearningLang(code: string): code is LearningLangCode {
   return (LEARNING_LANG_CODES as readonly string[]).includes(code);
+}
+
+export function isTargetLang(code: string): boolean {
+  return TARGET_LANG_CODES.includes(code as LearningLangCode);
 }

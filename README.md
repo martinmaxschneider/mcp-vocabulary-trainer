@@ -50,9 +50,13 @@ Edit `.env` and set at least:
 DATABASE_URL="file:../data/sprachen.db"
 OPENAI_API_KEY=your_openai_api_key_here
 NEXT_PUBLIC_NATIVE_LANG=de
+# Optional — train only some targets (omit = all except native):
+# NEXT_PUBLIC_TARGET_LANGS=en,es,fr
 ```
 
 `NEXT_PUBLIC_NATIVE_LANG` is your mother tongue / source language (`de` | `en` | `es` | `fr` | `pt` | `gsw`). Set it once at install time.
+
+`NEXT_PUBLIC_TARGET_LANGS` limits which languages you train (comma-separated). Example: `en,es,fr` for three languages only. Leave empty for all targets except your native language. Restart the app after changing it.
 
 Create an empty SQLite database from the schema:
 
@@ -79,6 +83,7 @@ Copy from [`.env.example`](.env.example):
 | `DATABASE_URL` | yes | SQLite path relative to `prisma/` (default `file:../data/sprachen.db`) |
 | `OPENAI_API_KEY` | for AI features | OpenAI API key |
 | `NEXT_PUBLIC_NATIVE_LANG` | yes | Source language (`de` by default) |
+| `NEXT_PUBLIC_TARGET_LANGS` | no | Comma-separated targets, e.g. `en,es,fr` (empty = all except native) |
 | `CONTROL_PLANE_API_KEY` | for ChatGPT tunnel | OpenAI org key with Tunnels Read + Use |
 | `TUNNEL_PROFILE` | optional | Tunnel profile name (default `sprachen`) |
 

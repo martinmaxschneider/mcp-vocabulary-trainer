@@ -23,6 +23,27 @@ export const env = createEnv({
     NEXT_PUBLIC_NATIVE_LANG: z
       .enum(["de", "en", "es", "fr", "pt", "gsw"])
       .default("de"),
+    /** Comma-separated target langs, e.g. "en,es,fr". Empty = all except native. */
+    NEXT_PUBLIC_TARGET_LANGS: z
+      .string()
+      .optional()
+      .refine(
+        (val) => {
+          if (!val) return true;
+          const codes = val
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean);
+          const allowed = new Set(["de", "en", "es", "fr", "pt", "gsw"]);
+          return (
+            codes.length > 0 && codes.every((code) => allowed.has(code))
+          );
+        },
+        {
+          message:
+            'NEXT_PUBLIC_TARGET_LANGS must be a comma-separated list of: de, en, es, fr, pt, gsw (e.g. "en,es,fr")',
+        },
+      ),
   },
 
   /**
@@ -34,6 +55,7 @@ export const env = createEnv({
     NODE_ENV: process.env.NODE_ENV,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     NEXT_PUBLIC_NATIVE_LANG: process.env.NEXT_PUBLIC_NATIVE_LANG,
+    NEXT_PUBLIC_TARGET_LANGS: process.env.NEXT_PUBLIC_TARGET_LANGS,
   },
 
   /**
