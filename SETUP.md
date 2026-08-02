@@ -114,10 +114,13 @@ tunnel-client init \
   --sample sample_mcp_remote_no_auth \
   --profile sprachen \
   --tunnel-id tunnel_... \
-  --mcp-server-url http://localhost:4800/mcp \
+  --mcp-server-url http://127.0.0.1:4800/mcp \
   --health-listen-addr 127.0.0.1:4801 \
   --force
 ```
+
+Use `127.0.0.1` (not `localhost`) so the client does not dial IPv6 `[::1]`. `npm run start` / `dev` wait for the app on port 4800 before starting the tunnel.
+
 
 ### Start
 
