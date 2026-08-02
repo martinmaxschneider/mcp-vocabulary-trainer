@@ -78,6 +78,33 @@ if (!process.env.CONTROL_PLANE_API_KEY) {
 }
 
 const profile = process.env.TUNNEL_PROFILE ?? "sprachen";
+const profilePath = path.join(
+  process.env.HOME ?? "",
+  ".config",
+  "tunnel-client",
+  `${profile}.yaml`,
+);
+
+if (!fs.existsSync(profilePath)) {
+  fail([
+    `[mcp-tunnel] Profil fehlt: ${profilePath}`,
+    "[mcp-tunnel] Einmalig auf diesem Mac anlegen (echte tunnel_… ID einsetzen):",
+    "[mcp-tunnel]",
+    "[mcp-tunnel]   tunnel-client init \\",
+    "[mcp-tunnel]     --sample sample_mcp_remote_no_auth \\",
+    `[mcp-tunnel]     --profile ${profile} \\`,
+    "[mcp-tunnel]     --tunnel-id tunnel_DEINE_ID \\",
+    "[mcp-tunnel]     --mcp-server-url http://localhost:4800/mcp \\",
+    "[mcp-tunnel]     --health-listen-addr 127.0.0.1:4801 \\",
+    "[mcp-tunnel]     --force",
+    "[mcp-tunnel]",
+    "[mcp-tunnel] tunnel_id: https://platform.openai.com/settings/organization/tunnels",
+    ...(optional
+      ? ["[mcp-tunnel] Webapp läuft ohne Tunnel weiter — ChatGPT-Anbindung fehlt."]
+      : []),
+  ]);
+}
+
 console.log(`[mcp-tunnel] Starte tunnel-client (Profil: ${profile}) …`);
 
 const child = spawn("tunnel-client", ["run", "--profile", profile], {
@@ -89,8 +116,8 @@ child.on("error", (error) => {
   if (error.code === "ENOENT") {
     fail([
       "[mcp-tunnel] tunnel-client wurde nicht gefunden.",
-      "[mcp-tunnel] Installation: Binary aus https://github.com/openai/tunnel-client/releases",
-      "[mcp-tunnel] nach ~/.local/bin/tunnel-client legen (siehe SETUP.md).",
+      "[mcp-tunnel] Installation: npm run mcp:install-client  (siehe SETUP.md)",
+      "[mcp-tunnel] PATH: export PATH=\"$HOME/.local/bin:$PATH\"",
       ...(optional
         ? ["[mcp-tunnel] Webapp läuft ohne Tunnel weiter — ChatGPT-Anbindung fehlt."]
         : []),
@@ -103,6 +130,12 @@ child.on("error", (error) => {
 
 child.on("exit", (code, signal) => {
   if (signal) process.kill(process.pid, signal);
+  if (optional && code && code !== 0) {
+    console.error(
+      `[mcp-tunnel] tunnel-client beendet (code ${code}) — Webapp läuft weiter.`,
+    );
+    process.exit(0);
+  }
   process.exit(code ?? 0);
 });
 
