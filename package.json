@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "concurrently -n web,mcp -c cyan,magenta \"next dev -p 4800\" \"node scripts/mcp-tunnel.mjs --optional\"",
     "dev:web": "next dev -p 4800",
-    "build": "next build",
+    "build": "NODE_ENV=production next build",
     "start": "concurrently -n web,mcp -c cyan,magenta \"next start -p 4800\" \"node scripts/mcp-tunnel.mjs --optional\"",
     "start:web": "next start -p 4800",
     "lint": "next lint",

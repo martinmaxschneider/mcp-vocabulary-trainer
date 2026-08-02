@@ -10,10 +10,8 @@ const config = {
     ignoreDuringBuilds: true,
   },
   output: "standalone",
-  experimental: {
-    outputFileTracingIncludes: {
-      "/api/**": ["./node_modules/**"],
-    },
+  outputFileTracingIncludes: {
+    "/api/**": ["./node_modules/**"],
   },
   // Skip static generation for pages that use useSearchParams
   generateBuildId: async () => {
