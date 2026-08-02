@@ -242,12 +242,15 @@ export async function generateCategorySuggestions(params: {
   existingWords: string[];
   maxCount?: number;
   sourceLang?: string;
+  /** When true and category is VERB: only suggest irregular verbs */
+  onlyIrregular?: boolean;
 }): Promise<CategorySuggestionResult> {
   const {
     category,
     existingWords,
     maxCount,
     sourceLang = SOURCE_LANG.code,
+    onlyIrregular = false,
   } = params;
 
   const sourceName = getLanguageName(sourceLang);
@@ -264,6 +267,7 @@ export async function generateCategorySuggestions(params: {
   };
 
   const categoryName = categoryNames[category] ?? category;
+  const irregularVerbMode = onlyIrregular && category === "VERB";
 
   const systemPrompt = `Du bist ein Experte für Sprachenlernen und Vokabelauswahl. 
 Deine Aufgabe ist es, die wichtigsten und nützlichsten ${sourceName}-Wörter (${categoryName}) vorzuschlagen.
@@ -275,10 +279,15 @@ Regeln:
 - Schlage NUR NEUE ${categoryName} auf ${sourceName} vor, die NICHT in der obigen Liste sind
 - Die Vorschläge müssen in ${sourceName} sein (Muttersprache/Quellsprache)
 - "note" (falls gesetzt) muss ebenfalls auf ${sourceName} sein: kurzer Kontext/Disambiguierung in der Muttersprache — NIEMALS eine Übersetzung in eine andere Sprache (sonst wird die Lösung in der Abfrage verraten)
-- Priorisiere nach:
+${
+  irregularVerbMode
+    ? `- NUR unregelmäßige Verben (starke/unregelmäßige Konjugation in ${sourceName}). Keine regelmäßigen Verben.
+- Priorisiere die häufigsten und nützlichsten unregelmäßigen Verben für Lernende`
+    : `- Priorisiere nach:
   1. Häufigkeit im Alltag
   2. Nützlichkeit für Sprachlerner
-  3. Wichtigkeit für Kommunikation
+  3. Wichtigkeit für Kommunikation`
+}
 - Qualität über Quantität - lieber weniger, aber relevante Vorschläge
 ${maxCount ? `- Maximum ${maxCount} Vorschläge, aber gerne weniger wenn sinnvoll` : "- Entscheide selbst, wie viele Vorschläge sinnvoll sind (typisch 15-30)"}
 
@@ -292,7 +301,11 @@ Gib nur valides JSON zurück im folgenden Format:
   ]
 }`;
 
-  const userPrompt = `Generiere die wichtigsten ${sourceName}-Wörter (${categoryName}) für Sprachlerner.
+  const userPrompt = irregularVerbMode
+    ? `Generiere die wichtigsten unregelmäßigen ${sourceName}-Verben für Sprachlerner.
+
+Gib nur das JSON-Objekt zurück.`
+    : `Generiere die wichtigsten ${sourceName}-Wörter (${categoryName}) für Sprachlerner.
 
 Gib nur das JSON-Objekt zurück.`;
 

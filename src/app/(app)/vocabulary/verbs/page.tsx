@@ -20,6 +20,8 @@ import { Progress } from "~/components/ui/progress";
 import { useToast } from "~/hooks/use-toast";
 import { resolveErrorCode } from "~/lib/trpc-error";
 import { SOURCE_LANG, TARGET_LANG_CODES } from "~/lib/languages";
+import { CONJUGATABLE_LANGS } from "~/lib/conjugation-catalog";
+import { Checkbox } from "~/components/ui/checkbox";
 import { ArrowLeft, Sparkles, Plus, Loader2, BookOpen } from "lucide-react";
 
 export default function VerbsPage() {
@@ -36,6 +38,7 @@ export default function VerbsPage() {
   const { toast } = useToast();
 
   const [maxCount, setMaxCount] = useState<string>("");
+  const [onlyIrregular, setOnlyIrregular] = useState(false);
   const [suggestions, setSuggestions] = useState<
     Array<{
       text: string;
@@ -46,6 +49,8 @@ export default function VerbsPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [addingProgress, setAddingProgress] = useState({ current: 0, total: 0 });
+  /** Remembers whether the current suggestion batch was irregular-only */
+  const [suggestionsAreIrregular, setSuggestionsAreIrregular] = useState(false);
 
   const { data: existingVerbs } = api.entry.list.useQuery({
     limit: 100,
@@ -65,12 +70,17 @@ export default function VerbsPage() {
         data.suggestions.map((s) => ({
           ...s,
           selected: false,
-        }))
+        })),
       );
+      setSuggestionsAreIrregular(onlyIrregular);
       setIsGenerating(false);
       toast({
         title: tToasts("suggestionsGenerated"),
-        description: tToasts("verbsFound", { count: data.suggestions.length }),
+        description: onlyIrregular
+          ? tToasts("irregularVerbsFound", {
+              count: data.suggestions.length,
+            })
+          : tToasts("verbsFound", { count: data.suggestions.length }),
       });
     },
     onError: (error) => {
@@ -94,6 +104,7 @@ export default function VerbsPage() {
     generateMutation.mutate({
       category: "VERB",
       maxCount: max,
+      onlyIrregular: onlyIrregular || undefined,
     });
   };
 
@@ -130,6 +141,7 @@ export default function VerbsPage() {
 
       for (let i = 0; i < selected.length; i++) {
         const suggestion = selected[i];
+        if (!suggestion) continue;
         try {
           const translations = await generateTranslationsMutation.mutateAsync({
             mainText: suggestion.text,
@@ -146,7 +158,12 @@ export default function VerbsPage() {
               regionTag: tr.regionTag,
               variants: tr.variants,
               conjugations: tr.conjugations,
-            })
+              isIrregular:
+                suggestionsAreIrregular &&
+                (CONJUGATABLE_LANGS as readonly string[]).includes(lang)
+                  ? true
+                  : undefined,
+            }),
           );
 
           await createEntryMutation.mutateAsync({
@@ -234,7 +251,13 @@ export default function VerbsPage() {
                 <Sparkles className="h-5 w-5 text-primary" />
                 {t("verbsGenerateTitle")}
               </CardTitle>
-              <CardDescription>{t("verbsGenerateDesc", { language: sourceLanguageName })}</CardDescription>
+              <CardDescription>
+                {onlyIrregular
+                  ? t("verbsGenerateDescIrregular", {
+                      language: sourceLanguageName,
+                    })
+                  : t("verbsGenerateDesc", { language: sourceLanguageName })}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="max-w-xs">
@@ -252,6 +275,28 @@ export default function VerbsPage() {
                 <p className="mt-1 text-xs text-muted-foreground">
                   {t("maxCountHint")}
                 </p>
+              </div>
+
+              <div className="flex items-start gap-3 rounded-lg border p-4">
+                <Checkbox
+                  id="only-irregular-verbs"
+                  checked={onlyIrregular}
+                  onCheckedChange={(checked) =>
+                    setOnlyIrregular(checked === true)
+                  }
+                  disabled={isGenerating}
+                />
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="only-irregular-verbs"
+                    className="cursor-pointer font-medium"
+                  >
+                    {t("onlyIrregularLabel")}
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    {t("onlyIrregularHint", { language: sourceLanguageName })}
+                  </p>
+                </div>
               </div>
 
               <Button
@@ -376,6 +421,11 @@ export default function VerbsPage() {
                           <Badge variant="outline" className="text-xs">
                             {tCategories("verb")}
                           </Badge>
+                          {suggestionsAreIrregular && (
+                            <Badge variant="secondary" className="text-xs">
+                              {tCommon("irregular")}
+                            </Badge>
+                          )}
                         </div>
                         {suggestion.note && (
                           <p className="mt-1 text-sm text-muted-foreground">

@@ -65,6 +65,8 @@ export const assistRouter = createTRPCRouter({
         ]),
         maxCount: z.number().min(5).max(100).optional(),
         sourceLang: z.string().optional(),
+        /** Only for VERB: suggest irregular verbs and mark them as such when saved */
+        onlyIrregular: z.boolean().optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -78,6 +80,7 @@ export const assistRouter = createTRPCRouter({
         existingWords: existingWords.map((w) => w.mainText),
         maxCount: input.maxCount,
         sourceLang: input.sourceLang ?? SOURCE_LANG.code,
+        onlyIrregular: input.onlyIrregular,
       });
 
       return suggestions;
