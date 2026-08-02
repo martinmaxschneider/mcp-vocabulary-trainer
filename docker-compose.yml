@@ -1,0 +1,25 @@
+# Optional: run the Next.js app in Docker with a persisted SQLite file.
+# Local development usually needs no Docker — just `npm run dev`.
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sprachen-app
+    ports:
+      - "4800:4800"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:/app/data/sprachen.db
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - PORT=4800
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4800/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

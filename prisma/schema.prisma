@@ -1,0 +1,147 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// App models
+model Domain {
+  id            String        @id @default(cuid())
+  name          String        @unique
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  domainEntries DomainEntry[]
+}
+
+enum EntryType {
+  WORD
+  PROVERB
+}
+
+enum WordCategory {
+  VERB
+  NOUN
+  ADJECTIVE
+  PROVERB
+  ADVERB
+  PREPOSITION
+  CONJUNCTION
+  PRONOUN
+  OTHER
+}
+
+model Entry {
+  id        String        @id @default(cuid())
+  type      EntryType
+  category  WordCategory?
+  mainLang  String        @default("de")
+  mainText  String
+  note      String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  translations Translation[]
+  progresses   UserProgress[]
+  domains      DomainEntry[]
+}
+
+model DomainEntry {
+  id        String   @id @default(cuid())
+  entryId   String
+  domainId  String
+  entry     Entry    @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  domain    Domain   @relation(fields: [domainId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([entryId, domainId])
+  @@index([entryId])
+  @@index([domainId])
+}
+
+model Translation {
+  id      String @id @default(cuid())
+  entryId String
+  entry   Entry  @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  lang      String
+  regionTag String?
+
+  text     String
+  variants Json?
+
+  example  String?
+  ipa      String?
+  audioUrl String?
+
+  /// Irregular conjugation paradigm for this target language (per-lang flag)
+  isIrregular Boolean @default(false)
+
+  /// @deprecated Prefer ConjugationForm rows; kept for migration/compat
+  conjugations Json?
+
+  conjugationForms ConjugationForm[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([entryId, lang, regionTag])
+  @@index([lang, isIrregular])
+}
+
+model ConjugationForm {
+  id            String      @id @default(cuid())
+  translationId String
+  translation   Translation @relation(fields: [translationId], references: [id], onDelete: Cascade)
+  tenseKey      String
+  personIndex   Int
+  form          String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([translationId, tenseKey, personIndex])
+  @@index([translationId, tenseKey])
+}
+
+model UserProgress {
+  id             String    @id @default(cuid())
+  userId         String    @default("anonymous")
+  entryId        String
+  entry          Entry     @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  targetLang     String    @default("en")
+  box            Int       @default(1)
+  nextReviewAt   DateTime  @default(now())
+  correctCount   Int       @default(0)
+  wrongCount     Int       @default(0)
+  lastReviewedAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  reviews ReviewLog[]
+
+  @@unique([userId, entryId, targetLang])
+  @@index([userId, targetLang, box])
+  @@index([userId, targetLang, nextReviewAt])
+  @@index([userId, nextReviewAt])
+}
+
+model ReviewLog {
+  id             String       @id @default(cuid())
+  userProgressId String
+  userProgress   UserProgress @relation(fields: [userProgressId], references: [id], onDelete: Cascade)
+  targetLang     String
+  userAnswer     String
+  expected       String
+  isCorrect      Boolean
+  typo           Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+
+  @@index([userProgressId])
+  @@index([createdAt])
+}

@@ -1,0 +1,173 @@
+"use client";
+
+import { use } from "react";
+import { useTranslations } from "next-intl";
+import { TARGET_LANGS } from "~/lib/languages";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { api } from "~/trpc/client";
+import { Button } from "~/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "~/components/ui/card";
+import { Badge } from "~/components/ui/badge";
+import { DomainAssignment } from "~/components/domain-assignment";
+import { useToast } from "~/hooks/use-toast";
+import { resolveErrorCode } from "~/lib/trpc-error";
+import { ArrowLeft, Pencil, Trash2, Loader2 } from "lucide-react";
+
+export default function AdjectiveDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = use(params);
+  const t = useTranslations("vocabulary");
+  const tCommon = useTranslations("common");
+  const tCategories = useTranslations("categories");
+  const tLang = useTranslations("languages");
+  const tToasts = useTranslations("toasts");
+  const tEntries = useTranslations("entries");
+  const tErrorCodes = useTranslations("errors.codes");
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const { data: adjective, isLoading, refetch } = api.entry.getById.useQuery({
+    id,
+  });
+
+  const errorDescription = (message: string) => {
+    const code = resolveErrorCode(message);
+    return code ? tErrorCodes(code as "NOT_FOUND") : message;
+  };
+
+  const deleteMutation = api.entry.delete.useMutation({
+    onSuccess: () => {
+      toast({
+        title: tToasts("entryDeleted"),
+      });
+      router.push("/vocabulary/adjectives/list");
+    },
+    onError: (error) => {
+      toast({
+        title: tToasts("entryDeleteError"),
+        description: errorDescription(error.message),
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDelete = () => {
+    if (confirm(tCommon("confirmDelete", { name: adjective?.mainText ?? "" }))) {
+      deleteMutation.mutate({ id });
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="max-w-5xl">
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!adjective) {
+    return (
+      <div className="max-w-5xl">
+        <Card>
+          <CardContent className="py-12 text-center">
+            <p className="text-muted-foreground">{t("notFoundAdjective")}</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-5xl">
+      <div className="mb-8">
+        <Link href="/vocabulary/adjectives/list">
+          <Button variant="ghost" className="mb-4">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            {t("backToAdjectives")}
+          </Button>
+        </Link>
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="mb-2 flex items-center gap-3">
+              <h1 className="text-4xl font-bold">{adjective.mainText}</h1>
+              <Badge variant="outline">{tCategories("adjective")}</Badge>
+            </div>
+            {adjective.note && (
+              <p className="text-muted-foreground">{adjective.note}</p>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Link href={`/entries/${adjective.id}/edit`}>
+              <Button variant="outline">
+                <Pencil className="mr-2 h-4 w-4" />
+                {tCommon("edit")}
+              </Button>
+            </Link>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={deleteMutation.isPending}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {tCommon("delete")}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("translationsTitle")}</CardTitle>
+            <CardDescription>{t("translationsDesc")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4">
+              {adjective.translations.map((translation) => {
+                const lang = TARGET_LANGS.find(
+                  (l) => l.code === translation.lang
+                );
+                return (
+                  <div key={translation.id} className="rounded-lg border p-4">
+                    <div className="mb-2 flex items-center gap-2">
+                      <span className="text-2xl">{lang?.flag}</span>
+                      <span className="font-semibold">
+                        {tLang(
+                          translation.lang
+                        )}
+                      </span>
+                    </div>
+                    <p className="mb-1 text-lg font-medium">{translation.text}</p>
+                    {translation.example && (
+                      <p className="text-sm text-muted-foreground">
+                        {tEntries("examplePrefix")} {translation.example}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        <DomainAssignment
+          entryId={adjective.id}
+          currentDomainIds={(adjective.domains ?? []).map((d) => d.domainId)}
+          onUpdate={() => void refetch()}
+        />
+      </div>
+    </div>
+  );
+}
