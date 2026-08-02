@@ -10,6 +10,10 @@ import {
   nextBoxOnWrong,
   scheduleNextReview,
 } from "~/lib/leitner";
+import { TARGET_LANG_CODES } from "~/lib/languages";
+import { db } from "~/server/db";
+
+type DbClient = typeof db;
 
 function entryDomainFilter(domainIds?: string[]) {
   if (!domainIds || domainIds.length === 0) return undefined;
@@ -54,6 +58,121 @@ function mapCardWithoutSolution(progress: {
 
 function expectedAnswers(text: string, variants: string[]): string[] {
   return [text, ...variants.filter((v) => v && v !== text)];
+}
+
+async function gradeAndUpdateProgress(
+  prisma: DbClient,
+  userId: string,
+  entryId: string,
+  targetLang: string,
+  userAnswer: string
+) {
+  let progress = await prisma.userProgress.findUnique({
+    where: {
+      userId_entryId_targetLang: {
+        userId,
+        entryId,
+        targetLang,
+      },
+    },
+    include: {
+      entry: {
+        include: {
+          translations: {
+            where: { lang: targetLang },
+          },
+        },
+      },
+    },
+  });
+
+  if (!progress) {
+    progress = await prisma.userProgress.create({
+      data: {
+        userId,
+        entryId,
+        targetLang,
+        box: MIN_BOX,
+        nextReviewAt: new Date(),
+      },
+      include: {
+        entry: {
+          include: {
+            translations: {
+              where: { lang: targetLang },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  const translation = progress.entry.translations[0];
+  if (!translation) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: `No translation found for language: ${targetLang}`,
+    });
+  }
+
+  const variants = Array.isArray(translation.variants)
+    ? (translation.variants as string[])
+    : [];
+
+  const matchResult = matchAnswer({
+    userAnswer,
+    expected: translation.text,
+    variants,
+  });
+
+  const boxBefore = progress.box;
+  const boxAfter = matchResult.isCorrect
+    ? nextBoxOnCorrect(progress.box)
+    : nextBoxOnWrong();
+  const nextReviewAt = scheduleNextReview(boxAfter);
+  const answers = expectedAnswers(translation.text, variants);
+
+  const updatedProgress = await prisma.userProgress.update({
+    where: { id: progress.id },
+    data: {
+      box: boxAfter,
+      nextReviewAt,
+      correctCount: matchResult.isCorrect
+        ? progress.correctCount + 1
+        : progress.correctCount,
+      wrongCount: matchResult.isCorrect
+        ? progress.wrongCount
+        : progress.wrongCount + 1,
+      lastReviewedAt: new Date(),
+    },
+  });
+
+  await prisma.reviewLog.create({
+    data: {
+      userProgressId: progress.id,
+      targetLang,
+      userAnswer,
+      expected: translation.text,
+      isCorrect: matchResult.isCorrect,
+      typo: matchResult.isTypo,
+    },
+  });
+
+  return {
+    targetLang,
+    isCorrect: matchResult.isCorrect,
+    expected: translation.text,
+    typo: matchResult.isTypo,
+    newBox: boxAfter,
+    nextReviewAt,
+    matchedVariant: matchResult.matchedVariant,
+    correctCount: updatedProgress.correctCount,
+    wrongCount: updatedProgress.wrongCount,
+    correct: matchResult.isCorrect,
+    boxBefore,
+    boxAfter,
+    expectedAnswers: answers,
+  };
 }
 
 export const reviewRouter = createTRPCRouter({
@@ -182,6 +301,160 @@ export const reviewRouter = createTRPCRouter({
       };
     }),
 
+  getDueMulti: publicProcedure
+    .input(
+      z.object({
+        domainIds: z.array(z.string()).optional(),
+        limit: z.number().min(1).max(100).default(20),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.userId;
+      const now = new Date();
+      const domainFilter = entryDomainFilter(input.domainIds);
+      const targetLangs: string[] = [...TARGET_LANG_CODES];
+
+      // Due progresses across all target languages, ordered by earliest due date
+      const dueProgresses = await ctx.db.userProgress.findMany({
+        where: {
+          userId,
+          targetLang: { in: targetLangs },
+          nextReviewAt: { lte: now },
+          ...(domainFilter ? { entry: domainFilter } : {}),
+        },
+        orderBy: { nextReviewAt: "asc" },
+        select: {
+          entryId: true,
+          nextReviewAt: true,
+        },
+      });
+
+      // Entries that have a translation in some target lang but no progress for that lang
+      const entriesWithMissingProgress = await ctx.db.entry.findMany({
+        where: {
+          ...(domainFilter || {}),
+          translations: {
+            some: { lang: { in: targetLangs } },
+          },
+          OR: targetLangs.map((lang) => ({
+            translations: { some: { lang } },
+            progresses: {
+              none: {
+                userId,
+                targetLang: lang,
+              },
+            },
+          })),
+        },
+        select: { id: true },
+      });
+
+      // Build ordered unique entry IDs: due first (by earliest nextReviewAt), then new
+      const entryOrder: string[] = [];
+      const seen = new Set<string>();
+      for (const p of dueProgresses) {
+        if (!seen.has(p.entryId)) {
+          seen.add(p.entryId);
+          entryOrder.push(p.entryId);
+        }
+      }
+      for (const e of entriesWithMissingProgress) {
+        if (!seen.has(e.id)) {
+          seen.add(e.id);
+          entryOrder.push(e.id);
+        }
+      }
+
+      const totalAvailable = entryOrder.length;
+      const batchIds = entryOrder.slice(0, input.limit);
+
+      if (batchIds.length === 0) {
+        return { cards: [], totalAvailable: 0 };
+      }
+
+      const entries = await ctx.db.entry.findMany({
+        where: { id: { in: batchIds } },
+        include: {
+          translations: {
+            where: { lang: { in: targetLangs } },
+          },
+          progresses: {
+            where: {
+              userId,
+              targetLang: { in: targetLangs },
+            },
+          },
+          domains: {
+            include: { domain: true },
+          },
+        },
+      });
+
+      const entryById = new Map(entries.map((e) => [e.id, e]));
+
+      const cards = await Promise.all(
+        batchIds.map(async (entryId) => {
+          const entry = entryById.get(entryId);
+          if (!entry) return null;
+
+          // One translation per target lang (prefer first if region variants exist)
+          const translationsByLang = new Map<string, (typeof entry.translations)[0]>();
+          for (const tr of entry.translations) {
+            if (!translationsByLang.has(tr.lang)) {
+              translationsByLang.set(tr.lang, tr);
+            }
+          }
+
+          const progressByLang = new Map(
+            entry.progresses.map((p) => [p.targetLang, p])
+          );
+
+          const languages = await Promise.all(
+            [...translationsByLang.keys()].map(async (lang) => {
+              let progress = progressByLang.get(lang);
+              if (!progress) {
+                progress = await ctx.db.userProgress.create({
+                  data: {
+                    userId,
+                    entryId: entry.id,
+                    targetLang: lang,
+                    box: MIN_BOX,
+                    nextReviewAt: now,
+                  },
+                });
+              }
+              return {
+                targetLang: lang,
+                box: progress.box,
+              };
+            })
+          );
+
+          // Stable order matching TARGET_LANG_CODES
+          languages.sort(
+            (a, b) =>
+              targetLangs.indexOf(a.targetLang) -
+              targetLangs.indexOf(b.targetLang)
+          );
+
+          return {
+            entryId: entry.id,
+            mainText: entry.mainText,
+            type: entry.type,
+            category: entry.category,
+            note: entry.note,
+            domains: entry.domains.map((d) => d.domain),
+            languages,
+          };
+        })
+      );
+
+      return {
+        cards: cards.filter((c): c is NonNullable<typeof c> => c !== null),
+        totalAvailable,
+      };
+    }),
+
   listCards: publicProcedure
     .input(
       z.object({
@@ -289,115 +562,42 @@ export const reviewRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.userId;
+      return gradeAndUpdateProgress(
+        ctx.db,
+        ctx.userId,
+        input.entryId,
+        input.targetLang,
+        input.userAnswer
+      );
+    }),
 
-      let progress = await ctx.db.userProgress.findUnique({
-        where: {
-          userId_entryId_targetLang: {
-            userId,
-            entryId: input.entryId,
-            targetLang: input.targetLang,
-          },
-        },
-        include: {
-          entry: {
-            include: {
-              translations: {
-                where: { lang: input.targetLang },
-              },
-            },
-          },
-        },
-      });
-
-      if (!progress) {
-        progress = await ctx.db.userProgress.create({
-          data: {
-            userId,
-            entryId: input.entryId,
-            targetLang: input.targetLang,
-            box: MIN_BOX,
-            nextReviewAt: new Date(),
-          },
-          include: {
-            entry: {
-              include: {
-                translations: {
-                  where: { lang: input.targetLang },
-                },
-              },
-            },
-          },
-        });
+  submitMultiAnswers: publicProcedure
+    .input(
+      z.object({
+        entryId: z.string(),
+        answers: z
+          .array(
+            z.object({
+              targetLang: z.string(),
+              userAnswer: z.string(),
+            })
+          )
+          .min(1),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const results = [];
+      for (const answer of input.answers) {
+        const result = await gradeAndUpdateProgress(
+          ctx.db,
+          ctx.userId,
+          input.entryId,
+          answer.targetLang,
+          answer.userAnswer
+        );
+        results.push(result);
       }
-
-      const translation = progress.entry.translations[0];
-      if (!translation) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: `No translation found for language: ${input.targetLang}`,
-        });
-      }
-
-      const variants = Array.isArray(translation.variants)
-        ? (translation.variants as string[])
-        : [];
-
-      const matchResult = matchAnswer({
-        userAnswer: input.userAnswer,
-        expected: translation.text,
-        variants,
-      });
-
-      const boxBefore = progress.box;
-      const boxAfter = matchResult.isCorrect
-        ? nextBoxOnCorrect(progress.box)
-        : nextBoxOnWrong();
-      const nextReviewAt = scheduleNextReview(boxAfter);
-      const answers = expectedAnswers(translation.text, variants);
-
-      const updatedProgress = await ctx.db.userProgress.update({
-        where: { id: progress.id },
-        data: {
-          box: boxAfter,
-          nextReviewAt,
-          correctCount: matchResult.isCorrect
-            ? progress.correctCount + 1
-            : progress.correctCount,
-          wrongCount: matchResult.isCorrect
-            ? progress.wrongCount
-            : progress.wrongCount + 1,
-          lastReviewedAt: new Date(),
-        },
-      });
-
-      await ctx.db.reviewLog.create({
-        data: {
-          userProgressId: progress.id,
-          targetLang: input.targetLang,
-          userAnswer: input.userAnswer,
-          expected: translation.text,
-          isCorrect: matchResult.isCorrect,
-          typo: matchResult.isTypo,
-        },
-      });
-
-      return {
-        // UI-compatible fields
-        isCorrect: matchResult.isCorrect,
-        expected: translation.text,
-        typo: matchResult.isTypo,
-        newBox: boxAfter,
-        nextReviewAt,
-        matchedVariant: matchResult.matchedVariant,
-        correctCount: updatedProgress.correctCount,
-        wrongCount: updatedProgress.wrongCount,
-        // MCP / enriched fields
-        correct: matchResult.isCorrect,
-        boxBefore,
-        boxAfter,
-        expectedAnswers: answers,
-      };
+      return { results };
     }),
 
   /** Override a just-accepted correct answer as wrong (no second review log from empty submit). */

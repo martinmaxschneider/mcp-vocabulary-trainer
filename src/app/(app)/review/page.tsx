@@ -7,6 +7,10 @@ import { api } from "~/trpc/client";
 import { Button } from "~/components/ui/button";
 import { ReviewCard } from "~/components/review-card";
 import {
+  MultiReviewCard,
+  type MultiLangResult,
+} from "~/components/multi-review-card";
+import {
   Card,
   CardContent,
   CardDescription,
@@ -14,12 +18,13 @@ import {
   CardTitle,
 } from "~/components/ui/card";
 import { useToast } from "~/hooks/use-toast";
-import { BookOpen, CheckCircle, Languages, Play } from "lucide-react";
+import { BookOpen, CheckCircle, Globe, Languages, Play } from "lucide-react";
 import { Badge } from "~/components/ui/badge";
 import { getTargetLang } from "~/lib/languages";
 import { resolveErrorCode } from "~/lib/trpc-error";
 
 type ReviewState = "setup" | "active";
+type ReviewMode = "single" | "multi";
 
 export default function ReviewPage() {
   const t = useTranslations("review");
@@ -28,6 +33,7 @@ export default function ReviewPage() {
   const tErrors = useTranslations("errors.codes");
   const { toast } = useToast();
   const [reviewState, setReviewState] = useState<ReviewState>("setup");
+  const [mode, setMode] = useState<ReviewMode>("single");
   const [selectedLang, setSelectedLang] = useState<string | null>(null);
   const [selectedDomains, setSelectedDomains] = useState<string[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -36,6 +42,9 @@ export default function ReviewPage() {
     expected: string;
     typo: boolean;
   } | null>(null);
+  const [multiResults, setMultiResults] = useState<MultiLangResult[] | null>(
+    null
+  );
 
   const errorDescription = (message: string) => {
     const code = resolveErrorCode(message);
@@ -43,20 +52,42 @@ export default function ReviewPage() {
   };
 
   const { data: domains } = api.domain.list.useQuery();
-  const { data: reviewData, refetch, isLoading } = api.review.getDue.useQuery(
+
+  const singleQuery = api.review.getDue.useQuery(
     {
       targetLang: selectedLang!,
       domainIds: selectedDomains.length > 0 ? selectedDomains : undefined,
       limit: 20,
     },
     {
-      enabled: reviewState === "active" && selectedLang !== null,
+      enabled:
+        reviewState === "active" && mode === "single" && selectedLang !== null,
     }
   );
 
-  // Extract cards from response
-  const cards = reviewData?.cards ?? [];
-  const totalAvailable = reviewData?.totalAvailable ?? 0;
+  const multiQuery = api.review.getDueMulti.useQuery(
+    {
+      domainIds: selectedDomains.length > 0 ? selectedDomains : undefined,
+      limit: 20,
+    },
+    {
+      enabled: reviewState === "active" && mode === "multi",
+    }
+  );
+
+  const isLoading =
+    mode === "multi" ? multiQuery.isLoading : singleQuery.isLoading;
+  const refetch =
+    mode === "multi" ? multiQuery.refetch : singleQuery.refetch;
+
+  const singleCards = singleQuery.data?.cards ?? [];
+  const multiCards = multiQuery.data?.cards ?? [];
+  const totalAvailable =
+    mode === "multi"
+      ? (multiQuery.data?.totalAvailable ?? 0)
+      : (singleQuery.data?.totalAvailable ?? 0);
+  const totalCards =
+    mode === "multi" ? multiCards.length : singleCards.length;
 
   const submitMutation = api.review.submitAnswer.useMutation({
     onSuccess: (data) => {
@@ -75,13 +106,50 @@ export default function ReviewPage() {
     },
   });
 
-  const markAsWrongMutation = api.review.markAsWrong.useMutation({
+  const submitMultiMutation = api.review.submitMultiAnswers.useMutation({
     onSuccess: (data) => {
-      setResult({
-        isCorrect: false,
-        expected: data.expected,
-        typo: false,
+      setMultiResults(
+        data.results.map((r) => ({
+          targetLang: r.targetLang,
+          isCorrect: r.isCorrect,
+          expected: r.expected,
+          typo: r.typo,
+        }))
+      );
+    },
+    onError: (error) => {
+      toast({
+        title: t("submitError"),
+        description: errorDescription(error.message),
+        variant: "destructive",
       });
+    },
+  });
+
+  const markAsWrongMutation = api.review.markAsWrong.useMutation({
+    onSuccess: (data, variables) => {
+      if (mode === "multi") {
+        setMultiResults((prev) =>
+          prev
+            ? prev.map((r) =>
+                r.targetLang === variables.targetLang
+                  ? {
+                      ...r,
+                      isCorrect: false,
+                      expected: data.expected,
+                      typo: false,
+                    }
+                  : r
+              )
+            : prev
+        );
+      } else {
+        setResult({
+          isCorrect: false,
+          expected: data.expected,
+          typo: false,
+        });
+      }
     },
     onError: (error) => {
       toast({
@@ -93,7 +161,7 @@ export default function ReviewPage() {
   });
 
   const handleSubmit = (answer: string) => {
-    const currentCard = cards[currentIndex];
+    const currentCard = singleCards[currentIndex];
     if (!currentCard || !selectedLang) return;
 
     submitMutation.mutate({
@@ -104,10 +172,9 @@ export default function ReviewPage() {
   };
 
   const handleShowSolution = () => {
-    const currentCard = cards[currentIndex];
+    const currentCard = singleCards[currentIndex];
     if (!currentCard || !selectedLang) return;
 
-    // Empty answer = didn't know (single submit, one review log)
     submitMutation.mutate({
       entryId: currentCard.entryId,
       targetLang: selectedLang,
@@ -116,7 +183,7 @@ export default function ReviewPage() {
   };
 
   const handleMarkAsWrong = () => {
-    const currentCard = cards[currentIndex];
+    const currentCard = singleCards[currentIndex];
     if (!currentCard || !selectedLang || !result) return;
 
     markAsWrongMutation.mutate({
@@ -125,17 +192,53 @@ export default function ReviewPage() {
     });
   };
 
-  const handleNext = () => {
-    if (cards.length === 0) return;
+  const handleMultiSubmit = (
+    answers: Array<{ targetLang: string; userAnswer: string }>
+  ) => {
+    const currentCard = multiCards[currentIndex];
+    if (!currentCard) return;
 
-    if (currentIndex < cards.length - 1) {
+    submitMultiMutation.mutate({
+      entryId: currentCard.entryId,
+      answers,
+    });
+  };
+
+  const handleMultiShowSolution = () => {
+    const currentCard = multiCards[currentIndex];
+    if (!currentCard) return;
+
+    submitMultiMutation.mutate({
+      entryId: currentCard.entryId,
+      answers: currentCard.languages.map((lang) => ({
+        targetLang: lang.targetLang,
+        userAnswer: "",
+      })),
+    });
+  };
+
+  const handleMultiMarkAsWrong = (targetLang: string) => {
+    const currentCard = multiCards[currentIndex];
+    if (!currentCard || !multiResults) return;
+
+    markAsWrongMutation.mutate({
+      entryId: currentCard.entryId,
+      targetLang,
+    });
+  };
+
+  const handleNext = () => {
+    if (totalCards === 0) return;
+
+    if (currentIndex < totalCards - 1) {
       setCurrentIndex(currentIndex + 1);
       setResult(null);
+      setMultiResults(null);
     } else {
-      // Session complete
       void refetch();
       setCurrentIndex(0);
       setResult(null);
+      setMultiResults(null);
       toast({
         title: t("sessionComplete"),
         description: t("sessionCompleteDesc"),
@@ -144,11 +247,23 @@ export default function ReviewPage() {
   };
 
   const handleQuickStart = (lang: string) => {
+    setMode("single");
     setSelectedLang(lang);
     setSelectedDomains([]);
     setReviewState("active");
     setCurrentIndex(0);
     setResult(null);
+    setMultiResults(null);
+  };
+
+  const handleQuickStartAll = () => {
+    setMode("multi");
+    setSelectedLang(null);
+    setSelectedDomains([]);
+    setReviewState("active");
+    setCurrentIndex(0);
+    setResult(null);
+    setMultiResults(null);
   };
 
   const handleStartReview = () => {
@@ -159,17 +274,21 @@ export default function ReviewPage() {
       });
       return;
     }
+    setMode("single");
     setReviewState("active");
     setCurrentIndex(0);
     setResult(null);
+    setMultiResults(null);
   };
 
   const handleBackToSetup = () => {
     setReviewState("setup");
+    setMode("single");
     setSelectedLang(null);
     setSelectedDomains([]);
     setCurrentIndex(0);
     setResult(null);
+    setMultiResults(null);
   };
 
   const toggleDomain = (domainId: string) => {
@@ -188,8 +307,8 @@ export default function ReviewPage() {
     }
   };
 
-  const currentCard = cards[currentIndex];
-  const totalCards = cards.length;
+  const currentSingleCard = singleCards[currentIndex];
+  const currentMultiCard = multiCards[currentIndex];
 
   // Setup Phase
   if (reviewState === "setup") {
@@ -209,25 +328,39 @@ export default function ReviewPage() {
               </CardTitle>
               <CardDescription>{t("quickStartDesc")}</CardDescription>
             </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {TARGET_LANGS.map((lang) => (
-                    <Button
-                      key={lang.code}
-                      variant="outline"
-                      size="lg"
-                      className="h-auto py-6 flex flex-col items-center gap-2"
-                      onClick={() => handleQuickStart(lang.code)}
-                    >
-                      <span className="text-4xl">{lang.flag}</span>
-                      <span className="font-semibold">
-                        {tLang(lang.code)}
-                      </span>
-                    </Button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <CardContent className="space-y-4">
+              <Button
+                variant="default"
+                size="lg"
+                className="h-auto w-full py-6 flex flex-col items-center gap-2"
+                onClick={handleQuickStartAll}
+              >
+                <Globe className="h-8 w-8" />
+                <span className="font-semibold">
+                  {t("quickStartAllLanguages")}
+                </span>
+                <span className="text-sm font-normal opacity-90">
+                  {t("quickStartAllLanguagesDesc")}
+                </span>
+              </Button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {TARGET_LANGS.map((lang) => (
+                  <Button
+                    key={lang.code}
+                    variant="outline"
+                    size="lg"
+                    className="h-auto py-6 flex flex-col items-center gap-2"
+                    onClick={() => handleQuickStart(lang.code)}
+                  >
+                    <span className="text-4xl">{lang.flag}</span>
+                    <span className="font-semibold">
+                      {tLang(lang.code)}
+                    </span>
+                  </Button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>
@@ -242,22 +375,22 @@ export default function ReviewPage() {
                 <h3 className="mb-3 font-semibold">
                   {t("selectLanguage")}
                 </h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {TARGET_LANGS.map((lang) => (
-                      <Button
-                        key={lang.code}
-                        variant={selectedLang === lang.code ? "default" : "outline"}
-                        className="h-auto py-4 flex flex-col items-center gap-1"
-                        onClick={() => setSelectedLang(lang.code)}
-                      >
-                        <span className="text-2xl">{lang.flag}</span>
-                        <span className="text-sm">
-                          {tLang(lang.code)}
-                        </span>
-                      </Button>
-                    ))}
-                  </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {TARGET_LANGS.map((lang) => (
+                    <Button
+                      key={lang.code}
+                      variant={
+                        selectedLang === lang.code ? "default" : "outline"
+                      }
+                      className="h-auto py-4 flex flex-col items-center gap-1"
+                      onClick={() => setSelectedLang(lang.code)}
+                    >
+                      <span className="text-2xl">{lang.flag}</span>
+                      <span className="text-sm">{tLang(lang.code)}</span>
+                    </Button>
+                  ))}
                 </div>
+              </div>
 
               <div>
                 <div className="mb-3 flex items-center justify-between">
@@ -316,17 +449,18 @@ export default function ReviewPage() {
     );
   }
 
+  const isSubmitting =
+    submitMutation.isPending ||
+    submitMultiMutation.isPending ||
+    markAsWrongMutation.isPending;
+
   return (
     <>
       <div className="mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="mb-2 text-4xl font-bold">
-              {t("sessionTitle")}
-            </h1>
-            <p className="text-muted-foreground">
-              {t("sessionSubtitle")}
-            </p>
+            <h1 className="mb-2 text-4xl font-bold">{t("sessionTitle")}</h1>
+            <p className="text-muted-foreground">{t("sessionSubtitle")}</p>
           </div>
           <Button variant="outline" onClick={handleBackToSetup}>
             {t("backToSetup")}
@@ -340,9 +474,7 @@ export default function ReviewPage() {
             <CardContent className="py-12 text-center">
               <div className="flex flex-col items-center gap-4">
                 <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-primary" />
-                <p className="text-muted-foreground">
-                  {t("loadingCards")}
-                </p>
+                <p className="text-muted-foreground">{t("loadingCards")}</p>
               </div>
             </CardContent>
           </Card>
@@ -350,9 +482,7 @@ export default function ReviewPage() {
           <Card>
             <CardContent className="py-12 text-center">
               <CheckCircle className="mx-auto mb-4 h-12 w-12 text-green-600" />
-              <h2 className="mb-2 text-2xl font-bold">
-                {t("allCaughtUp")}
-              </h2>
+              <h2 className="mb-2 text-2xl font-bold">{t("allCaughtUp")}</h2>
               <p className="mb-6 text-muted-foreground">
                 {t("allCaughtUpDesc")}
               </p>
@@ -380,28 +510,48 @@ export default function ReviewPage() {
                 </span>
               </div>
               <Badge variant="secondary">
-                {getTargetLang(selectedLang ?? "")?.flag}{" "}
-                {selectedLang
-                  ? tLang(selectedLang)
-                  : null}
+                {mode === "multi" ? (
+                  <>
+                    <Globe className="mr-1 h-3.5 w-3.5" />
+                    {t("quickStartAllLanguages")}
+                  </>
+                ) : (
+                  <>
+                    {getTargetLang(selectedLang ?? "")?.flag}{" "}
+                    {selectedLang ? tLang(selectedLang) : null}
+                  </>
+                )}
               </Badge>
             </div>
 
-            {currentCard && selectedLang && (
+            {mode === "single" && currentSingleCard && selectedLang && (
               <ReviewCard
-                mainText={currentCard.mainText}
-                type={currentCard.type}
-                note={currentCard.note}
-                box={currentCard.box}
+                mainText={currentSingleCard.mainText}
+                type={currentSingleCard.type}
+                note={currentSingleCard.note}
+                box={currentSingleCard.box}
                 targetLang={selectedLang}
                 onSubmit={handleSubmit}
                 onShowSolution={handleShowSolution}
                 onMarkAsWrong={handleMarkAsWrong}
                 onNext={handleNext}
-                isSubmitting={
-                  submitMutation.isPending || markAsWrongMutation.isPending
-                }
+                isSubmitting={isSubmitting}
                 result={result}
+              />
+            )}
+
+            {mode === "multi" && currentMultiCard && (
+              <MultiReviewCard
+                mainText={currentMultiCard.mainText}
+                type={currentMultiCard.type}
+                note={currentMultiCard.note}
+                languages={currentMultiCard.languages}
+                onSubmit={handleMultiSubmit}
+                onShowSolution={handleMultiShowSolution}
+                onMarkAsWrong={handleMultiMarkAsWrong}
+                onNext={handleNext}
+                isSubmitting={isSubmitting}
+                results={multiResults}
               />
             )}
           </>
