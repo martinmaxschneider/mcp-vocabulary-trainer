@@ -14,7 +14,7 @@ import {
 } from "./conjugation-catalog";
 
 describe("conjugation-catalog", () => {
-  it("exposes de/en/es/fr profiles with 6 persons", () => {
+  it("exposes de/en/es/fr/pt profiles with 6 persons", () => {
     for (const lang of CONJUGATABLE_LANGS) {
       const profile = getConjugationProfile(lang);
       expect(profile).not.toBeNull();
@@ -23,9 +23,9 @@ describe("conjugation-catalog", () => {
     }
   });
 
-  it("does not treat gsw or pt as conjugatable", () => {
+  it("does not treat gsw as conjugatable", () => {
     expect(isConjugatableLang("gsw")).toBe(false);
-    expect(isConjugatableLang("pt")).toBe(false);
+    expect(isConjugatableLang("pt")).toBe(true);
     expect(getConjugationProfile("gsw")).toBeNull();
   });
 
@@ -37,6 +37,7 @@ describe("conjugation-catalog", () => {
     expect(isValidTense("en", "present")).toBe(true);
     expect(isValidTense("en", "imperfect")).toBe(false);
     expect(isValidTense("es", "imperfect")).toBe(true);
+    expect(isValidTense("pt", "imperfect")).toBe(true);
     expect(isValidTense("fr", "pluperfect")).toBe(true);
     expect(isValidTense("fr", "perfect")).toBe(false);
   });

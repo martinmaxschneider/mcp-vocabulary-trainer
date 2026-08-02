@@ -19,10 +19,14 @@ import { Badge } from "~/components/ui/badge";
 import { Progress } from "~/components/ui/progress";
 import { useToast } from "~/hooks/use-toast";
 import { resolveErrorCode } from "~/lib/trpc-error";
-import { SOURCE_LANG, TARGET_LANG_CODES } from "~/lib/languages";
+import { SOURCE_LANG, TARGET_LANGS, TARGET_LANG_CODES } from "~/lib/languages";
 import { CONJUGATABLE_LANGS } from "~/lib/conjugation-catalog";
 import { Checkbox } from "~/components/ui/checkbox";
 import { ArrowLeft, Sparkles, Plus, Loader2, BookOpen } from "lucide-react";
+
+const conjugatableTargetLangs = TARGET_LANGS.filter((l) =>
+  (CONJUGATABLE_LANGS as readonly string[]).includes(l.code),
+);
 
 export default function VerbsPage() {
   const t = useTranslations("vocabularyAdd");
@@ -39,6 +43,9 @@ export default function VerbsPage() {
 
   const [maxCount, setMaxCount] = useState<string>("");
   const [onlyIrregular, setOnlyIrregular] = useState(false);
+  const [irregularTargetLang, setIrregularTargetLang] = useState<string>(
+    conjugatableTargetLangs[0]?.code ?? "en",
+  );
   const [suggestions, setSuggestions] = useState<
     Array<{
       text: string;
@@ -49,8 +56,15 @@ export default function VerbsPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [addingProgress, setAddingProgress] = useState({ current: 0, total: 0 });
-  /** Remembers whether the current suggestion batch was irregular-only */
-  const [suggestionsAreIrregular, setSuggestionsAreIrregular] = useState(false);
+  /** Remembers irregular focus target for the current suggestion batch */
+  const [suggestionsIrregularTarget, setSuggestionsIrregularTarget] = useState<
+    string | null
+  >(null);
+
+  const irregularTargetName = tLang(irregularTargetLang);
+  const suggestionsTargetName = suggestionsIrregularTarget
+    ? tLang(suggestionsIrregularTarget)
+    : null;
 
   const { data: existingVerbs } = api.entry.list.useQuery({
     limit: 100,
@@ -72,7 +86,9 @@ export default function VerbsPage() {
           selected: false,
         })),
       );
-      setSuggestionsAreIrregular(onlyIrregular);
+      setSuggestionsIrregularTarget(
+        onlyIrregular ? irregularTargetLang : null,
+      );
       setIsGenerating(false);
       toast({
         title: tToasts("suggestionsGenerated"),
@@ -105,6 +121,7 @@ export default function VerbsPage() {
       category: "VERB",
       maxCount: max,
       onlyIrregular: onlyIrregular || undefined,
+      irregularTargetLang: onlyIrregular ? irregularTargetLang : undefined,
     });
   };
 
@@ -151,19 +168,21 @@ export default function VerbsPage() {
           });
 
           const translationsList = Object.entries(translations).map(
-            ([lang, tr]) => ({
-              lang,
-              text: tr.text,
-              example: tr.example,
-              regionTag: tr.regionTag,
-              variants: tr.variants,
-              conjugations: tr.conjugations,
-              isIrregular:
-                suggestionsAreIrregular &&
-                (CONJUGATABLE_LANGS as readonly string[]).includes(lang)
-                  ? true
-                  : undefined,
-            }),
+            ([lang, tr]) => {
+              const fromAi = tr.isIrregular === true;
+              const forceFocus =
+                suggestionsIrregularTarget !== null &&
+                lang === suggestionsIrregularTarget;
+              return {
+                lang,
+                text: tr.text,
+                example: tr.example,
+                regionTag: tr.regionTag,
+                variants: tr.variants,
+                conjugations: tr.conjugations,
+                isIrregular: forceFocus || fromAi ? true : undefined,
+              };
+            },
           );
 
           await createEntryMutation.mutateAsync({
@@ -254,7 +273,7 @@ export default function VerbsPage() {
               <CardDescription>
                 {onlyIrregular
                   ? t("verbsGenerateDescIrregular", {
-                      language: sourceLanguageName,
+                      targetLanguage: irregularTargetName,
                     })
                   : t("verbsGenerateDesc", { language: sourceLanguageName })}
               </CardDescription>
@@ -277,31 +296,62 @@ export default function VerbsPage() {
                 </p>
               </div>
 
-              <div className="flex items-start gap-3 rounded-lg border p-4">
-                <Checkbox
-                  id="only-irregular-verbs"
-                  checked={onlyIrregular}
-                  onCheckedChange={(checked) =>
-                    setOnlyIrregular(checked === true)
-                  }
-                  disabled={isGenerating}
-                />
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="only-irregular-verbs"
-                    className="cursor-pointer font-medium"
-                  >
-                    {t("onlyIrregularLabel")}
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    {t("onlyIrregularHint", { language: sourceLanguageName })}
-                  </p>
+              <div className="space-y-3 rounded-lg border p-4">
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="only-irregular-verbs"
+                    checked={onlyIrregular}
+                    onCheckedChange={(checked) =>
+                      setOnlyIrregular(checked === true)
+                    }
+                    disabled={isGenerating}
+                  />
+                  <div className="space-y-1">
+                    <Label
+                      htmlFor="only-irregular-verbs"
+                      className="cursor-pointer font-medium"
+                    >
+                      {t("onlyIrregularLabel")}
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      {t("onlyIrregularHint")}
+                    </p>
+                  </div>
                 </div>
+
+                {onlyIrregular && conjugatableTargetLangs.length > 0 && (
+                  <div className="space-y-2 pl-7">
+                    <Label className="text-sm font-medium">
+                      {t("irregularTargetLabel")}
+                    </Label>
+                    <div className="flex flex-wrap gap-2">
+                      {conjugatableTargetLangs.map((lang) => (
+                        <Button
+                          key={lang.code}
+                          type="button"
+                          size="sm"
+                          variant={
+                            irregularTargetLang === lang.code
+                              ? "default"
+                              : "outline"
+                          }
+                          onClick={() => setIrregularTargetLang(lang.code)}
+                          disabled={isGenerating}
+                        >
+                          {lang.flag} {tLang(lang.code)}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <Button
                 onClick={handleGenerate}
-                disabled={isGenerating}
+                disabled={
+                  isGenerating ||
+                  (onlyIrregular && conjugatableTargetLangs.length === 0)
+                }
                 size="lg"
                 className="w-full sm:w-auto"
               >
@@ -421,9 +471,9 @@ export default function VerbsPage() {
                           <Badge variant="outline" className="text-xs">
                             {tCategories("verb")}
                           </Badge>
-                          {suggestionsAreIrregular && (
+                          {suggestionsTargetName && (
                             <Badge variant="secondary" className="text-xs">
-                              {tCommon("irregular")}
+                              {tCommon("irregular")} · {suggestionsTargetName}
                             </Badge>
                           )}
                         </div>
@@ -442,7 +492,10 @@ export default function VerbsPage() {
             <div className="flex gap-4">
               <Button
                 variant="outline"
-                onClick={() => setSuggestions([])}
+                onClick={() => {
+                  setSuggestions([]);
+                  setSuggestionsIrregularTarget(null);
+                }}
                 disabled={isAdding}
               >
                 {tDomainSuggestions("regenerate")}

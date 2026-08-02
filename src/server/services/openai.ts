@@ -24,6 +24,8 @@ const translationOutputSchema = z.record(
     variants: z.array(z.string()).optional(),
     ipa: z.string().nullable().optional(),
     audioUrl: z.string().nullable().optional(),
+    /** True if the verb is irregular in this target language */
+    isIrregular: z.boolean().optional(),
     conjugations: conjugationsSchema,
   }),
 );
@@ -165,19 +167,24 @@ Für jede Sprache gib zurück:
 - Für Schweizerdeutsch (gsw):
   - regionTag: z.B. "BE" für Bern, "ZH" für Zürich (optional)
   - variants: Array mit alternativen Schreibweisen (optional)
-${isVerb ? "- conjugations: Objekt mit Konjugationen (siehe unten)" : ""}
+${
+  isVerb
+    ? `- isIrregular: boolean — true, wenn das Verb in DIESER Zielsprache unregelmäßig/stark ist (nicht bezogen auf die Quellsprache)
+- conjugations: Objekt mit Konjugationen (siehe unten)`
+    : ""
+}
 
 Format:
 {
-  "en": { "text": "...", "example": "..."${isVerb ? ', "conjugations": {...}' : ""} },
-  "es": { "text": "...", "example": "..."${isVerb ? ', "conjugations": {...}' : ""} },
+  "en": { "text": "...", "example": "..."${isVerb ? ', "isIrregular": false, "conjugations": {...}' : ""} },
+  "es": { "text": "...", "example": "..."${isVerb ? ', "isIrregular": true, "conjugations": {...}' : ""} },
   ...
 }`;
 
   const userPrompt = `Übersetze das folgende ${sourceName}-Wort/${isVerb ? "Verb" : "Sprichwort"} in: ${langDescriptions}
 
 Original (${sourceName}): "${mainText}"${contextNote}${conjugationNote}
-
+${isVerb ? "\nFür jede Zielsprache: setze isIrregular korrekt für genau diese Sprache.\n" : ""}
 Gib nur das JSON-Objekt zurück.`;
 
   try {
@@ -242,8 +249,12 @@ export async function generateCategorySuggestions(params: {
   existingWords: string[];
   maxCount?: number;
   sourceLang?: string;
-  /** When true and category is VERB: only suggest irregular verbs */
+  /** When true and category is VERB: only suggest verbs irregular in irregularTargetLang */
   onlyIrregular?: boolean;
+  /** Target language for irregularity (required when onlyIrregular) */
+  irregularTargetLang?: string;
+  /** Source lemmas already marked irregular in irregularTargetLang */
+  existingIrregularWords?: string[];
 }): Promise<CategorySuggestionResult> {
   const {
     category,
@@ -251,6 +262,8 @@ export async function generateCategorySuggestions(params: {
     maxCount,
     sourceLang = SOURCE_LANG.code,
     onlyIrregular = false,
+    irregularTargetLang,
+    existingIrregularWords = [],
   } = params;
 
   const sourceName = getLanguageName(sourceLang);
@@ -267,22 +280,33 @@ export async function generateCategorySuggestions(params: {
   };
 
   const categoryName = categoryNames[category] ?? category;
-  const irregularVerbMode = onlyIrregular && category === "VERB";
+  const irregularVerbMode =
+    onlyIrregular && category === "VERB" && !!irregularTargetLang;
+  const targetName = irregularTargetLang
+    ? getLanguageName(irregularTargetLang)
+    : "";
 
   const systemPrompt = `Du bist ein Experte für Sprachenlernen und Vokabelauswahl. 
 Deine Aufgabe ist es, die wichtigsten und nützlichsten ${sourceName}-Wörter (${categoryName}) vorzuschlagen.
 
-WICHTIG: Folgende ${categoryName} existieren bereits in der Datenbank:
+WICHTIG: Folgende ${categoryName} existieren bereits in der Datenbank (Quellform auf ${sourceName}) — NICHT erneut vorschlagen:
 ${existingWords.length > 0 ? existingWords.join(", ") : "(keine)"}
-
+${
+  irregularVerbMode
+    ? `
+WICHTIG: Diese Quell-Lemmata sind in ${targetName} bereits als unregelmäßig markiert — NICHT erneut vorschlagen:
+${existingIrregularWords.length > 0 ? existingIrregularWords.join(", ") : "(keine)"}
+`
+    : ""
+}
 Regeln:
-- Schlage NUR NEUE ${categoryName} auf ${sourceName} vor, die NICHT in der obigen Liste sind
+- Schlage NUR NEUE ${categoryName} auf ${sourceName} vor, die NICHT in der Liste der bestehenden Einträge sind
 - Die Vorschläge müssen in ${sourceName} sein (Muttersprache/Quellsprache)
 - "note" (falls gesetzt) muss ebenfalls auf ${sourceName} sein: kurzer Kontext/Disambiguierung in der Muttersprache — NIEMALS eine Übersetzung in eine andere Sprache (sonst wird die Lösung in der Abfrage verraten)
 ${
   irregularVerbMode
-    ? `- NUR unregelmäßige Verben (starke/unregelmäßige Konjugation in ${sourceName}). Keine regelmäßigen Verben.
-- Priorisiere die häufigsten und nützlichsten unregelmäßigen Verben für Lernende`
+    ? `- NUR Verben, deren Entsprechung in ${targetName} (${irregularTargetLang}) unregelmäßig/stark konjugiert — nicht bezogen auf Unregelmäßigkeit in ${sourceName}
+- Priorisiere die häufigsten und nützlichsten Verben mit unregelmäßiger ${targetName}-Konjugation`
     : `- Priorisiere nach:
   1. Häufigkeit im Alltag
   2. Nützlichkeit für Sprachlerner
@@ -302,7 +326,7 @@ Gib nur valides JSON zurück im folgenden Format:
 }`;
 
   const userPrompt = irregularVerbMode
-    ? `Generiere die wichtigsten unregelmäßigen ${sourceName}-Verben für Sprachlerner.
+    ? `Generiere wichtige ${sourceName}-Verben, die in ${targetName} unregelmäßig sind (für Sprachlerner).
 
 Gib nur das JSON-Objekt zurück.`
     : `Generiere die wichtigsten ${sourceName}-Wörter (${categoryName}) für Sprachlerner.

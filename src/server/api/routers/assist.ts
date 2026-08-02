@@ -8,6 +8,9 @@ import {
 import OpenAI from "openai";
 import { env } from "~/env";
 import { getLanguageName, SOURCE_LANG } from "~/lib/languages";
+import { WordCategory } from "@prisma/client";
+import { TRPCError } from "@trpc/server";
+import { isConjugatableLang } from "~/lib/conjugation-catalog";
 
 export const assistRouter = createTRPCRouter({
   generateTranslations: publicProcedure
@@ -52,28 +55,73 @@ export const assistRouter = createTRPCRouter({
 
   generateCategorySuggestions: publicProcedure
     .input(
-      z.object({
-        category: z.enum([
-          "VERB",
-          "NOUN",
-          "ADJECTIVE",
-          "PROVERB",
-          "ADVERB",
-          "PREPOSITION",
-          "CONJUNCTION",
-          "PRONOUN",
-        ]),
-        maxCount: z.number().min(5).max(100).optional(),
-        sourceLang: z.string().optional(),
-        /** Only for VERB: suggest irregular verbs and mark them as such when saved */
-        onlyIrregular: z.boolean().optional(),
-      }),
+      z
+        .object({
+          category: z.enum([
+            "VERB",
+            "NOUN",
+            "ADJECTIVE",
+            "PROVERB",
+            "ADVERB",
+            "PREPOSITION",
+            "CONJUNCTION",
+            "PRONOUN",
+          ]),
+          maxCount: z.number().min(5).max(100).optional(),
+          sourceLang: z.string().optional(),
+          /** Only for VERB: suggest verbs irregular in irregularTargetLang */
+          onlyIrregular: z.boolean().optional(),
+          /** Target language whose irregularity is requested (required if onlyIrregular) */
+          irregularTargetLang: z.string().optional(),
+        })
+        .superRefine((val, ctx) => {
+          if (!val.onlyIrregular) return;
+          if (!val.irregularTargetLang) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: "irregularTargetLang is required when onlyIrregular is true",
+              path: ["irregularTargetLang"],
+            });
+            return;
+          }
+          if (!isConjugatableLang(val.irregularTargetLang)) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `No conjugation catalog for language: ${val.irregularTargetLang}`,
+              path: ["irregularTargetLang"],
+            });
+          }
+        }),
     )
     .mutation(async ({ input, ctx }) => {
+      if (input.onlyIrregular && input.category !== "VERB") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "onlyIrregular is only supported for VERB",
+        });
+      }
+
       const existingWords = await ctx.db.entry.findMany({
         where: { category: input.category },
         select: { mainText: true },
       });
+
+      let existingIrregularWords: string[] = [];
+      if (input.onlyIrregular && input.irregularTargetLang) {
+        const irregularEntries = await ctx.db.entry.findMany({
+          where: {
+            category: WordCategory.VERB,
+            translations: {
+              some: {
+                lang: input.irregularTargetLang,
+                isIrregular: true,
+              },
+            },
+          },
+          select: { mainText: true },
+        });
+        existingIrregularWords = irregularEntries.map((e) => e.mainText);
+      }
 
       const suggestions = await generateCategorySuggestions({
         category: input.category,
@@ -81,6 +129,8 @@ export const assistRouter = createTRPCRouter({
         maxCount: input.maxCount,
         sourceLang: input.sourceLang ?? SOURCE_LANG.code,
         onlyIrregular: input.onlyIrregular,
+        irregularTargetLang: input.irregularTargetLang,
+        existingIrregularWords,
       });
 
       return suggestions;

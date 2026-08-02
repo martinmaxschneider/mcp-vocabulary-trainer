@@ -51,8 +51,17 @@ const DE_PERSONS: ConjugationPerson[] = [
   { index: 5, label: "sie" },
 ];
 
+const PT_PERSONS: ConjugationPerson[] = [
+  { index: 0, label: "eu" },
+  { index: 1, label: "tu" },
+  { index: 2, label: "ele/ela" },
+  { index: 3, label: "nós" },
+  { index: 4, label: "vós" },
+  { index: 5, label: "eles/elas" },
+];
+
 /** Languages that support verb conjugation paradigms in this app. */
-export const CONJUGATABLE_LANGS = ["de", "en", "es", "fr"] as const;
+export const CONJUGATABLE_LANGS = ["de", "en", "es", "fr", "pt"] as const;
 export type ConjugatableLang = (typeof CONJUGATABLE_LANGS)[number];
 
 export const CONJUGATION_CATALOG: Record<
@@ -103,6 +112,18 @@ export const CONJUGATION_CATALOG: Record<
       { key: "future", label: "Futur Simple", sortOrder: 4 },
       { key: "conditional", label: "Conditionnel", sortOrder: 5 },
       { key: "pluperfect", label: "Plus-que-parfait", sortOrder: 6 },
+    ],
+  },
+  pt: {
+    lang: "pt",
+    persons: PT_PERSONS,
+    tenses: [
+      { key: "present", label: "Presente", sortOrder: 1 },
+      { key: "past", label: "Pretérito Perfeito", sortOrder: 2 },
+      { key: "perfect", label: "Pretérito Perfeito Composto", sortOrder: 3 },
+      { key: "imperfect", label: "Pretérito Imperfeito", sortOrder: 4 },
+      { key: "future", label: "Futuro", sortOrder: 5 },
+      { key: "conditional", label: "Condicional", sortOrder: 6 },
     ],
   },
 };
