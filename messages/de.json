@@ -15,7 +15,6 @@
     "adjectives": "Adjektive",
     "proverbs": "Redewendungen",
     "add": "Hinzufügen",
-    "addEntry": "Eintrag",
     "settings": "Einstellungen",
     "settingsAriaLabel": "Einstellungen"
   },
@@ -113,7 +112,7 @@
     "noDomainsYet": "Noch keine Themen. Lege eines an, um zu starten!",
     "domainEntryCount": "{count, plural, one {1 Eintrag} other {# Einträge}}",
     "manageDomains": "Themen verwalten",
-    "addNewEntry": "Neuen Eintrag hinzufügen",
+    "addVocabulary": "Wortschatz hinzufügen",
     "practiceConjugations": "Konjugationen üben",
     "browseDomains": "Themen durchsuchen",
     "openSettings": "Einstellungen",
@@ -242,7 +241,7 @@
     "filterAllTypes": "Alle Typen",
     "filterWords": "Wörter",
     "filterProverbs": "Redewendungen",
-    "addEntry": "Eintrag hinzufügen",
+    "addEntry": "Wortschatz hinzufügen",
     "addFirstEntry": "Ersten Eintrag hinzufügen",
     "emptyDomain": "Noch keine Einträge in diesem Thema.",
     "translationsLabel": "Übersetzungen:",
@@ -341,6 +340,9 @@
     "domainAssignmentTitle": "Themen-Zuordnung"
   },
   "vocabularyAdd": {
+    "manualAddTitle": "{category} einzeln hinzufügen",
+    "manualAddDesc": "Gib ein {category} auf {language} ein, übersetze es mit AI in alle Zielsprachen und speichere es.",
+    "manualAddSave": "Speichern",
     "verbsTitle": "Neue Verben hinzufügen",
     "verbsSubtitle": "Lass die AI wichtige {language}-Verben vorschlagen",
     "verbsExisting": "Du hast bereits {count} Verben",

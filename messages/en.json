@@ -15,7 +15,6 @@
     "adjectives": "Adjectives",
     "proverbs": "Idioms",
     "add": "Add",
-    "addEntry": "Entry",
     "settings": "Settings",
     "settingsAriaLabel": "Settings"
   },
@@ -113,7 +112,7 @@
     "noDomainsYet": "No topics yet. Create one to get started!",
     "domainEntryCount": "{count, plural, one {1 entry} other {# entries}}",
     "manageDomains": "Manage topics",
-    "addNewEntry": "Add new entry",
+    "addVocabulary": "Add vocabulary",
     "practiceConjugations": "Practice conjugations",
     "browseDomains": "Browse topics",
     "openSettings": "Settings",
@@ -242,7 +241,7 @@
     "filterAllTypes": "All types",
     "filterWords": "Words",
     "filterProverbs": "Idioms",
-    "addEntry": "Add entry",
+    "addEntry": "Add vocabulary",
     "addFirstEntry": "Add first entry",
     "emptyDomain": "No entries in this topic yet.",
     "translationsLabel": "Translations:",
@@ -341,6 +340,9 @@
     "domainAssignmentTitle": "Topic assignment"
   },
   "vocabularyAdd": {
+    "manualAddTitle": "Add a single {category}",
+    "manualAddDesc": "Enter a {category} in {language}, translate it with AI into all target languages, and save.",
+    "manualAddSave": "Save",
     "verbsTitle": "Add new verbs",
     "verbsSubtitle": "Let AI suggest important {language} verbs",
     "verbsExisting": "You already have {count} verbs",

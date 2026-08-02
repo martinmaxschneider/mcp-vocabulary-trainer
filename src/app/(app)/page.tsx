@@ -237,10 +237,10 @@ export default async function HomePage() {
               <CardDescription>{t("quickActionsDesc")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Link href="/entries/new">
+              <Link href="/vocabulary/verbs">
                 <Button variant="outline" className="w-full justify-start">
                   <FileText className="mr-2 h-4 w-4" />
-                  {t("addNewEntry")}
+                  {t("addVocabulary")}
                 </Button>
               </Link>
               <Link href="/practice/conjugations">

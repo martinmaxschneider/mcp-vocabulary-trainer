@@ -14,7 +14,7 @@ import {
   CardTitle,
 } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
-import { ArrowLeft, Plus, Trash2, Pencil } from "lucide-react";
+import { ArrowLeft, ChevronDown, Plus, Trash2, Pencil } from "lucide-react";
 import { useToast } from "~/hooks/use-toast";
 import {
   Select,
@@ -23,6 +23,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
 import { resolveErrorCode } from "~/lib/trpc-error";
 
 export default function DomainDetailPage({
@@ -35,9 +41,20 @@ export default function DomainDetailPage({
   const { toast } = useToast();
   const t = useTranslations("domains");
   const tCategories = useTranslations("categories");
+  const tNav = useTranslations("nav");
   const tCommon = useTranslations("common");
   const tToasts = useTranslations("toasts");
   const tErrors = useTranslations("errors.codes");
+
+  const addToDomainLinks = [
+    { href: `/vocabulary/verbs?domainId=${id}`, label: tNav("verbs") },
+    { href: `/vocabulary/nouns?domainId=${id}`, label: tNav("nouns") },
+    {
+      href: `/vocabulary/adjectives?domainId=${id}`,
+      label: tNav("adjectives"),
+    },
+    { href: `/vocabulary/proverbs?domainId=${id}`, label: tNav("proverbs") },
+  ] as const;
   const [typeFilter, setTypeFilter] = useState<"ALL" | "WORD" | "PROVERB">(
     "ALL"
   );
@@ -119,12 +136,24 @@ export default function DomainDetailPage({
                 <SelectItem value="PROVERB">{t("filterProverbs")}</SelectItem>
               </SelectContent>
             </Select>
-            <Link href={`/entries/new?domainId=${id}`}>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                {t("addEntry")}
-              </Button>
-            </Link>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  {t("addEntry")}
+                  <ChevronDown className="ml-2 h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {addToDomainLinks.map((item) => (
+                  <DropdownMenuItem key={item.href} asChild>
+                    <Link href={item.href} className="cursor-pointer">
+                      {item.label}
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
@@ -133,12 +162,24 @@ export default function DomainDetailPage({
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-muted-foreground mb-4">{t("emptyDomain")}</p>
-            <Link href={`/entries/new?domainId=${id}`}>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                {t("addFirstEntry")}
-              </Button>
-            </Link>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  {t("addFirstEntry")}
+                  <ChevronDown className="ml-2 h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center">
+                {addToDomainLinks.map((item) => (
+                  <DropdownMenuItem key={item.href} asChild>
+                    <Link href={item.href} className="cursor-pointer">
+                      {item.label}
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </CardContent>
         </Card>
       ) : (

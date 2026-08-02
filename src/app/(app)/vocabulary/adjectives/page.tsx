@@ -20,6 +20,7 @@ import { Progress } from "~/components/ui/progress";
 import { useToast } from "~/hooks/use-toast";
 import { resolveErrorCode } from "~/lib/trpc-error";
 import { SOURCE_LANG, TARGET_LANG_CODES } from "~/lib/languages";
+import { ManualVocabularyAddCard } from "~/components/manual-vocabulary-add-card";
 import { ArrowLeft, Sparkles, Plus, Loader2, BookOpen } from "lucide-react";
 
 export default function AdjectivesPage() {
@@ -230,6 +231,11 @@ export default function AdjectivesPage() {
 
       <div className="mx-auto max-w-5xl space-y-8">
         {suggestions.length === 0 ? (
+          <>
+          <ManualVocabularyAddCard
+            category="ADJECTIVE"
+            listHref="/vocabulary/adjectives/list"
+          />
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -276,6 +282,7 @@ export default function AdjectivesPage() {
               </Button>
             </CardContent>
           </Card>
+          </>
         ) : (
           <div className="space-y-6">
             {isAdding && addingProgress.total > 0 && (

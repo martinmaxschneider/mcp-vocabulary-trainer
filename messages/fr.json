@@ -15,7 +15,6 @@
     "adjectives": "Adjectifs",
     "proverbs": "Expressions",
     "add": "Ajouter",
-    "addEntry": "Entrée",
     "settings": "Paramètres",
     "settingsAriaLabel": "Paramètres"
   },
@@ -113,7 +112,7 @@
     "noDomainsYet": "Pas encore de thèmes. Créez-en un pour commencer !",
     "domainEntryCount": "{count, plural, one {1 entrée} other {# entrées}}",
     "manageDomains": "Gérer les thèmes",
-    "addNewEntry": "Ajouter une entrée",
+    "addVocabulary": "Ajouter du vocabulaire",
     "practiceConjugations": "Pratiquer les conjugaisons",
     "browseDomains": "Parcourir les thèmes",
     "openSettings": "Paramètres",
@@ -242,7 +241,7 @@
     "filterAllTypes": "Tous les types",
     "filterWords": "Mots",
     "filterProverbs": "Expressions",
-    "addEntry": "Ajouter une entrée",
+    "addEntry": "Ajouter du vocabulaire",
     "addFirstEntry": "Ajouter la première entrée",
     "emptyDomain": "Pas encore d'entrées dans ce thème.",
     "translationsLabel": "Traductions :",
@@ -341,6 +340,9 @@
     "domainAssignmentTitle": "Assignation aux thèmes"
   },
   "vocabularyAdd": {
+    "manualAddTitle": "Ajouter un {category} précis",
+    "manualAddDesc": "Saisissez un {category} en {language}, traduisez-le avec l'IA vers toutes les langues cibles et enregistrez.",
+    "manualAddSave": "Enregistrer",
     "verbsTitle": "Ajouter de nouveaux verbes",
     "verbsSubtitle": "Laissez l'IA proposer des verbes importants en {language}",
     "verbsExisting": "Vous avez déjà {count} verbes",

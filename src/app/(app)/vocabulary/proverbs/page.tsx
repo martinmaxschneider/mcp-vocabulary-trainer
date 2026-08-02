@@ -20,6 +20,7 @@ import { api } from "~/trpc/client";
 import { useToast } from "~/hooks/use-toast";
 import { resolveErrorCode } from "~/lib/trpc-error";
 import { SOURCE_LANG, TARGET_LANG_CODES } from "~/lib/languages";
+import { ManualVocabularyAddCard } from "~/components/manual-vocabulary-add-card";
 
 interface ProverbSuggestion {
   text: string;
@@ -199,27 +200,33 @@ export default function AddProverbsPage() {
       </div>
 
       {suggestions.length === 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("proverbsGenerateTitle")}</CardTitle>
-            <CardDescription>{t("proverbsGenerateDesc", { language: sourceLanguageName })}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={handleGenerate} disabled={isGenerating} size="lg">
-              {isGenerating ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  {tCommon("generating")}
-                </>
-              ) : (
-                <>
-                  <Sparkles className="mr-2 h-5 w-5" />
-                  {tCommon("generate")}
-                </>
-              )}
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="space-y-8">
+          <ManualVocabularyAddCard
+            category="PROVERB"
+            listHref="/vocabulary/proverbs/list"
+          />
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("proverbsGenerateTitle")}</CardTitle>
+              <CardDescription>{t("proverbsGenerateDesc", { language: sourceLanguageName })}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={handleGenerate} disabled={isGenerating} size="lg">
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    {tCommon("generating")}
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="mr-2 h-5 w-5" />
+                    {tCommon("generate")}
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       ) : (
         <>
           <Card className="mb-6">

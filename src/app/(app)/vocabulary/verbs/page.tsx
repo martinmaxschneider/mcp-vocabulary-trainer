@@ -22,6 +22,7 @@ import { resolveErrorCode } from "~/lib/trpc-error";
 import { SOURCE_LANG, TARGET_LANGS, TARGET_LANG_CODES } from "~/lib/languages";
 import { CONJUGATABLE_LANGS } from "~/lib/conjugation-catalog";
 import { Checkbox } from "~/components/ui/checkbox";
+import { ManualVocabularyAddCard } from "~/components/manual-vocabulary-add-card";
 import { ArrowLeft, Sparkles, Plus, Loader2, BookOpen } from "lucide-react";
 
 const conjugatableTargetLangs = TARGET_LANGS.filter((l) =>
@@ -264,6 +265,11 @@ export default function VerbsPage() {
 
       <div className="mx-auto max-w-5xl space-y-8">
         {suggestions.length === 0 ? (
+          <>
+          <ManualVocabularyAddCard
+            category="VERB"
+            listHref="/vocabulary/verbs/list"
+          />
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -369,6 +375,7 @@ export default function VerbsPage() {
               </Button>
             </CardContent>
           </Card>
+          </>
         ) : (
           <div className="space-y-6">
             {isAdding && addingProgress.total > 0 && (

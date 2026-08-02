@@ -169,22 +169,34 @@ Für jede Sprache gib zurück:
   - variants: Array mit alternativen Schreibweisen (optional)
 ${
   isVerb
-    ? `- isIrregular: boolean — true, wenn das Verb in DIESER Zielsprache unregelmäßig/stark ist (nicht bezogen auf die Quellsprache)
-- conjugations: Objekt mit Konjugationen (siehe unten)`
+    ? `- isIrregular: boolean — true NUR, wenn die Übersetzung in DIESER Zielsprache unregelmäßig/stark konjugiert
+- conjugations: Objekt mit Konjugationen (siehe unten)
+
+WICHTIG zu isIrregular (häufiger Fehler — vermeiden!):
+- Beurteile JEDE Zielsprache UNABHÄNGIG anhand der übersetzten Verbform in genau dieser Sprache.
+- Unregelmäßigkeit in der Quellsprache (${sourceName}) darf NICHT auf andere Sprachen übertragen werden.
+- Beispiel: DE "raten" (unregelmäßig) → EN "guess" → isIrregular:false; ES "adivinar" → false; FR "deviner" → false; PT "adivinhar" → false.
+- true nur bei wirklich unregelmäßigen Ziel-Verben (z.B. EN go/be/have, ES ser/ir/estar, FR être/avoir/aller).
+- Regelmäßige Verben (EN regular -ed, ES/PT -ar/-er/-ir regulär, FR -er regulär): isIrregular:false.
+- Im Zweifel: false — nicht pauschal alle Sprachen true setzen.`
     : ""
 }
 
 Format:
 {
   "en": { "text": "...", "example": "..."${isVerb ? ', "isIrregular": false, "conjugations": {...}' : ""} },
-  "es": { "text": "...", "example": "..."${isVerb ? ', "isIrregular": true, "conjugations": {...}' : ""} },
+  "es": { "text": "...", "example": "..."${isVerb ? ', "isIrregular": false, "conjugations": {...}' : ""} },
   ...
 }`;
 
   const userPrompt = `Übersetze das folgende ${sourceName}-Wort/${isVerb ? "Verb" : "Sprichwort"} in: ${langDescriptions}
 
 Original (${sourceName}): "${mainText}"${contextNote}${conjugationNote}
-${isVerb ? "\nFür jede Zielsprache: setze isIrregular korrekt für genau diese Sprache.\n" : ""}
+${
+  isVerb
+    ? `\nFür jede Zielsprache: setze isIrregular NUR für diese Sprache anhand der Übersetzung dort. Nicht von ${sourceName} ableiten. Nicht alle Sprachen gleich markieren.\n`
+    : ""
+}
 Gib nur das JSON-Objekt zurück.`;
 
   try {

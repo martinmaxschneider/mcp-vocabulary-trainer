@@ -122,11 +122,6 @@ export function Nav() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
                 <DropdownMenuItem asChild>
-                  <Link href="/entries/new" className="cursor-pointer">
-                    {t("addEntry")}
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
                   <Link href="/vocabulary/verbs" className="cursor-pointer">
                     {t("verbs")}
                   </Link>

@@ -15,7 +15,6 @@
     "adjectives": "Adjetivos",
     "proverbs": "Expressões",
     "add": "Adicionar",
-    "addEntry": "Entrada",
     "settings": "Definições",
     "settingsAriaLabel": "Definições"
   },
@@ -113,7 +112,7 @@
     "noDomainsYet": "Ainda não há temas. Crie um para começar!",
     "domainEntryCount": "{count, plural, one {1 entrada} other {# entradas}}",
     "manageDomains": "Gerir temas",
-    "addNewEntry": "Adicionar nova entrada",
+    "addVocabulary": "Adicionar vocabulário",
     "practiceConjugations": "Praticar conjugações",
     "browseDomains": "Explorar temas",
     "openSettings": "Definições",
@@ -242,7 +241,7 @@
     "filterAllTypes": "Todos os tipos",
     "filterWords": "Palavras",
     "filterProverbs": "Expressões",
-    "addEntry": "Adicionar entrada",
+    "addEntry": "Adicionar vocabulário",
     "addFirstEntry": "Adicionar primeira entrada",
     "emptyDomain": "Ainda não há entradas neste tema.",
     "translationsLabel": "Traduções:",
@@ -341,6 +340,9 @@
     "domainAssignmentTitle": "Atribuição a temas"
   },
   "vocabularyAdd": {
+    "manualAddTitle": "Adicionar um {category} específico",
+    "manualAddDesc": "Introduza um {category} em {language}, traduza-o com IA para todas as línguas-alvo e guarde.",
+    "manualAddSave": "Guardar",
     "verbsTitle": "Adicionar novos verbos",
     "verbsSubtitle": "Deixe a IA sugerir verbos importantes em {language}",
     "verbsExisting": "Já tem {count} verbos",
