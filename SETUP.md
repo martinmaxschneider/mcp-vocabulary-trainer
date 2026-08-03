@@ -63,7 +63,7 @@ npm run dev
 
 Starts the Next.js app (incl. MCP at `/mcp`) **and** the OpenAI MCP tunnel in parallel.
 
-- App: [http://localhost:4800](http://localhost:4800)
+- App: [http://localhost:4810](http://localhost:4810)
 - Web only: `npm run dev:web`
 - Tunnel only: `npm run mcp:tunnel` (requires `CONTROL_PLANE_API_KEY`)
 
@@ -107,25 +107,25 @@ The app exposes a Streamable HTTP MCP server at **`/mcp`**. ChatGPT connects via
    https://platform.openai.com/settings/organization/api-keys
 3. Put it in `.env` as `CONTROL_PLANE_API_KEY=...` (may be the same value as `OPENAI_API_KEY` if that key has tunnel scope).
 4. Configure a tunnel profile named `sprachen` (or set `TUNNEL_PROFILE`) that points to  
-   `http://localhost:4800/mcp`, with health listener on **4801** (next to the app port) — **once per machine**:
+   `http://localhost:4810/mcp`, with health listener on **4811** (next to the app port) — **once per machine**:
 
 ```bash
 tunnel-client init \
   --sample sample_mcp_remote_no_auth \
   --profile sprachen \
   --tunnel-id tunnel_... \
-  --mcp-server-url http://127.0.0.1:4800/mcp \
-  --health-listen-addr 127.0.0.1:4801 \
+  --mcp-server-url http://127.0.0.1:4810/mcp \
+  --health-listen-addr 127.0.0.1:4811 \
   --force
 ```
 
-Use `127.0.0.1` (not `localhost`) so the client does not dial IPv6 `[::1]`. `npm run start` / `dev` wait for the app on port 4800 before starting the tunnel.
+Use `127.0.0.1` (not `localhost`) so the client does not dial IPv6 `[::1]`. `npm run start` / `dev` wait for the app on port 4810 before starting the tunnel.
 
 
 ### Start
 
 ```bash
-npm run dev          # Next (port 4800, /mcp) + OpenAI tunnel
+npm run dev          # Next (port 4810, /mcp) + OpenAI tunnel
 npm run dev:web      # Next only
 npm run mcp:tunnel   # Tunnel only (strict: fails without key)
 ```
@@ -142,7 +142,7 @@ MCP tools are persistence-only (domains, entries, conjugations/`ConjugationForm`
 ## Notes
 
 - Single-user mode (no login).
-- Optional Docker app: `npm run docker:up` → port **4800**, SQLite via `./data` volume.
+- Optional Docker app: `npm run docker:up` → port **4810**, SQLite via `./data` volume.
 - Tests: `npm run test`.
 
 ## Troubleshooting

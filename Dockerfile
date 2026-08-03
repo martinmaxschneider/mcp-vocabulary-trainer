@@ -53,9 +53,9 @@ RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
 
 USER nextjs
 
-EXPOSE 4800
+EXPOSE 4810
 
-ENV PORT=4800
+ENV PORT=4810
 ENV HOSTNAME="0.0.0.0"
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]

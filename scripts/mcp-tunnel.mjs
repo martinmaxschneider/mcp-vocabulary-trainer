@@ -2,7 +2,7 @@
 // Startet den OpenAI tunnel-client für den MCP-Endpoint.
 // Liest vorher die .env, ohne bereits gesetzte Umgebungsvariablen zu überschreiben.
 // Mit --optional (npm run dev/start): fehlender Key/Binary/Profil → Warnung, Exit 0.
-// Wartet auf Next.js (Port 4800), bevor tunnel-client startet — sonst OAuth/MCP probe fails.
+// Wartet auf Next.js (Port 4810), bevor tunnel-client startet — sonst OAuth/MCP probe fails.
 import { spawn } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
@@ -11,7 +11,7 @@ import * as http from "http";
 const packageDir = process.cwd();
 const envPath = path.join(packageDir, ".env");
 const optional = process.argv.includes("--optional");
-const MCP_ORIGIN = process.env.MCP_ORIGIN ?? "http://127.0.0.1:4800";
+const MCP_ORIGIN = process.env.MCP_ORIGIN ?? "http://127.0.0.1:4810";
 /** Max wait only — exits as soon as the app answers (usually <2s). */
 const WAIT_MS = Number(process.env.MCP_TUNNEL_WAIT_MS ?? 30_000);
 const POLL_MS = 500;
@@ -184,8 +184,8 @@ async function main() {
       "[mcp-tunnel]     --sample sample_mcp_remote_no_auth \\",
       `[mcp-tunnel]     --profile ${profile} \\`,
       "[mcp-tunnel]     --tunnel-id tunnel_DEINE_ID \\",
-      "[mcp-tunnel]     --mcp-server-url http://127.0.0.1:4800/mcp \\",
-      "[mcp-tunnel]     --health-listen-addr 127.0.0.1:4801 \\",
+      "[mcp-tunnel]     --mcp-server-url http://127.0.0.1:4810/mcp \\",
+      "[mcp-tunnel]     --health-listen-addr 127.0.0.1:4811 \\",
       "[mcp-tunnel]     --force",
       "[mcp-tunnel]",
       "[mcp-tunnel] tunnel_id: https://platform.openai.com/settings/organization/tunnels",

@@ -15,6 +15,6 @@ echo "Syncing database schema..."
 node_modules/.bin/prisma db push
 
 echo "Database ready at $DB_FILE"
-echo "Starting Next.js server on port 4800..."
+echo "Starting Next.js server on port 4810..."
 
 exec node server.js

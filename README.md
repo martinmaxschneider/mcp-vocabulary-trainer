@@ -70,9 +70,9 @@ Start the app:
 npm run dev
 ```
 
-Open [http://localhost:4800](http://localhost:4800).
+Open [http://localhost:4810](http://localhost:4810).
 
-`npm run dev` starts Next.js on port **4800** (MCP at `/mcp`) and the optional OpenAI MCP tunnel. Web only: `npm run dev:web`.
+`npm run dev` starts Next.js on port **4810** (MCP at `/mcp`) and the optional OpenAI MCP tunnel (health **4811**). Web only: `npm run dev:web`.
 
 ## Environment
 
@@ -98,7 +98,7 @@ export OPENAI_API_KEY=your_openai_api_key_here
 npm run docker:up
 ```
 
-App: [http://localhost:4800](http://localhost:4800).
+App: [http://localhost:4810](http://localhost:4810).
 
 ## ChatGPT MCP
 
