@@ -1,8 +1,8 @@
 "use client";
 
-import { use } from "react";
+import { use, useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { TARGET_LANGS } from "~/lib/languages";
+import { SOURCE_LANG, TARGET_LANGS, TARGET_LANG_CODES } from "~/lib/languages";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "~/trpc/client";
@@ -16,6 +16,7 @@ import {
 } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { DomainAssignment } from "~/components/domain-assignment";
+import { ClickableIpa } from "~/components/clickable-ipa";
 import { useToast } from "~/hooks/use-toast";
 import { resolveErrorCode } from "~/lib/trpc-error";
 import { ArrowLeft, Pencil, Trash2, Loader2 } from "lucide-react";
@@ -37,6 +38,27 @@ export default function NounDetailPage({
   const { toast } = useToast();
 
   const { data: noun, isLoading, refetch } = api.entry.getById.useQuery({ id });
+
+  const guidesQuery = api.pronunciation.getByPairs.useQuery({
+    nativeLang: SOURCE_LANG.code,
+    targetLangs: [...TARGET_LANG_CODES],
+  });
+  const guideItemsByLang = useMemo(() => {
+    const map: Record<
+      string,
+      Array<{
+        id: string;
+        symbol: string;
+        approx: string | null;
+        explanation: string;
+        exampleWord: string | null;
+      }>
+    > = {};
+    for (const entry of guidesQuery.data?.guides ?? []) {
+      map[entry.targetLang] = entry.guide?.items ?? [];
+    }
+    return map;
+  }, [guidesQuery.data]);
 
   const errorDescription = (message: string) => {
     const code = resolveErrorCode(message);
@@ -147,7 +169,20 @@ export default function NounDetailPage({
                         )}
                       </span>
                     </div>
-                    <p className="mb-1 text-lg font-medium">{translation.text}</p>
+                    <div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <p className="text-lg font-medium">{translation.text}</p>
+                      {translation.ipa ? (
+                        <div className="ml-auto shrink-0 text-right">
+                          <ClickableIpa
+                            ipa={translation.ipa}
+                            items={guideItemsByLang[translation.lang] ?? []}
+                            className="m-0 text-base italic tracking-wide text-foreground/80"
+                            showFullListButton={false}
+                            targetLangName={tLang(translation.lang)}
+                          />
+                        </div>
+                      ) : null}
+                    </div>
                     {translation.example && (
                       <p className="text-sm text-muted-foreground">
                         {tEntries("examplePrefix")} {translation.example}

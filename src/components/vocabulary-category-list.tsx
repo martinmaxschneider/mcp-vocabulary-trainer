@@ -25,6 +25,7 @@ import {
 } from "~/components/ui/select";
 import { SOURCE_LANG, TARGET_LANGS } from "~/lib/languages";
 import { Eye, Plus } from "lucide-react";
+import { ClickableIpa } from "~/components/clickable-ipa";
 
 type SortBy = "mainText" | "translation" | "createdAt";
 type SortDir = "asc" | "desc";
@@ -109,9 +110,13 @@ export function VocabularyCategoryList({
   const entries = data?.pages.flatMap((p) => p.entries) ?? [];
   const categoryBadge = tCategories(CATEGORY_I18N_KEY[category] ?? "other");
   const { titleKey, emptyKey } = LIST_META[category];
-  const targetLangName = tLang(
-    targetLang
-  );
+  const targetLangName = tLang(targetLang);
+
+  const guideQuery = api.pronunciation.getByPair.useQuery({
+    nativeLang: SOURCE_LANG.code,
+    targetLang,
+  });
+  const guideItems = guideQuery.data?.items ?? [];
 
   return (
     <div className="max-w-6xl">
@@ -258,11 +263,24 @@ export function VocabularyCategoryList({
                       <p className="mb-1 text-sm font-medium text-muted-foreground">
                         {targetLangName}
                       </p>
-                      <p className="text-base">
-                        {translation?.text ?? (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </p>
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <p className="text-base">
+                          {translation?.text ?? (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </p>
+                        {translation?.ipa ? (
+                          <div className="ml-auto shrink-0 text-right">
+                            <ClickableIpa
+                              ipa={translation.ipa}
+                              items={guideItems}
+                              className="m-0 text-sm italic tracking-wide text-foreground/80"
+                              showFullListButton={false}
+                              targetLangName={targetLangName}
+                            />
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
 
                     {entry.domains.length > 0 && (

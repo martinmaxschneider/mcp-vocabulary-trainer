@@ -1,6 +1,6 @@
 "use client";
 
-import { use } from "react";
+import { use, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { api } from "~/trpc/client";
 import { DomainAssignment } from "~/components/domain-assignment";
+import { ClickableIpa } from "~/components/clickable-ipa";
+import { SOURCE_LANG, TARGET_LANG_CODES } from "~/lib/languages";
 
 export default function ProverbDetailPage({
   params,
@@ -18,8 +20,30 @@ export default function ProverbDetailPage({
   const { id } = use(params);
   const t = useTranslations("vocabulary");
   const tCategories = useTranslations("categories");
+  const tLang = useTranslations("languages");
 
   const { data: proverb, isLoading } = api.entry.getById.useQuery({ id });
+
+  const guidesQuery = api.pronunciation.getByPairs.useQuery({
+    nativeLang: SOURCE_LANG.code,
+    targetLangs: [...TARGET_LANG_CODES],
+  });
+  const guideItemsByLang = useMemo(() => {
+    const map: Record<
+      string,
+      Array<{
+        id: string;
+        symbol: string;
+        approx: string | null;
+        explanation: string;
+        exampleWord: string | null;
+      }>
+    > = {};
+    for (const entry of guidesQuery.data?.guides ?? []) {
+      map[entry.targetLang] = entry.guide?.items ?? [];
+    }
+    return map;
+  }, [guidesQuery.data]);
 
   if (isLoading) {
     return (
@@ -81,7 +105,20 @@ export default function ProverbDetailPage({
                       {translation.lang.toUpperCase()}
                     </Badge>
                   </div>
-                  <p className="font-medium">{translation.text}</p>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <p className="font-medium">{translation.text}</p>
+                    {translation.ipa ? (
+                      <div className="ml-auto shrink-0 text-right">
+                        <ClickableIpa
+                          ipa={translation.ipa}
+                          items={guideItemsByLang[translation.lang] ?? []}
+                          className="m-0 text-base italic tracking-wide text-foreground/80"
+                          showFullListButton={false}
+                          targetLangName={tLang(translation.lang)}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
                   {translation.example && (
                     <p className="mt-1 text-sm text-muted-foreground">
                       {translation.example}
