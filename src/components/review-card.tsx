@@ -13,6 +13,8 @@ interface ReviewCardProps {
   mainText: string;
   type: "WORD" | "PROVERB";
   note?: string | null;
+  /** IPA of the target-language translation */
+  ipa?: string | null;
   box: number;
   targetLang: string;
   onSubmit: (answer: string) => void;
@@ -31,6 +33,7 @@ export function ReviewCard({
   mainText,
   type,
   note,
+  ipa,
   box,
   targetLang,
   onSubmit,
@@ -91,9 +94,16 @@ export function ReviewCard({
   return (
     <Card className="w-full max-w-2xl mx-auto">
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-2xl">{mainText}</CardTitle>
-          <div className="flex gap-2">
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <CardTitle className="text-2xl">{mainText}</CardTitle>
+            {result && ipa ? (
+              <p className="mt-1.5 text-lg italic text-foreground/80 tracking-wide">
+                {ipa}
+              </p>
+            ) : null}
+          </div>
+          <div className="flex shrink-0 gap-2">
             <Badge variant="outline">{type}</Badge>
             <Badge variant="secondary">{tCommon("box", { number: box })}</Badge>
           </div>
@@ -165,6 +175,11 @@ export function ReviewCard({
                     <span className="font-medium text-foreground">
                       {result.expected}
                     </span>
+                    {ipa ? (
+                      <span className="ml-2 text-base italic text-foreground/80">
+                        {ipa}
+                      </span>
+                    ) : null}
                   </p>
                 </div>
                 {result.typo && (

@@ -13,6 +13,7 @@ export type MultiLangResult = {
   targetLang: string;
   isCorrect: boolean;
   expected: string;
+  ipa?: string | null;
   typo: boolean;
 };
 
@@ -246,6 +247,11 @@ export function MultiReviewCard({
                           <span className="font-medium text-foreground">
                             {result.expected}
                           </span>
+                          {result.ipa ? (
+                            <span className="ml-2 text-base italic text-foreground/80">
+                              {result.ipa}
+                            </span>
+                          ) : null}
                         </p>
                       </div>
                       {result.typo && (

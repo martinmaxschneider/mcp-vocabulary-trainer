@@ -149,6 +149,7 @@ export default function AdjectivesPage() {
               example: tr.example,
               regionTag: tr.regionTag,
               variants: tr.variants,
+              ipa: tr.ipa ?? undefined,
             })
           );
 

@@ -180,6 +180,7 @@ export default function VerbsPage() {
                 example: tr.example,
                 regionTag: tr.regionTag,
                 variants: tr.variants,
+                ipa: tr.ipa ?? undefined,
                 conjugations: tr.conjugations,
                 isIrregular: forceFocus || fromAi ? true : undefined,
               };

@@ -130,6 +130,7 @@ export default function AddProverbsPage() {
               example: tr.example,
               regionTag: tr.regionTag,
               variants: tr.variants,
+              ipa: tr.ipa ?? undefined,
             })
           );
 

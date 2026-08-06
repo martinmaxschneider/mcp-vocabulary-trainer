@@ -39,6 +39,7 @@ type TranslationDraft = {
   example?: string;
   regionTag?: string;
   variants?: string[];
+  ipa?: string;
   isIrregular?: boolean;
   conjugations?: Conjugations;
 };
@@ -128,6 +129,7 @@ function ManualVocabularyAddCardInner({
             example: translation.example ?? "",
             regionTag: translation.regionTag ?? "",
             variants: translation.variants ?? [],
+            ipa: translation.ipa ?? undefined,
             isIrregular: translation.isIrregular,
             conjugations: translation.conjugations,
           };
@@ -210,6 +212,7 @@ function ManualVocabularyAddCardInner({
         example: tr.example?.trim() || undefined,
         regionTag: tr.regionTag?.trim() || undefined,
         variants: tr.variants?.filter((v) => v.trim()) || undefined,
+        ipa: tr.ipa?.trim() || undefined,
         isIrregular: isVerb ? tr.isIrregular === true : undefined,
         conjugations: tr.conjugations,
       }));

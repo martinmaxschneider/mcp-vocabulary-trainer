@@ -142,6 +142,7 @@ const handler = createMcpHandler(
     server.tool(
       "create_entry",
       "Legt einen Vokabeleintrag an (Typ, Kategorie, mainText, Übersetzungen, Domains). " +
+        "Jede Übersetzung SOLL ipa mitliefern (IPA der Zielübersetzung in Slash-Notation, z.B. /həˈloʊ/). " +
         "Pro Übersetzung optional isIrregular (unregelmäßig in dieser Sprache). " +
         "conjugations-JSON sync't zu ConjugationForm; für gezielte Pflege lieber upsert_conjugation_forms nutzen.",
       entryToolSchema,
@@ -158,7 +159,8 @@ const handler = createMcpHandler(
 
     server.tool(
       "create_entries",
-      "Bulk-Anlage mehrerer Vokabeleinträge (max. 50). Für Listen wie „30 Auto-Vokabeln“.",
+      "Bulk-Anlage mehrerer Vokabeleinträge (max. 50). Für Listen wie „30 Auto-Vokabeln“. " +
+        "Jede Übersetzung SOLL ipa mitliefern (IPA in Slash-Notation).",
       {
         entries: z.array(z.object(entryToolSchema)).min(1).max(50),
       },
@@ -167,6 +169,52 @@ const handler = createMcpHandler(
         const parsed = z.array(createEntryInputSchema).parse(entries);
         try {
           return jsonResult(await api.entry.createMany({ entries: parsed }));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "list_translations_missing_ipa",
+      "Listet Übersetzungen ohne IPA (null oder leer) für die Migration. " +
+        "Danach IPA erzeugen und mit update_translations_ipa speichern; mit nextCursor paginieren bis leer.",
+      {
+        limit: z.number().min(1).max(100).default(50),
+        cursor: z.string().optional(),
+        lang: z.string().optional(),
+      },
+      async ({ limit, cursor, lang }) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(
+            await api.entry.listTranslationsMissingIpa({ limit, cursor, lang }),
+          );
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "update_translations_ipa",
+      "Bulk-Update nur für IPA (max. 100). Input: updates[{ id: translationId, ipa }]. " +
+        "Typischer Flow: list_translations_missing_ipa → IPA liefern → dieses Tool.",
+      {
+        updates: z
+          .array(
+            z.object({
+              id: z.string(),
+              ipa: z.string().min(1),
+            }),
+          )
+          .min(1)
+          .max(100),
+      },
+      async ({ updates }) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.entry.updateTranslationsIpa({ updates }));
         } catch (e) {
           return errorResult(e instanceof Error ? e.message : String(e));
         }

@@ -163,10 +163,12 @@ Gib nur valides JSON zurück, ohne zusätzliche Erklärungen oder Markdown-Forma
 
 Für jede Sprache gib zurück:
 - text: Die Übersetzung
+- ipa: IPA-Aussprache der Übersetzung (Pflicht), mit Slash-Notation, z.B. "/həˈloʊ/", "/kaˈsa/", "/paʁˈle/"
 - example: Ein kurzer Beispielsatz (optional, aber empfohlen)
 - Für Schweizerdeutsch (gsw):
   - regionTag: z.B. "BE" für Bern, "ZH" für Zürich (optional)
   - variants: Array mit alternativen Schreibweisen (optional)
+  - ipa: phonetische Umschrift der gewählten Variante (auch bei gsw Pflicht)
 ${
   isVerb
     ? `- isIrregular: boolean — true NUR, wenn die Übersetzung in DIESER Zielsprache unregelmäßig/stark konjugiert
@@ -184,8 +186,8 @@ WICHTIG zu isIrregular (häufiger Fehler — vermeiden!):
 
 Format:
 {
-  "en": { "text": "...", "example": "..."${isVerb ? ', "isIrregular": false, "conjugations": {...}' : ""} },
-  "es": { "text": "...", "example": "..."${isVerb ? ', "isIrregular": false, "conjugations": {...}' : ""} },
+  "en": { "text": "...", "ipa": "/…/", "example": "..."${isVerb ? ', "isIrregular": false, "conjugations": {...}' : ""} },
+  "es": { "text": "...", "ipa": "/…/", "example": "..."${isVerb ? ', "isIrregular": false, "conjugations": {...}' : ""} },
   ...
 }`;
 
@@ -197,6 +199,7 @@ ${
     ? `\nFür jede Zielsprache: setze isIrregular NUR für diese Sprache anhand der Übersetzung dort. Nicht von ${sourceName} ableiten. Nicht alle Sprachen gleich markieren.\n`
     : ""
 }
+Für jede Zielsprache: liefere zwingend "ipa" zur Übersetzung (IPA in Slash-Notation).
 Gib nur das JSON-Objekt zurück.`;
 
   try {
@@ -221,6 +224,12 @@ Gib nur das JSON-Objekt zurück.`;
     for (const lang of Object.keys(validated)) {
       const entry = validated[lang];
       if (!entry) continue;
+      if (typeof entry.ipa === "string") {
+        const trimmed = entry.ipa.trim();
+        entry.ipa = trimmed.length > 0 ? trimmed : undefined;
+      } else if (entry.ipa === null) {
+        entry.ipa = undefined;
+      }
       if (!isConjugatableLang(lang)) {
         delete entry.conjugations;
         continue;

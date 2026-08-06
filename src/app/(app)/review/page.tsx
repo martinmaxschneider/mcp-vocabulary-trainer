@@ -113,6 +113,7 @@ export default function ReviewPage() {
           targetLang: r.targetLang,
           isCorrect: r.isCorrect,
           expected: r.expected,
+          ipa: r.ipa,
           typo: r.typo,
         }))
       );
@@ -529,6 +530,7 @@ export default function ReviewPage() {
                 mainText={currentSingleCard.mainText}
                 type={currentSingleCard.type}
                 note={currentSingleCard.note}
+                ipa={currentSingleCard.translation?.ipa}
                 box={currentSingleCard.box}
                 targetLang={selectedLang}
                 onSubmit={handleSubmit}

@@ -159,6 +159,7 @@ export default function DomainSuggestionsPage({
               example: tr.example,
               regionTag: tr.regionTag,
               variants: tr.variants,
+              ipa: tr.ipa ?? undefined,
               conjugations: tr.conjugations,
             })
           );

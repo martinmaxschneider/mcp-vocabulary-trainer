@@ -162,6 +162,7 @@ async function gradeAndUpdateProgress(
     targetLang,
     isCorrect: matchResult.isCorrect,
     expected: translation.text,
+    ipa: translation.ipa,
     typo: matchResult.isTypo,
     newBox: boxAfter,
     nextReviewAt,

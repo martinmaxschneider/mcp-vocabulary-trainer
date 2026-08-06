@@ -146,6 +146,7 @@ export default function NounsPage() {
               example: tr.example,
               regionTag: tr.regionTag,
               variants: tr.variants,
+              ipa: tr.ipa ?? undefined,
             })
           );
 

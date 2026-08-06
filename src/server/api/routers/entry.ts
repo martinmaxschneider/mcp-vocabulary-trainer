@@ -198,6 +198,82 @@ export const entryRouter = createTRPCRouter({
       return entry;
     }),
 
+  listTranslationsMissingIpa: publicProcedure
+    .input(
+      z.object({
+        limit: z.number().min(1).max(100).default(50),
+        cursor: z.string().optional(),
+        lang: z.string().optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const translations = await ctx.db.translation.findMany({
+        where: {
+          OR: [{ ipa: null }, { ipa: "" }],
+          ...(input.lang ? { lang: input.lang } : {}),
+        },
+        take: input.limit + 1,
+        cursor: input.cursor ? { id: input.cursor } : undefined,
+        orderBy: { id: "asc" },
+        select: {
+          id: true,
+          lang: true,
+          text: true,
+          entryId: true,
+          entry: {
+            select: {
+              mainText: true,
+              category: true,
+            },
+          },
+        },
+      });
+
+      let nextCursor: string | undefined;
+      if (translations.length > input.limit) {
+        const next = translations.pop();
+        nextCursor = next?.id;
+      }
+
+      return {
+        items: translations.map((t) => ({
+          translationId: t.id,
+          entryId: t.entryId,
+          mainText: t.entry.mainText,
+          category: t.entry.category,
+          lang: t.lang,
+          text: t.text,
+        })),
+        nextCursor,
+      };
+    }),
+
+  updateTranslationsIpa: publicProcedure
+    .input(
+      z.object({
+        updates: z
+          .array(
+            z.object({
+              id: z.string(),
+              ipa: z.string().min(1),
+            })
+          )
+          .min(1)
+          .max(100),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      let updated = 0;
+      for (const { id, ipa } of input.updates) {
+        const result = await ctx.db.translation.updateMany({
+          where: { id },
+          data: { ipa: ipa.trim() },
+        });
+        updated += result.count;
+      }
+      return { updated };
+    }),
+
   createManual: publicProcedure
     .input(createEntryInputSchema)
     .mutation(async ({ ctx, input }) => {
@@ -274,8 +350,10 @@ export const entryRouter = createTRPCRouter({
                 regionTag: translation.regionTag,
                 variants: translation.variants ?? undefined,
                 example: translation.example,
-                ipa: translation.ipa,
-                audioUrl: translation.audioUrl,
+                ...(translation.ipa !== undefined && { ipa: translation.ipa }),
+                ...(translation.audioUrl !== undefined && {
+                  audioUrl: translation.audioUrl,
+                }),
                 ...(translation.isIrregular !== undefined && {
                   isIrregular: translation.isIrregular,
                 }),
@@ -299,8 +377,10 @@ export const entryRouter = createTRPCRouter({
                 text: translation.text,
                 variants: translation.variants ?? undefined,
                 example: translation.example,
-                ipa: translation.ipa,
-                audioUrl: translation.audioUrl,
+                ...(translation.ipa !== undefined && { ipa: translation.ipa }),
+                ...(translation.audioUrl !== undefined && {
+                  audioUrl: translation.audioUrl,
+                }),
                 isIrregular: translation.isIrregular ?? false,
                 conjugations: translation.conjugations ?? undefined,
               },

@@ -57,6 +57,7 @@ export default function EditEntryPage({
         example?: string;
         regionTag?: string;
         variants?: string[];
+        ipa?: string;
       }
     >
   >({
@@ -115,6 +116,7 @@ export default function EditEntryPage({
           example: tr.example ?? "",
           regionTag: tr.regionTag ?? "",
           variants: Array.isArray(tr.variants) ? (tr.variants as string[]) : [],
+          ipa: tr.ipa ?? undefined,
         };
       });
 
@@ -140,6 +142,7 @@ export default function EditEntryPage({
         example: tr.example?.trim() || undefined,
         regionTag: tr.regionTag?.trim() || undefined,
         variants: tr.variants?.filter((v) => v.trim()) || undefined,
+        ipa: tr.ipa?.trim() || undefined,
       }));
 
     updateMutation.mutate({
