@@ -145,3 +145,37 @@ model ReviewLog {
   @@index([userProgressId])
   @@index([createdAt])
 }
+
+/// Aussprache-Cheat-Sheet pro Sprachpaar (Muttersprache → Zielsprache)
+model PronunciationGuide {
+  id         String                    @id @default(cuid())
+  nativeLang String
+  targetLang String
+  items      PronunciationGuideItem[]
+  createdAt  DateTime                  @default(now())
+  updatedAt  DateTime                  @updatedAt
+
+  @@unique([nativeLang, targetLang])
+  @@index([nativeLang])
+  @@index([targetLang])
+}
+
+model PronunciationGuideItem {
+  id          String             @id @default(cuid())
+  guideId     String
+  guide       PronunciationGuide @relation(fields: [guideId], references: [id], onDelete: Cascade)
+  /// IPA/Laut der Zielsprache, z.B. "ɑ̃", "ʃ", "tʃ"
+  symbol      String
+  /// Kurz-Umschrift in der Muttersprache, z.B. "ong", "sch"
+  approx      String?
+  /// Erklärung in der Muttersprache
+  explanation String
+  /// optionales Beispielwort in der Zielsprache
+  exampleWord String?
+  sortOrder   Int                @default(0)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@unique([guideId, symbol])
+  @@index([guideId, sortOrder])
+}

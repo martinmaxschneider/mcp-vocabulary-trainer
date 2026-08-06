@@ -232,7 +232,10 @@
     "backupTip": "Tipp: Erstelle ein Backup deiner Datenbank, bevor du Reset-Aktionen durchführst.",
     "nativeLanguage": "Muttersprache",
     "nativeLanguageDesc": "Quellsprache der Vokabeln (bei Installation festgelegt)",
-    "nativeLanguageHelp": "Einmalig über NEXT_PUBLIC_NATIVE_LANG gesetzt. Nicht nachträglich ändern."
+    "nativeLanguageHelp": "Einmalig über NEXT_PUBLIC_NATIVE_LANG gesetzt. Nicht nachträglich ändern.",
+    "pronunciationTitle": "Aussprache-Hilfen",
+    "pronunciationDesc": "Cheat-Sheets pro Zielsprache, erklärt aus Sicht der Muttersprache",
+    "pronunciationHelp": "Muttersprache: {native}. Pro Zielsprache eine Liste typischer Laute — pflegbar hier oder über MCP."
   },
   "domains": {
     "title": "Themen",
@@ -516,6 +519,35 @@
     "domainsResetDesc": "Alle Themen wurden gelöscht.",
     "everythingReset": "Kompletter Reset durchgeführt!",
     "everythingResetDesc": "Alle Daten wurden gelöscht.",
-    "resetError": "Fehler beim Reset"
+    "resetError": "Fehler beim Reset",
+    "pronunciationItemSaved": "Aussprache-Eintrag gespeichert",
+    "pronunciationItemDeleted": "Aussprache-Eintrag gelöscht",
+    "pronunciationGuideDeleted": "Aussprache-Liste gelöscht",
+    "pronunciationSaveError": "Fehler beim Speichern der Aussprache-Hilfe",
+    "pronunciationDeleteError": "Fehler beim Löschen der Aussprache-Hilfe"
+  },
+  "pronunciation": {
+    "addItem": "Laut hinzufügen",
+    "editItem": "Laut bearbeiten",
+    "itemDialogDesc": "Eintrag für {pair}",
+    "symbolLabel": "IPA / Symbol",
+    "symbolPlaceholder": "z. B. ɑ̃",
+    "approxLabel": "Umschrift",
+    "approxPlaceholder": "z. B. ong",
+    "explanationLabel": "Erklärung",
+    "explanationPlaceholder": "Wie klingt das für Muttersprachler?",
+    "exampleLabel": "Beispielwort",
+    "examplePlaceholder": "z. B. tante",
+    "itemCount": "{count, plural, =0 {Keine Einträge} one {1 Eintrag} other {# Einträge}}",
+    "emptyGuide": "Noch keine Aussprache-Hilfe für {pair}. Lege Einträge hier an oder über MCP (upsert_pronunciation_guide).",
+    "emptyGuideShort": "Noch keine Aussprache-Hilfe für dieses Sprachpaar.",
+    "clearGuide": "Liste löschen",
+    "clearGuideConfirmTitle": "Liste wirklich löschen?",
+    "clearGuideConfirmDesc": "Alle Einträge für {pair} werden entfernt.",
+    "validationRequired": "Symbol und Erklärung sind erforderlich.",
+    "tapForExplanation": "Tippen für Erklärung",
+    "openGuide": "Aussprache-Hilfe",
+    "guideTitle": "Aussprache-Hilfe",
+    "guideSubtitle": "Laute der Zielsprache, erklärt aus Sicht der Muttersprache"
   }
 }

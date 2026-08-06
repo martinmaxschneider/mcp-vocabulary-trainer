@@ -232,7 +232,10 @@
     "backupTip": "Tip: Create a backup of your database before performing reset actions.",
     "nativeLanguage": "Mother tongue",
     "nativeLanguageDesc": "Vocabulary source language (set at install)",
-    "nativeLanguageHelp": "Set once via NEXT_PUBLIC_NATIVE_LANG. Do not change later."
+    "nativeLanguageHelp": "Set once via NEXT_PUBLIC_NATIVE_LANG. Do not change later.",
+    "pronunciationTitle": "Pronunciation guides",
+    "pronunciationDesc": "Cheat sheets per target language, explained from your native language",
+    "pronunciationHelp": "Native language: {native}. One sound list per target language — edit here or via MCP."
   },
   "domains": {
     "title": "Topics",
@@ -516,6 +519,35 @@
     "domainsResetDesc": "All topics have been deleted.",
     "everythingReset": "Full reset completed!",
     "everythingResetDesc": "All data has been deleted.",
-    "resetError": "Error during reset"
+    "resetError": "Error during reset",
+    "pronunciationItemSaved": "Pronunciation entry saved",
+    "pronunciationItemDeleted": "Pronunciation entry deleted",
+    "pronunciationGuideDeleted": "Pronunciation guide deleted",
+    "pronunciationSaveError": "Error saving pronunciation guide",
+    "pronunciationDeleteError": "Error deleting pronunciation guide"
+  },
+  "pronunciation": {
+    "addItem": "Add sound",
+    "editItem": "Edit sound",
+    "itemDialogDesc": "Entry for {pair}",
+    "symbolLabel": "IPA / symbol",
+    "symbolPlaceholder": "e.g. ɑ̃",
+    "approxLabel": "Respelling",
+    "approxPlaceholder": "e.g. ong",
+    "explanationLabel": "Explanation",
+    "explanationPlaceholder": "How does this sound to a native speaker?",
+    "exampleLabel": "Example word",
+    "examplePlaceholder": "e.g. tante",
+    "itemCount": "{count, plural, =0 {No entries} one {1 entry} other {# entries}}",
+    "emptyGuide": "No pronunciation guide for {pair} yet. Add entries here or via MCP (upsert_pronunciation_guide).",
+    "emptyGuideShort": "No pronunciation guide for this language pair yet.",
+    "clearGuide": "Clear list",
+    "clearGuideConfirmTitle": "Clear this list?",
+    "clearGuideConfirmDesc": "All entries for {pair} will be removed.",
+    "validationRequired": "Symbol and explanation are required.",
+    "tapForExplanation": "Tap for explanation",
+    "openGuide": "Pronunciation help",
+    "guideTitle": "Pronunciation help",
+    "guideSubtitle": "Target-language sounds explained from your native language"
   }
 }

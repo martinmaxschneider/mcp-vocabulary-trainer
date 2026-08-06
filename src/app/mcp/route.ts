@@ -7,6 +7,7 @@ import type { TRPCRequestInfo } from "@trpc/server/http";
 import { createCaller } from "~/server/api/root";
 import { createTRPCContext } from "~/server/api/trpc";
 import { createEntryInputSchema } from "~/server/api/routers/entry";
+import { pronunciationGuideItemInputSchema } from "~/server/api/routers/pronunciation";
 import { conjugationsSchema } from "~/lib/schemas/translation";
 import { MAX_BOX, MIN_BOX } from "~/lib/leitner";
 import { SOURCE_LANG } from "~/lib/languages";
@@ -519,6 +520,102 @@ const handler = createMcpHandler(
       async (args) => {
         const api = await getCaller();
         return jsonResult(await api.review.getCardHistory(args));
+      },
+    );
+
+    // ── Pronunciation guides (native → target) ───────────────
+    server.tool(
+      "list_pronunciation_guides",
+      "Listet alle Aussprache-Cheat-Sheets (Sprachpaar Muttersprache→Zielsprache) mit itemCount.",
+      {},
+      async () => {
+        const api = await getCaller();
+        return jsonResult(await api.pronunciation.list());
+      },
+    );
+
+    server.tool(
+      "get_pronunciation_guide",
+      "Lädt das Aussprache-Cheat-Sheet für ein Sprachpaar inkl. Items " +
+        "(symbol/IPA, approx, explanation in Muttersprache). " +
+        "nativeLang default = App-Muttersprache.",
+      {
+        nativeLang: z.string().optional(),
+        targetLang: z.string(),
+      },
+      async ({ nativeLang, targetLang }) => {
+        const api = await getCaller();
+        const guide = await api.pronunciation.getByPair({
+          nativeLang,
+          targetLang,
+        });
+        if (!guide) {
+          return errorResult(
+            `No pronunciation guide for ${nativeLang ?? SOURCE_LANG.code}→${targetLang}`,
+          );
+        }
+        return jsonResult(guide);
+      },
+    );
+
+    server.tool(
+      "upsert_pronunciation_guide",
+      "Speichert/ersetzt die volle Aussprache-Liste für ein Sprachpaar (Initial-Fill). " +
+        "Items: symbol = IPA/Laut der Zielsprache; approx + explanation in der Muttersprache. " +
+        "Replace-Semantik: bestehende Items werden durch die Payload ersetzt.",
+      {
+        nativeLang: z.string().default(SOURCE_LANG.code),
+        targetLang: z.string(),
+        items: z.array(pronunciationGuideItemInputSchema).max(500),
+      },
+      async (args) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.pronunciation.upsertGuide(args));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "upsert_pronunciation_guide_items",
+      "Merged einzelne Aussprache-Einträge (nach symbol) in ein Sprachpaar. " +
+        "Legt den Guide an, falls er noch nicht existiert.",
+      {
+        nativeLang: z.string().default(SOURCE_LANG.code),
+        targetLang: z.string(),
+        items: z
+          .array(pronunciationGuideItemInputSchema)
+          .min(1)
+          .max(100),
+      },
+      async (args) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.pronunciation.upsertItems(args));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "delete_pronunciation_guide",
+      "Löscht das Aussprache-Cheat-Sheet für ein Sprachpaar inkl. aller Items.",
+      {
+        nativeLang: z.string().optional(),
+        targetLang: z.string(),
+      },
+      async ({ nativeLang, targetLang }) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(
+            await api.pronunciation.deleteGuide({ nativeLang, targetLang }),
+          );
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
       },
     );
 

@@ -8,6 +8,9 @@ import { Input } from "~/components/ui/input";
 import { Badge } from "~/components/ui/badge";
 import { CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 import { VocabChat } from "~/components/vocab-chat";
+import { ClickableIpa } from "~/components/clickable-ipa";
+import { api } from "~/trpc/client";
+import { SOURCE_LANG } from "~/lib/languages";
 
 interface ReviewCardProps {
   mainText: string;
@@ -45,9 +48,18 @@ export function ReviewCard({
 }: ReviewCardProps) {
   const t = useTranslations("review");
   const tCommon = useTranslations("common");
+  const tLang = useTranslations("languages");
   const [answer, setAnswer] = useState("");
 
-  // Clear input when moving to next card (mainText changes)
+  const guideQuery = api.pronunciation.getByPair.useQuery(
+    {
+      nativeLang: SOURCE_LANG.code,
+      targetLang,
+    },
+    { enabled: Boolean(result) },
+  );
+  const guideItems = guideQuery.data?.items ?? [];
+
   useEffect(() => {
     setAnswer("");
   }, [mainText]);
@@ -61,20 +73,16 @@ export function ReviewCard({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       if (!result) {
-        // Before submitting: submit answer
         handleSubmit();
       } else if (onNext) {
-        // After result shown: move to next card
         onNext();
       }
     }
   };
 
-  // Add global keyboard listener when result is shown
   useEffect(() => {
     if (result && onNext) {
       const handleGlobalKeyDown = (e: KeyboardEvent) => {
-        // Don't trigger if user is typing in an input field
         const target = e.target as HTMLElement;
         if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") {
           return;
@@ -98,9 +106,12 @@ export function ReviewCard({
           <div className="min-w-0">
             <CardTitle className="text-2xl">{mainText}</CardTitle>
             {result && ipa ? (
-              <p className="mt-1.5 text-lg italic text-foreground/80 tracking-wide">
-                {ipa}
-              </p>
+              <ClickableIpa
+                ipa={ipa}
+                items={guideItems}
+                showFullListButton
+                targetLangName={tLang(targetLang)}
+              />
             ) : null}
           </div>
           <div className="flex shrink-0 gap-2">
@@ -166,7 +177,13 @@ export function ReviewCard({
                 <div className="mt-2 space-y-1">
                   <p className="text-sm">
                     <span className="text-muted-foreground">{t("yourAnswer")}</span>{" "}
-                    <span className={`font-medium ${result.isCorrect ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                    <span
+                      className={`font-medium ${
+                        result.isCorrect
+                          ? "text-green-600 dark:text-green-400"
+                          : "text-red-600 dark:text-red-400"
+                      }`}
+                    >
                       {answer}
                     </span>
                   </p>
@@ -175,11 +192,6 @@ export function ReviewCard({
                     <span className="font-medium text-foreground">
                       {result.expected}
                     </span>
-                    {ipa ? (
-                      <span className="ml-2 text-base italic text-foreground/80">
-                        {ipa}
-                      </span>
-                    ) : null}
                   </p>
                 </div>
                 {result.typo && (
@@ -191,7 +203,6 @@ export function ReviewCard({
               </div>
             </div>
 
-            {/* Action buttons */}
             <div className="flex gap-2">
               {result.isCorrect && onMarkAsWrong && (
                 <Button
@@ -207,7 +218,9 @@ export function ReviewCard({
                 <Button
                   onClick={onNext}
                   size="sm"
-                  className={result.isCorrect && onMarkAsWrong ? "flex-1" : "w-full"}
+                  className={
+                    result.isCorrect && onMarkAsWrong ? "flex-1" : "w-full"
+                  }
                 >
                   {result.isCorrect ? t("nextCard") : t("continue")}
                 </Button>
@@ -218,7 +231,6 @@ export function ReviewCard({
               {t("enterToContinue")}
             </p>
 
-            {/* Vocab Chat */}
             <VocabChat
               sourceWord={mainText}
               translation={result.expected}

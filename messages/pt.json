@@ -232,7 +232,10 @@
     "backupTip": "Dica: Crie uma cópia de segurança da sua base de dados antes de executar ações de reposição.",
     "nativeLanguage": "Língua materna",
     "nativeLanguageDesc": "Língua de origem do vocabulário (definida na instalação)",
-    "nativeLanguageHelp": "Definida uma vez via NEXT_PUBLIC_NATIVE_LANG. Não alterar depois."
+    "nativeLanguageHelp": "Definida uma vez via NEXT_PUBLIC_NATIVE_LANG. Não alterar depois.",
+    "pronunciationTitle": "Ajudas de pronúncia",
+    "pronunciationDesc": "Guias por idioma-alvo, explicados a partir da sua língua materna",
+    "pronunciationHelp": "Língua materna: {native}. Uma lista de sons por idioma-alvo — editável aqui ou via MCP."
   },
   "domains": {
     "title": "Temas",
@@ -516,6 +519,35 @@
     "domainsResetDesc": "Todos os temas foram eliminados.",
     "everythingReset": "Reposição completa concluída!",
     "everythingResetDesc": "Todos os dados foram eliminados.",
-    "resetError": "Erro durante a reposição"
+    "resetError": "Erro durante a reposição",
+    "pronunciationItemSaved": "Entrada de pronúncia guardada",
+    "pronunciationItemDeleted": "Entrada de pronúncia eliminada",
+    "pronunciationGuideDeleted": "Guia de pronúncia eliminado",
+    "pronunciationSaveError": "Erro ao guardar o guia de pronúncia",
+    "pronunciationDeleteError": "Erro ao eliminar o guia de pronúncia"
+  },
+  "pronunciation": {
+    "addItem": "Adicionar som",
+    "editItem": "Editar som",
+    "itemDialogDesc": "Entrada para {pair}",
+    "symbolLabel": "AFI / símbolo",
+    "symbolPlaceholder": "ex. ɑ̃",
+    "approxLabel": "Transcrição",
+    "approxPlaceholder": "ex. ong",
+    "explanationLabel": "Explicação",
+    "explanationPlaceholder": "Como isso soa para um falante nativo?",
+    "exampleLabel": "Palavra de exemplo",
+    "examplePlaceholder": "ex. tante",
+    "itemCount": "{count, plural, =0 {Nenhuma entrada} one {1 entrada} other {# entradas}}",
+    "emptyGuide": "Ainda não há guia de pronúncia para {pair}. Adicione entradas aqui ou via MCP.",
+    "emptyGuideShort": "Ainda não há guia de pronúncia para este par de idiomas.",
+    "clearGuide": "Limpar lista",
+    "clearGuideConfirmTitle": "Limpar esta lista?",
+    "clearGuideConfirmDesc": "Todas as entradas de {pair} serão removidas.",
+    "validationRequired": "Símbolo e explicação são obrigatórios.",
+    "tapForExplanation": "Toque para ver a explicação",
+    "openGuide": "Ajuda de pronúncia",
+    "guideTitle": "Ajuda de pronúncia",
+    "guideSubtitle": "Sons da língua-alvo explicados a partir da sua língua materna"
   }
 }

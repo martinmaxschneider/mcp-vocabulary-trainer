@@ -51,6 +51,7 @@ import {
 } from "~/i18n/config";
 import { resolveErrorCode } from "~/lib/trpc-error";
 import { ThemeToggle } from "~/components/theme-toggle";
+import { PronunciationGuideSettings } from "~/components/pronunciation-guide-settings";
 
 export default function SettingsPage() {
   const t = useTranslations("settings");
@@ -342,6 +343,8 @@ export default function SettingsPage() {
             </p>
           </CardContent>
         </Card>
+
+        <PronunciationGuideSettings />
 
         <Card>
           <CardHeader>

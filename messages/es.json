@@ -232,7 +232,10 @@
     "backupTip": "Consejo: Crea una copia de seguridad de tu base de datos antes de realizar acciones de restablecimiento.",
     "nativeLanguage": "Lengua materna",
     "nativeLanguageDesc": "Idioma fuente del vocabulario (definido en la instalación)",
-    "nativeLanguageHelp": "Se define una sola vez con NEXT_PUBLIC_NATIVE_LANG. No cambiar después."
+    "nativeLanguageHelp": "Se define una sola vez con NEXT_PUBLIC_NATIVE_LANG. No cambiar después.",
+    "pronunciationTitle": "Ayudas de pronunciación",
+    "pronunciationDesc": "Guías por idioma meta, explicadas desde tu lengua materna",
+    "pronunciationHelp": "Lengua materna: {native}. Una lista de sonidos por idioma meta — editable aquí o vía MCP."
   },
   "domains": {
     "title": "Temas",
@@ -516,6 +519,35 @@
     "domainsResetDesc": "Todos los temas han sido eliminados.",
     "everythingReset": "¡Restablecimiento completo realizado!",
     "everythingResetDesc": "Todos los datos han sido eliminados.",
-    "resetError": "Error durante el restablecimiento"
+    "resetError": "Error durante el restablecimiento",
+    "pronunciationItemSaved": "Entrada de pronunciación guardada",
+    "pronunciationItemDeleted": "Entrada de pronunciación eliminada",
+    "pronunciationGuideDeleted": "Guía de pronunciación eliminada",
+    "pronunciationSaveError": "Error al guardar la guía de pronunciación",
+    "pronunciationDeleteError": "Error al eliminar la guía de pronunciación"
+  },
+  "pronunciation": {
+    "addItem": "Añadir sonido",
+    "editItem": "Editar sonido",
+    "itemDialogDesc": "Entrada para {pair}",
+    "symbolLabel": "AFI / símbolo",
+    "symbolPlaceholder": "p. ej. ɑ̃",
+    "approxLabel": "Transcripción",
+    "approxPlaceholder": "p. ej. ong",
+    "explanationLabel": "Explicación",
+    "explanationPlaceholder": "¿Cómo suena para un hablante nativo?",
+    "exampleLabel": "Palabra de ejemplo",
+    "examplePlaceholder": "p. ej. tante",
+    "itemCount": "{count, plural, =0 {Sin entradas} one {1 entrada} other {# entradas}}",
+    "emptyGuide": "Aún no hay guía de pronunciación para {pair}. Añade entradas aquí o vía MCP.",
+    "emptyGuideShort": "Aún no hay guía de pronunciación para este par de idiomas.",
+    "clearGuide": "Borrar lista",
+    "clearGuideConfirmTitle": "¿Borrar esta lista?",
+    "clearGuideConfirmDesc": "Se eliminarán todas las entradas de {pair}.",
+    "validationRequired": "El símbolo y la explicación son obligatorios.",
+    "tapForExplanation": "Toca para ver la explicación",
+    "openGuide": "Ayuda de pronunciación",
+    "guideTitle": "Ayuda de pronunciación",
+    "guideSubtitle": "Sonidos de la lengua meta explicados desde tu lengua materna"
   }
 }

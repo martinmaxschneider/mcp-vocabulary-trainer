@@ -232,7 +232,10 @@
     "backupTip": "Conseil : Créez une sauvegarde de votre base de données avant d'effectuer des réinitialisations.",
     "nativeLanguage": "Langue maternelle",
     "nativeLanguageDesc": "Langue source du vocabulaire (définie à l'installation)",
-    "nativeLanguageHelp": "Définie une seule fois via NEXT_PUBLIC_NATIVE_LANG. Ne pas modifier ensuite."
+    "nativeLanguageHelp": "Définie une seule fois via NEXT_PUBLIC_NATIVE_LANG. Ne pas modifier ensuite.",
+    "pronunciationTitle": "Aides à la prononciation",
+    "pronunciationDesc": "Aide-mémoires par langue cible, expliqués depuis votre langue maternelle",
+    "pronunciationHelp": "Langue maternelle : {native}. Une liste de sons par langue cible — modifiable ici ou via MCP."
   },
   "domains": {
     "title": "Thèmes",
@@ -516,6 +519,35 @@
     "domainsResetDesc": "Tous les thèmes ont été supprimés.",
     "everythingReset": "Réinitialisation complète effectuée !",
     "everythingResetDesc": "Toutes les données ont été supprimées.",
-    "resetError": "Erreur lors de la réinitialisation"
+    "resetError": "Erreur lors de la réinitialisation",
+    "pronunciationItemSaved": "Entrée de prononciation enregistrée",
+    "pronunciationItemDeleted": "Entrée de prononciation supprimée",
+    "pronunciationGuideDeleted": "Guide de prononciation supprimé",
+    "pronunciationSaveError": "Erreur lors de l'enregistrement du guide",
+    "pronunciationDeleteError": "Erreur lors de la suppression du guide"
+  },
+  "pronunciation": {
+    "addItem": "Ajouter un son",
+    "editItem": "Modifier le son",
+    "itemDialogDesc": "Entrée pour {pair}",
+    "symbolLabel": "API / symbole",
+    "symbolPlaceholder": "p. ex. ɑ̃",
+    "approxLabel": "Transcription",
+    "approxPlaceholder": "p. ex. ong",
+    "explanationLabel": "Explication",
+    "explanationPlaceholder": "Comment cela sonne-t-il pour un locuteur natif ?",
+    "exampleLabel": "Mot d'exemple",
+    "examplePlaceholder": "p. ex. tante",
+    "itemCount": "{count, plural, =0 {Aucune entrée} one {1 entrée} other {# entrées}}",
+    "emptyGuide": "Pas encore d'aide à la prononciation pour {pair}. Ajoutez des entrées ici ou via MCP.",
+    "emptyGuideShort": "Pas encore d'aide à la prononciation pour cette paire de langues.",
+    "clearGuide": "Effacer la liste",
+    "clearGuideConfirmTitle": "Effacer cette liste ?",
+    "clearGuideConfirmDesc": "Toutes les entrées pour {pair} seront supprimées.",
+    "validationRequired": "Le symbole et l'explication sont obligatoires.",
+    "tapForExplanation": "Appuyer pour l'explication",
+    "openGuide": "Aide à la prononciation",
+    "guideTitle": "Aide à la prononciation",
+    "guideSubtitle": "Sons de la langue cible expliqués depuis votre langue maternelle"
   }
 }

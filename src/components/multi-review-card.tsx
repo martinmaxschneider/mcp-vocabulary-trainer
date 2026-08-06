@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Badge } from "~/components/ui/badge";
 import { CheckCircle2, XCircle, AlertCircle } from "lucide-react";
-import { getTargetLang } from "~/lib/languages";
+import { getTargetLang, SOURCE_LANG } from "~/lib/languages";
+import { ClickableIpa } from "~/components/clickable-ipa";
+import { api } from "~/trpc/client";
 
 export type MultiLangResult = {
   targetLang: string;
@@ -47,6 +49,34 @@ export function MultiReviewCard({
   const tLang = useTranslations("languages");
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
+
+  const targetLangs = useMemo(
+    () => languages.map((l) => l.targetLang),
+    [languages],
+  );
+  const guidesQuery = api.pronunciation.getByPairs.useQuery(
+    {
+      nativeLang: SOURCE_LANG.code,
+      targetLangs,
+    },
+    { enabled: Boolean(results) && targetLangs.length > 0 },
+  );
+  const itemsByLang = useMemo(() => {
+    const map: Record<
+      string,
+      Array<{
+        id: string;
+        symbol: string;
+        approx: string | null;
+        explanation: string;
+        exampleWord: string | null;
+      }>
+    > = {};
+    for (const entry of guidesQuery.data?.guides ?? []) {
+      map[entry.targetLang] = entry.guide?.items ?? [];
+    }
+    return map;
+  }, [guidesQuery.data]);
 
   useEffect(() => {
     setAnswers({});
@@ -240,7 +270,7 @@ export function MultiReviewCard({
                             {userAnswer || "—"}
                           </span>
                         </p>
-                        <p className="text-sm">
+                        <div className="text-sm">
                           <span className="text-muted-foreground">
                             {t("expected")}
                           </span>{" "}
@@ -248,11 +278,17 @@ export function MultiReviewCard({
                             {result.expected}
                           </span>
                           {result.ipa ? (
-                            <span className="ml-2 text-base italic text-foreground/80">
-                              {result.ipa}
-                            </span>
+                            <div className="mt-1">
+                              <ClickableIpa
+                                ipa={result.ipa}
+                                items={itemsByLang[result.targetLang] ?? []}
+                                showFullListButton
+                                targetLangName={tLang(result.targetLang)}
+                                className="mt-0 text-base italic tracking-wide text-foreground/80"
+                              />
+                            </div>
                           ) : null}
-                        </p>
+                        </div>
                       </div>
                       {result.typo && (
                         <div className="flex items-center gap-1 mt-2 text-sm text-yellow-600 dark:text-yellow-400">
