@@ -54,8 +54,17 @@ export function ClickableIpa({
   const selected = selectedId ? byId[selectedId] : null;
 
   return (
-    <div className="space-y-2">
-      <p className={className ?? "mt-1.5 text-lg italic tracking-wide text-foreground/80"}>
+    <div
+      className={
+        showFullListButton ? "space-y-2" : "inline-flex items-baseline"
+      }
+    >
+      <p
+        className={
+          className ??
+          "mt-1.5 text-lg italic tracking-wide text-foreground/80"
+        }
+      >
         {segments.map((seg, index) =>
           seg.itemId ? (
             <button

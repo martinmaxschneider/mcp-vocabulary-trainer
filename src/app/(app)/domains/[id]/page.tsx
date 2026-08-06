@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -30,6 +30,8 @@ import {
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import { resolveErrorCode } from "~/lib/trpc-error";
+import { ClickableIpa } from "~/components/clickable-ipa";
+import { SOURCE_LANG, TARGET_LANG_CODES } from "~/lib/languages";
 
 export default function DomainDetailPage({
   params,
@@ -43,6 +45,7 @@ export default function DomainDetailPage({
   const tCategories = useTranslations("categories");
   const tNav = useTranslations("nav");
   const tCommon = useTranslations("common");
+  const tLang = useTranslations("languages");
   const tToasts = useTranslations("toasts");
   const tErrors = useTranslations("errors.codes");
 
@@ -76,6 +79,28 @@ export default function DomainDetailPage({
     domainId: id,
     type: typeFilter === "ALL" ? undefined : typeFilter,
   });
+
+  const guidesQuery = api.pronunciation.getByPairs.useQuery({
+    nativeLang: SOURCE_LANG.code,
+    targetLangs: [...TARGET_LANG_CODES],
+  });
+
+  const guideItemsByLang = useMemo(() => {
+    const map: Record<
+      string,
+      Array<{
+        id: string;
+        symbol: string;
+        approx: string | null;
+        explanation: string;
+        exampleWord: string | null;
+      }>
+    > = {};
+    for (const entry of guidesQuery.data?.guides ?? []) {
+      map[entry.targetLang] = entry.guide?.items ?? [];
+    }
+    return map;
+  }, [guidesQuery.data]);
 
   const deleteMutation = api.entry.delete.useMutation({
     onSuccess: () => {
@@ -230,11 +255,22 @@ export default function DomainDetailPage({
                       key={translation.id}
                       className="text-sm p-2 rounded-lg bg-muted"
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <Badge variant="secondary" className="text-xs">
                           {translation.lang.toUpperCase()}
                         </Badge>
                         <span className="font-medium">{translation.text}</span>
+                        {translation.ipa ? (
+                          <div className="ml-auto shrink-0 text-right">
+                            <ClickableIpa
+                              ipa={translation.ipa}
+                              items={guideItemsByLang[translation.lang] ?? []}
+                              className="m-0 text-sm italic tracking-wide text-foreground/80"
+                              showFullListButton={false}
+                              targetLangName={tLang(translation.lang)}
+                            />
+                          </div>
+                        ) : null}
                       </div>
                       {translation.example && (
                         <p className="text-xs text-muted-foreground mt-1">
