@@ -10,9 +10,10 @@ if [ -z "$DB_FILE" ] || [ "$DB_FILE" = "$DATABASE_URL" ]; then
 fi
 
 mkdir -p "$(dirname "$DB_FILE")"
+mkdir -p /app/data/backups
 
-echo "Syncing database schema..."
-node_modules/.bin/prisma db push
+echo "Applying database migrations (with backup if DB exists)..."
+node scripts/db-migrate.mjs
 
 echo "Database ready at $DB_FILE"
 echo "Starting Next.js server on port 4810..."

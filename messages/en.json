@@ -10,6 +10,7 @@
     "review": "Review",
     "vocabulary": "Vocabulary",
     "conjugations": "Conjugations",
+    "grammar": "Grammar",
     "verbs": "Verbs",
     "nouns": "Nouns",
     "adjectives": "Adjectives",
@@ -524,7 +525,37 @@
     "pronunciationItemDeleted": "Pronunciation entry deleted",
     "pronunciationGuideDeleted": "Pronunciation guide deleted",
     "pronunciationSaveError": "Error saving pronunciation guide",
-    "pronunciationDeleteError": "Error deleting pronunciation guide"
+    "pronunciationDeleteError": "Error deleting pronunciation guide",
+    "grammarDeleted": "Grammar chapter deleted",
+    "grammarDeleteError": "Error deleting grammar chapter"
+  },
+  "grammar": {
+    "title": "Grammar",
+    "subtitle": "Quick reference — chapters are created and refined in chat via MCP",
+    "searchPlaceholder": "Search (e.g. possessive, articles…)",
+    "loading": "Loading grammar…",
+    "empty": "No grammar chapters for this language yet.",
+    "emptyHint": "Learn with the AI in chat and save via create_grammar_topic.",
+    "blockCount": "{count, plural, =0 {No blocks} one {1 block} other {# blocks}}",
+    "blockType": {
+      "RULE": "Rule",
+      "EXAMPLES": "Examples",
+      "NOTE": "Note"
+    },
+    "exampleNative": "Native",
+    "exampleTarget": "Target",
+    "exampleNote": "Note",
+    "deleteConfirmTitle": "Delete this chapter?",
+    "deleteConfirmDesc": "“{title}” and all blocks will be removed.",
+    "editHint": "Best to create and refine content in chat via MCP.",
+    "categories": {
+      "basics": "Basics",
+      "verbs": "Verbs",
+      "pronouns": "Pronouns",
+      "word_order": "Word order",
+      "adjectives": "Adjectives",
+      "prepositions": "Prepositions"
+    }
   },
   "pronunciation": {
     "addItem": "Add sound",

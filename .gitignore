@@ -39,6 +39,7 @@ next-env.d.ts
 # prisma / local data
 data/*.db
 data/*.db-*
+data/backups/
 data/postgres/
 data/*.gz
 data/*Backup*

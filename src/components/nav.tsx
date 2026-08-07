@@ -18,6 +18,7 @@ import {
   Plus,
   ChevronDown,
   Library,
+  Languages,
 } from "lucide-react";
 import { ThemeToggle } from "~/components/theme-toggle";
 
@@ -39,6 +40,7 @@ export function Nav() {
       label: t("conjugations"),
       icon: BookOpen,
     },
+    { href: "/grammar", label: t("grammar"), icon: Languages },
   ];
 
   const isVocabularyActive = pathname.startsWith("/vocabulary");

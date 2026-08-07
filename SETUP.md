@@ -47,13 +47,13 @@ TUNNEL_PROFILE=sprachen
 NODE_ENV=development
 ```
 
-### 3. Create the Database
+### 3. Create / Upgrade the Database
 
 ```bash
-npm run db:push
+npm run db:migrate
 ```
 
-This creates an empty SQLite file at `data/sprachen.db` from `prisma/schema.prisma`.
+Applies Prisma migrations under `prisma/migrations/`. If `data/sprachen.db` already exists, it is copied to `data/backups/` first. Fresh installs get a new DB; existing installs (previously created with `db push`) keep their data — the baseline migration is marked applied automatically, then only additive migrations run.
 
 ### 4. Start Development Server
 
@@ -69,9 +69,20 @@ Starts the Next.js app (incl. MCP at `/mcp`) **and** the OpenAI MCP tunnel in pa
 
 Without `CONTROL_PLANE_API_KEY` / `tunnel-client`, the webapp still starts; ChatGPT connectivity is skipped with a warning.
 
-## ChatGPT MCP (Vocabulary Trainer)
+## ChatGPT MCP (Vocabulary + Grammar)
 
-The app exposes a Streamable HTTP MCP server at **`/mcp`**. ChatGPT connects via the OpenAI Secure MCP Tunnel (same pattern as Application Manager).
+The app exposes a Streamable HTTP MCP server at **`/mcp`**. ChatGPT connects via the OpenAI Secure MCP Tunnel (same pattern as Application Manager). The same endpoint works for other MCP clients (e.g. Claude Desktop) pointing at `http://127.0.0.1:4810/mcp`.
+
+### Grammar learning loop
+
+| Intent | Tools |
+|--------|--------|
+| Save a new chapter after learning | `list_grammar_topics` / `search_grammar_topics` → ask → `create_grammar_topic` |
+| Resume a topic from the DB | `search_grammar_topics` → `get_grammar_topic` → discuss |
+| Add a personal note/examples | ask → `upsert_grammar_blocks` |
+| Larger rewrite | ask → `update_grammar_topic` |
+
+Browse chapters in the app at `/grammar`. No content seed — empty tables until you save via chat.
 
 ### Prerequisites
 
@@ -147,7 +158,8 @@ MCP tools are persistence-only (domains, entries, conjugations/`ConjugationForm`
 
 ## Troubleshooting
 
-- **DB file missing**: run `npm run db:push`.
+- **DB file missing / schema outdated**: run `npm run db:migrate` (backs up existing DB to `data/backups/` first).
+- **Restore from backup**: copy a file from `data/backups/` back to `data/sprachen.db`.
 - **AI features fail**: check `OPENAI_API_KEY` in `.env`.
 - **MCP tunnel missing key**: set `CONTROL_PLANE_API_KEY` in `.env`.
 - **tunnel-client not found**: install the binary and ensure it is on `PATH`.

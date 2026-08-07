@@ -179,3 +179,48 @@ model PronunciationGuideItem {
   @@unique([guideId, symbol])
   @@index([guideId, sortOrder])
 }
+
+enum GrammarBlockType {
+  RULE
+  EXAMPLES
+  NOTE
+}
+
+/// Grammatik-Kapitel pro Zielsprache (Nachschlagewerk; Inhalt via MCP/Chat)
+model GrammarTopic {
+  id         String         @id @default(cuid())
+  targetLang String
+  /// z.B. basics, verbs, pronouns, word_order
+  category   String
+  slug       String
+  title      String
+  /// Einzeilige Kurzfassung für die Themenliste
+  summary    String
+  /// Suchbegriffe als JSON-Array, z.B. ["possessiv","mi","tu"]
+  keywords   Json?
+  sortOrder  Int            @default(0)
+  blocks     GrammarBlock[]
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  @@unique([targetLang, slug])
+  @@index([targetLang, category, sortOrder])
+  @@index([targetLang, sortOrder])
+}
+
+model GrammarBlock {
+  id        String           @id @default(cuid())
+  topicId   String
+  topic     GrammarTopic     @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  type      GrammarBlockType
+  title     String?
+  /// Text für RULE / NOTE (Muttersprache)
+  body      String?
+  /// JSON-Array für EXAMPLES: [{ native, target, note? }]
+  examples  Json?
+  sortOrder Int              @default(0)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([topicId, sortOrder])
+}

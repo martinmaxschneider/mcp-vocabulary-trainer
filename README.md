@@ -24,8 +24,9 @@ This project is meant to run **on your own machine** (or local Docker). It is no
 - Domains/topics for organizing entries
 - Fuzzy answer matching (typo-tolerant)
 - Conjugation practice
+- Grammar reference (cheat sheets; create/refine via MCP chat)
 - Optional OpenAI-powered translation suggestions
-- ChatGPT MCP at `/mcp` (persistence + review; AI stays in ChatGPT)
+- ChatGPT MCP at `/mcp` (persistence + review + grammar; AI stays in ChatGPT)
 
 ## Quick start
 
@@ -58,10 +59,10 @@ NEXT_PUBLIC_NATIVE_LANG=de
 
 `NEXT_PUBLIC_TARGET_LANGS` limits which languages you train (comma-separated). Example: `en,es,fr` for three languages only. Leave empty for all targets except your native language. Restart the app after changing it.
 
-Create an empty SQLite database from the schema:
+Create or upgrade the SQLite database (applies Prisma migrations; backs up an existing DB to `data/backups/` first):
 
 ```bash
-npm run db:push
+npm run db:migrate
 ```
 
 Start the app:
@@ -102,7 +103,7 @@ App: [http://localhost:4810](http://localhost:4810).
 
 ## ChatGPT MCP
 
-Persistence MCP at `/mcp` (domains, entries, conjugations, review/Leitner, stats). Details for `tunnel-client` and ChatGPT Developer Mode: [SETUP.md](SETUP.md).
+Persistence MCP at `/mcp` (domains, entries, conjugations, review/Leitner, grammar, stats). Details for `tunnel-client` and ChatGPT Developer Mode: [SETUP.md](SETUP.md).
 
 ```bash
 npm run dev          # app + tunnel (development)
@@ -110,6 +111,14 @@ npm run start        # app + tunnel (after npm run build)
 npm run start:web    # production web only
 npm run mcp:tunnel   # tunnel only
 ```
+
+### Grammar via chat
+
+Grammar chapters live in the DB and are shown under **Grammatik** in the app. Content is created and refined in chat (ChatGPT/Claude with MCP):
+
+1. **New** — learn a topic → AI asks whether to save → `create_grammar_topic` (RULE + EXAMPLES + NOTE)
+2. **Resume** — “I want to learn possessives” → `search_grammar_topics` / `get_grammar_topic` → discuss from your saved chapter
+3. **Personalize** — add your own mnemonic → `upsert_grammar_blocks` (after confirmation)
 
 ### Voice Chat workaround
 
@@ -147,7 +156,10 @@ Next.js 15 · TypeScript · tRPC · SQLite + Prisma · Tailwind / shadcn/ui · O
 npm run lint
 npm run test
 npm run build
-npm run db:push
+npm run db:migrate      # backup + apply migrations (default on every machine)
+npm run db:migrate:dev  # create new migrations locally
+npm run db:backup       # copy DB to data/backups/
+npm run db:push         # optional schema sync shortcut
 npm run db:studio
 ```
 

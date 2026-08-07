@@ -10,6 +10,7 @@
     "review": "Rever",
     "vocabulary": "Vocabulário",
     "conjugations": "Conjugações",
+    "grammar": "Gramática",
     "verbs": "Verbos",
     "nouns": "Substantivos",
     "adjectives": "Adjetivos",
@@ -524,7 +525,37 @@
     "pronunciationItemDeleted": "Entrada de pronúncia eliminada",
     "pronunciationGuideDeleted": "Guia de pronúncia eliminado",
     "pronunciationSaveError": "Erro ao guardar o guia de pronúncia",
-    "pronunciationDeleteError": "Erro ao eliminar o guia de pronúncia"
+    "pronunciationDeleteError": "Erro ao eliminar o guia de pronúncia",
+    "grammarDeleted": "Capítulo de gramática eliminado",
+    "grammarDeleteError": "Erro ao eliminar o capítulo de gramática"
+  },
+  "grammar": {
+    "title": "Gramática",
+    "subtitle": "Consulta rápida — os capítulos nascem e evoluem no chat via MCP",
+    "searchPlaceholder": "Pesquisar (p. ex. possessivos, artigos…)",
+    "loading": "A carregar gramática…",
+    "empty": "Ainda não há capítulos de gramática para esta língua.",
+    "emptyHint": "Aprenda com a IA no chat e guarde com create_grammar_topic.",
+    "blockCount": "{count, plural, =0 {Sem blocos} one {1 bloco} other {# blocos}}",
+    "blockType": {
+      "RULE": "Regra",
+      "EXAMPLES": "Exemplos",
+      "NOTE": "Nota"
+    },
+    "exampleNative": "Língua materna",
+    "exampleTarget": "Língua alvo",
+    "exampleNote": "Nota",
+    "deleteConfirmTitle": "Eliminar este capítulo?",
+    "deleteConfirmDesc": "“{title}” e todos os blocos serão removidos.",
+    "editHint": "Crie e ajuste o conteúdo de preferência no chat via MCP.",
+    "categories": {
+      "basics": "Fundamentos",
+      "verbs": "Verbos",
+      "pronouns": "Pronomes",
+      "word_order": "Ordem das palavras",
+      "adjectives": "Adjetivos",
+      "prepositions": "Preposições"
+    }
   },
   "pronunciation": {
     "addItem": "Adicionar som",

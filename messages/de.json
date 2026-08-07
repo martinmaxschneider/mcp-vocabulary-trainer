@@ -10,6 +10,7 @@
     "review": "Wiederholen",
     "vocabulary": "Wortschatz",
     "conjugations": "Konjugationen",
+    "grammar": "Grammatik",
     "verbs": "Verben",
     "nouns": "Nomen",
     "adjectives": "Adjektive",
@@ -524,7 +525,37 @@
     "pronunciationItemDeleted": "Aussprache-Eintrag gelöscht",
     "pronunciationGuideDeleted": "Aussprache-Liste gelöscht",
     "pronunciationSaveError": "Fehler beim Speichern der Aussprache-Hilfe",
-    "pronunciationDeleteError": "Fehler beim Löschen der Aussprache-Hilfe"
+    "pronunciationDeleteError": "Fehler beim Löschen der Aussprache-Hilfe",
+    "grammarDeleted": "Grammatik-Kapitel gelöscht",
+    "grammarDeleteError": "Fehler beim Löschen des Grammatik-Kapitels"
+  },
+  "grammar": {
+    "title": "Grammatik",
+    "subtitle": "Kurz nachschlagen — Kapitel entstehen und wachsen im Chat über MCP",
+    "searchPlaceholder": "Suchen (z. B. Possessiv, Artikel…)",
+    "loading": "Lade Grammatik…",
+    "empty": "Noch keine Grammatik-Kapitel für diese Sprache.",
+    "emptyHint": "Im Chat mit der KI lernen und speichern lassen (create_grammar_topic).",
+    "blockCount": "{count, plural, =0 {Keine Blöcke} one {1 Block} other {# Blöcke}}",
+    "blockType": {
+      "RULE": "Regel",
+      "EXAMPLES": "Beispiele",
+      "NOTE": "Merksatz"
+    },
+    "exampleNative": "Muttersprache",
+    "exampleTarget": "Zielsprache",
+    "exampleNote": "Hinweis",
+    "deleteConfirmTitle": "Kapitel wirklich löschen?",
+    "deleteConfirmDesc": "„{title}“ und alle Blöcke werden entfernt.",
+    "editHint": "Inhalt anlegen und anpassen am besten im Chat über MCP.",
+    "categories": {
+      "basics": "Grundlagen",
+      "verbs": "Verben",
+      "pronouns": "Pronomen",
+      "word_order": "Satzbau",
+      "adjectives": "Adjektive",
+      "prepositions": "Präpositionen"
+    }
   },
   "pronunciation": {
     "addItem": "Laut hinzufügen",

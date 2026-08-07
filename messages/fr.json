@@ -10,6 +10,7 @@
     "review": "Réviser",
     "vocabulary": "Vocabulaire",
     "conjugations": "Conjugaisons",
+    "grammar": "Grammaire",
     "verbs": "Verbes",
     "nouns": "Noms",
     "adjectives": "Adjectifs",
@@ -524,7 +525,37 @@
     "pronunciationItemDeleted": "Entrée de prononciation supprimée",
     "pronunciationGuideDeleted": "Guide de prononciation supprimé",
     "pronunciationSaveError": "Erreur lors de l'enregistrement du guide",
-    "pronunciationDeleteError": "Erreur lors de la suppression du guide"
+    "pronunciationDeleteError": "Erreur lors de la suppression du guide",
+    "grammarDeleted": "Chapitre de grammaire supprimé",
+    "grammarDeleteError": "Erreur lors de la suppression du chapitre"
+  },
+  "grammar": {
+    "title": "Grammaire",
+    "subtitle": "Référence rapide — les chapitres se créent et s'affinent dans le chat via MCP",
+    "searchPlaceholder": "Rechercher (p. ex. possessifs, articles…)",
+    "loading": "Chargement de la grammaire…",
+    "empty": "Pas encore de chapitres de grammaire pour cette langue.",
+    "emptyHint": "Apprenez avec l'IA dans le chat et enregistrez via create_grammar_topic.",
+    "blockCount": "{count, plural, =0 {Aucun bloc} one {1 bloc} other {# blocs}}",
+    "blockType": {
+      "RULE": "Règle",
+      "EXAMPLES": "Exemples",
+      "NOTE": "Note"
+    },
+    "exampleNative": "Langue maternelle",
+    "exampleTarget": "Langue cible",
+    "exampleNote": "Note",
+    "deleteConfirmTitle": "Supprimer ce chapitre ?",
+    "deleteConfirmDesc": "« {title} » et tous les blocs seront supprimés.",
+    "editHint": "Créez et affinez le contenu de préférence dans le chat via MCP.",
+    "categories": {
+      "basics": "Bases",
+      "verbs": "Verbes",
+      "pronouns": "Pronoms",
+      "word_order": "Ordre des mots",
+      "adjectives": "Adjectifs",
+      "prepositions": "Prépositions"
+    }
   },
   "pronunciation": {
     "addItem": "Ajouter un son",

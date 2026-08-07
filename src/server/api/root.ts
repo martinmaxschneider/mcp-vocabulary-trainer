@@ -7,6 +7,7 @@ import { statsRouter } from "~/server/api/routers/stats";
 import { settingsRouter } from "~/server/api/routers/settings";
 import { conjugationRouter } from "~/server/api/routers/conjugation";
 import { pronunciationRouter } from "~/server/api/routers/pronunciation";
+import { grammarRouter } from "~/server/api/routers/grammar";
 
 /**
  * This is the primary router for your server.
@@ -22,6 +23,7 @@ export const appRouter = createTRPCRouter({
   settings: settingsRouter,
   conjugation: conjugationRouter,
   pronunciation: pronunciationRouter,
+  grammar: grammarRouter,
 });
 
 // export type definition of API

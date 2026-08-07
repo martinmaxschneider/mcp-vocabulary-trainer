@@ -1,5 +1,5 @@
 // MCP-Endpoint (Streamable HTTP) unter /mcp — für ChatGPT via OpenAI Secure MCP Tunnel.
-// Persistenz only: CRUD, Konjugationen (ConjugationForm), Review, Leitner, Stats. Keine KI.
+// Persistenz only: CRUD, Konjugationen, Review, Leitner, Grammatik, Stats. Keine KI.
 import { createMcpHandler } from "mcp-handler";
 import { z } from "zod";
 import { EntryType, WordCategory } from "@prisma/client";
@@ -8,6 +8,7 @@ import { createCaller } from "~/server/api/root";
 import { createTRPCContext } from "~/server/api/trpc";
 import { createEntryInputSchema } from "~/server/api/routers/entry";
 import { pronunciationGuideItemInputSchema } from "~/server/api/routers/pronunciation";
+import { grammarBlockInputSchema } from "~/server/api/routers/grammar";
 import { conjugationsSchema } from "~/lib/schemas/translation";
 import { MAX_BOX, MIN_BOX } from "~/lib/leitner";
 import { SOURCE_LANG } from "~/lib/languages";
@@ -613,6 +614,150 @@ const handler = createMcpHandler(
           return jsonResult(
             await api.pronunciation.deleteGuide({ nativeLang, targetLang }),
           );
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    // ── Grammar reference (cheat sheets; content via chat) ───
+    server.tool(
+      "list_grammar_topics",
+      "Listet Grammatik-Kapitel einer Zielsprache (id, title, summary, category, slug, keywords). " +
+        "Vor create immer prüfen, ob das Thema schon existiert. " +
+        "Bei „ich möchte X lernen/wiederholen“ zuerst listen/suchen, dann get_grammar_topic laden.",
+      {
+        targetLang: z.string(),
+      },
+      async ({ targetLang }) => {
+        const api = await getCaller();
+        return jsonResult(await api.grammar.listByLang({ targetLang }));
+      },
+    );
+
+    server.tool(
+      "search_grammar_topics",
+      "Sucht Grammatik-Kapitel einer Zielsprache nach Titel/Summary/Slug/Keywords " +
+        "(z.B. „Possessiv“, „ser“, „Artikel“). " +
+        "Bei Lernwunsch zuerst search/list, dann get — Inhalt aus der DB als Gesprächsgrundlage nutzen, nicht neu erfinden.",
+      {
+        targetLang: z.string(),
+        query: z.string().min(1),
+      },
+      async (args) => {
+        const api = await getCaller();
+        return jsonResult(await api.grammar.search(args));
+      },
+    );
+
+    server.tool(
+      "get_grammar_topic",
+      "Lädt ein Grammatik-Kapitel inkl. Blöcke (RULE / EXAMPLES / NOTE). " +
+        "Erklärungen in der Muttersprache, Beispiele mit native↔target. " +
+        "Nutze dies als Kontext zum Diskutieren und Üben; speichere individuelle Klarstellungen nur nach Rückfrage via upsert_grammar_blocks.",
+      {
+        id: z.string().optional(),
+        targetLang: z.string().optional(),
+        slug: z.string().optional(),
+      },
+      async ({ id, targetLang, slug }) => {
+        const api = await getCaller();
+        try {
+          if (id) {
+            return jsonResult(await api.grammar.getById({ id }));
+          }
+          if (targetLang && slug) {
+            return jsonResult(await api.grammar.getBySlug({ targetLang, slug }));
+          }
+          return errorResult("Provide id, or targetLang + slug");
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "create_grammar_topic",
+      "Legt ein neues Grammatik-Kapitel an. WICHTIG: Vorher immer nachfragen " +
+        "(„Soll ich das als Grammatik-Kapitel speichern?“). Zuerst list/search gegen Duplikate. " +
+        "Struktur kurz und klar: RULE (2–4 Sätze), EXAMPLES (Tabelle native/target), optional NOTE (Merksatz). " +
+        "category z.B. basics|verbs|pronouns|word_order|adjectives|prepositions. " +
+        "slug optional (kebab-case); sonst aus title abgeleitet. Erklärungen in Muttersprache.",
+      {
+        targetLang: z.string(),
+        category: z.string(),
+        title: z.string(),
+        summary: z.string(),
+        slug: z.string().optional(),
+        keywords: z.array(z.string()).optional(),
+        sortOrder: z.number().int().optional(),
+        blocks: z.array(grammarBlockInputSchema).min(1).max(50),
+      },
+      async (args) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.grammar.create(args));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "update_grammar_topic",
+      "Aktualisiert Metadaten und/oder ersetzt alle Blöcke eines Grammatik-Kapitels (große Überarbeitung). " +
+        "Vor dem Speichern kurz nachfragen. Für kleine Tweaks (einen Merksatz anhängen) lieber upsert_grammar_blocks.",
+      {
+        id: z.string(),
+        targetLang: z.string().optional(),
+        category: z.string().optional(),
+        slug: z.string().optional(),
+        title: z.string().optional(),
+        summary: z.string().optional(),
+        keywords: z.array(z.string()).optional(),
+        sortOrder: z.number().int().optional(),
+        blocks: z.array(grammarBlockInputSchema).min(1).max(50).optional(),
+      },
+      async (args) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.grammar.update(args));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "upsert_grammar_blocks",
+      "Fügt Blöcke hinzu oder aktualisiert bestehende (per block.id) — für individuelle Anpassungen " +
+        "(eigener Merksatz, extra Beispiele), ohne das ganze Kapitel neu zu schreiben. " +
+        "Vor dem Speichern nachfragen („Soll ich das ans Kapitel anhängen?“). " +
+        "Neue Blöcke ohne id werden angehängt. type: RULE | EXAMPLES | NOTE.",
+      {
+        topicId: z.string(),
+        blocks: z.array(grammarBlockInputSchema).min(1).max(50),
+      },
+      async (args) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.grammar.upsertBlocks(args));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "delete_grammar_topic",
+      "Löscht ein Grammatik-Kapitel inkl. aller Blöcke. Vorher nachfragen.",
+      {
+        id: z.string(),
+      },
+      async ({ id }) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.grammar.delete({ id }));
         } catch (e) {
           return errorResult(e instanceof Error ? e.message : String(e));
         }
