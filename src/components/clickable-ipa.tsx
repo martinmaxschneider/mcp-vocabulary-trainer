@@ -11,6 +11,12 @@ import {
   DialogTitle,
 } from "~/components/ui/dialog";
 import { Button } from "~/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
 import { Volume2 } from "lucide-react";
 
 export type PronunciationGuideItemView = {
@@ -126,41 +132,173 @@ export function ClickableIpa({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={listOpen} onOpenChange={setListOpen}>
-        <DialogContent className="max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {t("guideTitle")}
-              {targetLangName ? ` — ${targetLangName}` : ""}
-            </DialogTitle>
-            <DialogDescription>{t("guideSubtitle")}</DialogDescription>
-          </DialogHeader>
-          {items.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("emptyGuideShort")}</p>
-          ) : (
-            <div className="space-y-3">
-              {items.map((item) => (
-                <div key={item.id} className="rounded-lg border p-3">
-                  <div className="flex flex-wrap items-baseline gap-2">
-                    <span className="text-lg italic">{item.symbol}</span>
-                    {item.approx ? (
-                      <span className="text-sm text-muted-foreground">
-                        ≈ {item.approx}
-                      </span>
-                    ) : null}
-                    {item.exampleWord ? (
-                      <span className="text-xs text-muted-foreground">
-                        ({item.exampleWord})
-                      </span>
-                    ) : null}
-                  </div>
-                  <p className="mt-1 text-sm">{item.explanation}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <PronunciationGuideDialog
+        open={listOpen}
+        onOpenChange={setListOpen}
+        items={items}
+        targetLangName={targetLangName}
+      />
     </div>
+  );
+}
+
+function PronunciationGuideDialog({
+  open,
+  onOpenChange,
+  items,
+  targetLangName,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  items: PronunciationGuideItemView[];
+  targetLangName?: string;
+}) {
+  const t = useTranslations("pronunciation");
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>
+            {t("guideTitle")}
+            {targetLangName ? ` — ${targetLangName}` : ""}
+          </DialogTitle>
+          <DialogDescription>{t("guideSubtitle")}</DialogDescription>
+        </DialogHeader>
+        {items.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t("emptyGuideShort")}</p>
+        ) : (
+          <div className="space-y-3">
+            {items.map((item) => (
+              <div key={item.id} className="rounded-lg border p-3">
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <span className="text-lg italic">{item.symbol}</span>
+                  {item.approx ? (
+                    <span className="text-sm text-muted-foreground">
+                      ≈ {item.approx}
+                    </span>
+                  ) : null}
+                  {item.exampleWord ? (
+                    <span className="text-xs text-muted-foreground">
+                      ({item.exampleWord})
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-1 text-sm">{item.explanation}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Discreet icon trigger for the full pronunciation guide (outside review cards). */
+export function PronunciationGuideButton({
+  items,
+  targetLangName,
+}: {
+  items: PronunciationGuideItemView[];
+  targetLangName?: string;
+}) {
+  const t = useTranslations("pronunciation");
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 text-muted-foreground"
+        onClick={() => setOpen(true)}
+        aria-label={
+          targetLangName
+            ? `${t("openGuide")} (${targetLangName})`
+            : t("openGuide")
+        }
+        title={
+          targetLangName
+            ? `${t("openGuide")} (${targetLangName})`
+            : t("openGuide")
+        }
+      >
+        <Volume2 className="h-4 w-4" />
+      </Button>
+      <PronunciationGuideDialog
+        open={open}
+        onOpenChange={setOpen}
+        items={items}
+        targetLangName={targetLangName}
+      />
+    </>
+  );
+}
+
+/** Multi-language discreet Volume menu for the review session header. */
+export function PronunciationGuideMenu({
+  options,
+}: {
+  options: Array<{
+    lang: string;
+    label: string;
+    flag?: string;
+    items: PronunciationGuideItemView[];
+  }>;
+}) {
+  const t = useTranslations("pronunciation");
+  const [activeLang, setActiveLang] = useState<string | null>(null);
+
+  const active = options.find((o) => o.lang === activeLang) ?? null;
+
+  if (options.length === 0) return null;
+
+  if (options.length === 1) {
+    const only = options[0]!;
+    return (
+      <PronunciationGuideButton
+        items={only.items}
+        targetLangName={only.label}
+      />
+    );
+  }
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground"
+            aria-label={t("openGuide")}
+            title={t("openGuide")}
+          >
+            <Volume2 className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {options.map((opt) => (
+            <DropdownMenuItem
+              key={opt.lang}
+              onClick={() => setActiveLang(opt.lang)}
+            >
+              {opt.flag ? <span className="mr-1.5">{opt.flag}</span> : null}
+              {opt.label}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <PronunciationGuideDialog
+        open={active != null}
+        onOpenChange={(open) => {
+          if (!open) setActiveLang(null);
+        }}
+        items={active?.items ?? []}
+        targetLangName={active?.label}
+      />
+    </>
   );
 }

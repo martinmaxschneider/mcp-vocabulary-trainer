@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { EntryType, WordCategory, type Prisma } from "@prisma/client";
 import { conjugationsSchema } from "~/lib/schemas/translation";
@@ -272,6 +273,49 @@ export const entryRouter = createTRPCRouter({
         updated += result.count;
       }
       return { updated };
+    }),
+
+  /** Lightweight text update for review cards (by entry + language). */
+  updateTranslationText: publicProcedure
+    .input(
+      z.object({
+        entryId: z.string(),
+        lang: z.string().min(1),
+        text: z.string().min(1),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const text = input.text.trim();
+      if (!text) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Translation text is required",
+        });
+      }
+
+      const existing = await ctx.db.translation.findFirst({
+        where: { entryId: input.entryId, lang: input.lang },
+        orderBy: { createdAt: "asc" },
+      });
+
+      if (!existing) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Translation not found",
+        });
+      }
+
+      const updated = await ctx.db.translation.update({
+        where: { id: existing.id },
+        data: { text },
+      });
+
+      return {
+        id: updated.id,
+        entryId: updated.entryId,
+        lang: updated.lang,
+        text: updated.text,
+      };
     }),
 
   createManual: publicProcedure

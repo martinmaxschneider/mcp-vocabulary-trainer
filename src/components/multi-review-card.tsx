@@ -6,10 +6,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Badge } from "~/components/ui/badge";
-import { CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  Settings,
+  Loader2,
+} from "lucide-react";
 import { getTargetLang, SOURCE_LANG } from "~/lib/languages";
 import { ClickableIpa } from "~/components/clickable-ipa";
 import { api } from "~/trpc/client";
+import { useToast } from "~/hooks/use-toast";
+import { resolveErrorCode } from "~/lib/trpc-error";
 
 export type MultiLangResult = {
   targetLang: string;
@@ -20,6 +28,7 @@ export type MultiLangResult = {
 };
 
 interface MultiReviewCardProps {
+  entryId: string;
   mainText: string;
   type: "WORD" | "PROVERB";
   note?: string | null;
@@ -27,12 +36,14 @@ interface MultiReviewCardProps {
   onSubmit: (answers: Array<{ targetLang: string; userAnswer: string }>) => void;
   onShowSolution?: () => void;
   onMarkAsWrong?: (targetLang: string) => void;
+  onExpectedUpdated?: (targetLang: string, text: string) => void;
   onNext?: () => void;
   isSubmitting: boolean;
   results?: MultiLangResult[] | null;
 }
 
 export function MultiReviewCard({
+  entryId,
   mainText,
   type,
   note,
@@ -40,6 +51,7 @@ export function MultiReviewCard({
   onSubmit,
   onShowSolution,
   onMarkAsWrong,
+  onExpectedUpdated,
   onNext,
   isSubmitting,
   results,
@@ -47,8 +59,32 @@ export function MultiReviewCard({
   const t = useTranslations("review");
   const tCommon = useTranslations("common");
   const tLang = useTranslations("languages");
+  const tToasts = useTranslations("toasts");
+  const tErrors = useTranslations("errors.codes");
+  const { toast } = useToast();
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [editingLang, setEditingLang] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const utils = api.useUtils();
+
+  const updateTranslationMutation = api.entry.updateTranslationText.useMutation({
+    onSuccess: (data) => {
+      onExpectedUpdated?.(data.lang, data.text);
+      setEditingLang(null);
+      void utils.review.getDueMulti.invalidate();
+      void utils.review.getDue.invalidate();
+      toast({ title: tToasts("translationUpdated") });
+    },
+    onError: (error) => {
+      const code = resolveErrorCode(error.message);
+      toast({
+        title: t("translationUpdateError"),
+        description: code ? tErrors(code as "TRANSLATION_NOT_FOUND") : error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   const targetLangs = useMemo(
     () => languages.map((l) => l.targetLang),
@@ -80,7 +116,29 @@ export function MultiReviewCard({
 
   useEffect(() => {
     setAnswers({});
-  }, [mainText]);
+    setEditingLang(null);
+    setEditText("");
+  }, [mainText, entryId]);
+
+  const startEdit = (targetLang: string, expected: string) => {
+    setEditingLang(targetLang);
+    setEditText(expected);
+  };
+
+  const cancelEdit = () => {
+    setEditingLang(null);
+    setEditText("");
+  };
+
+  const saveEdit = (targetLang: string) => {
+    const text = editText.trim();
+    if (!text) return;
+    updateTranslationMutation.mutate({
+      entryId,
+      lang: targetLang,
+      text,
+    });
+  };
 
   const hasAnyAnswer = languages.some(
     (lang) => (answers[lang.targetLang] ?? "").trim().length > 0
@@ -224,20 +282,33 @@ export function MultiReviewCard({
                 return (
                   <div
                     key={result.targetLang}
-                    className={`flex items-start gap-3 p-4 rounded-lg ${
+                    className={`relative flex items-start gap-3 rounded-lg p-4 pr-12 ${
                       result.isCorrect
                         ? "bg-green-50 dark:bg-green-950"
                         : "bg-red-50 dark:bg-red-950"
                     }`}
                   >
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-2 top-2 h-7 w-7 text-muted-foreground"
+                      onClick={() =>
+                        startEdit(result.targetLang, result.expected)
+                      }
+                      aria-label={t("editTranslation")}
+                      title={t("editTranslation")}
+                    >
+                      <Settings className="h-3.5 w-3.5" />
+                    </Button>
                     {result.isCorrect ? (
-                      <CheckCircle2 className="h-5 w-5 mt-0.5 shrink-0 text-green-600 dark:text-green-400" />
+                      <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600 dark:text-green-400" />
                     ) : (
-                      <XCircle className="h-5 w-5 mt-0.5 shrink-0 text-red-600 dark:text-red-400" />
+                      <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600 dark:text-red-400" />
                     )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="font-semibold flex items-center gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2 pr-2">
+                        <p className="flex items-center gap-2 font-semibold">
                           <span>{meta?.flag}</span>
                           <span>{tLang(result.targetLang)}</span>
                           <span className="font-normal text-muted-foreground">
@@ -271,19 +342,66 @@ export function MultiReviewCard({
                           </span>
                         </p>
                         <div className="text-sm">
-                          <span className="text-muted-foreground">
-                            {t("expected")}
-                          </span>{" "}
-                          <span className="font-medium text-foreground">
-                            {result.expected}
-                          </span>
-                          {result.ipa ? (
+                          <div className="flex items-start gap-2">
+                            <span className="shrink-0 text-muted-foreground">
+                              {t("expected")}
+                            </span>
+                            {editingLang === result.targetLang ? (
+                              <div className="flex min-w-0 flex-1 flex-col gap-2">
+                                <Input
+                                  value={editText}
+                                  onChange={(e) => setEditText(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      saveEdit(result.targetLang);
+                                    }
+                                    if (e.key === "Escape") {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      cancelEdit();
+                                    }
+                                  }}
+                                  disabled={updateTranslationMutation.isPending}
+                                  autoFocus
+                                  className="h-8 text-sm"
+                                />
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => saveEdit(result.targetLang)}
+                                    disabled={
+                                      updateTranslationMutation.isPending ||
+                                      !editText.trim()
+                                    }
+                                  >
+                                    {updateTranslationMutation.isPending ? (
+                                      <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                                    ) : null}
+                                    {tCommon("save")}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={cancelEdit}
+                                    disabled={updateTranslationMutation.isPending}
+                                  >
+                                    {tCommon("cancel")}
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="font-medium text-foreground">
+                                {result.expected}
+                              </span>
+                            )}
+                          </div>
+                          {result.ipa && editingLang !== result.targetLang ? (
                             <div className="mt-1">
                               <ClickableIpa
                                 ipa={result.ipa}
                                 items={itemsByLang[result.targetLang] ?? []}
-                                showFullListButton
-                                targetLangName={tLang(result.targetLang)}
                                 className="mt-0 text-base italic tracking-wide text-foreground/80"
                               />
                             </div>
@@ -291,7 +409,7 @@ export function MultiReviewCard({
                         </div>
                       </div>
                       {result.typo && (
-                        <div className="flex items-center gap-1 mt-2 text-sm text-yellow-600 dark:text-yellow-400">
+                        <div className="mt-2 flex items-center gap-1 text-sm text-yellow-600 dark:text-yellow-400">
                           <AlertCircle className="h-4 w-4" />
                           <span>{t("typoNote")}</span>
                         </div>

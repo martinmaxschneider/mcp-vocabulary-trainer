@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { TARGET_LANGS } from "~/lib/languages";
+import { SOURCE_LANG, TARGET_LANGS, TARGET_LANG_CODES } from "~/lib/languages";
 import { api } from "~/trpc/client";
 import { Button } from "~/components/ui/button";
 import { ReviewCard } from "~/components/review-card";
@@ -22,6 +22,7 @@ import { BookOpen, CheckCircle, Globe, Languages, Play } from "lucide-react";
 import { Badge } from "~/components/ui/badge";
 import { getTargetLang } from "~/lib/languages";
 import { resolveErrorCode } from "~/lib/trpc-error";
+import { PronunciationGuideMenu } from "~/components/clickable-ipa";
 
 type ReviewState = "setup" | "active";
 type ReviewMode = "single" | "multi";
@@ -311,6 +312,37 @@ export default function ReviewPage() {
   const currentSingleCard = singleCards[currentIndex];
   const currentMultiCard = multiCards[currentIndex];
 
+  const guideTargetLangs = useMemo(() => {
+    if (mode === "single" && selectedLang) return [selectedLang];
+    const cardLangs = currentMultiCard?.languages.map((l) => l.targetLang);
+    if (mode === "multi" && cardLangs && cardLangs.length > 0) {
+      return cardLangs;
+    }
+    return [...TARGET_LANG_CODES];
+  }, [mode, selectedLang, currentMultiCard]);
+
+  const guidesQuery = api.pronunciation.getByPairs.useQuery(
+    {
+      nativeLang: SOURCE_LANG.code,
+      targetLangs: guideTargetLangs,
+    },
+    {
+      enabled: reviewState === "active" && guideTargetLangs.length > 0,
+    },
+  );
+
+  const pronunciationOptions = useMemo(() => {
+    return guideTargetLangs.map((lang) => {
+      const entry = guidesQuery.data?.guides.find((g) => g.targetLang === lang);
+      return {
+        lang,
+        label: tLang(lang),
+        flag: getTargetLang(lang)?.flag,
+        items: entry?.guide?.items ?? [],
+      };
+    });
+  }, [guideTargetLangs, guidesQuery.data, tLang]);
+
   // Setup Phase
   if (reviewState === "setup") {
     return (
@@ -510,23 +542,27 @@ export default function ReviewPage() {
                       })}
                 </span>
               </div>
-              <Badge variant="secondary">
-                {mode === "multi" ? (
-                  <>
-                    <Globe className="mr-1 h-3.5 w-3.5" />
-                    {t("quickStartAllLanguages")}
-                  </>
-                ) : (
-                  <>
-                    {getTargetLang(selectedLang ?? "")?.flag}{" "}
-                    {selectedLang ? tLang(selectedLang) : null}
-                  </>
-                )}
-              </Badge>
+              <div className="flex items-center gap-1">
+                <PronunciationGuideMenu options={pronunciationOptions} />
+                <Badge variant="secondary">
+                  {mode === "multi" ? (
+                    <>
+                      <Globe className="mr-1 h-3.5 w-3.5" />
+                      {t("quickStartAllLanguages")}
+                    </>
+                  ) : (
+                    <>
+                      {getTargetLang(selectedLang ?? "")?.flag}{" "}
+                      {selectedLang ? tLang(selectedLang) : null}
+                    </>
+                  )}
+                </Badge>
+              </div>
             </div>
 
             {mode === "single" && currentSingleCard && selectedLang && (
               <ReviewCard
+                entryId={currentSingleCard.entryId}
                 mainText={currentSingleCard.mainText}
                 type={currentSingleCard.type}
                 note={currentSingleCard.note}
@@ -536,6 +572,9 @@ export default function ReviewPage() {
                 onSubmit={handleSubmit}
                 onShowSolution={handleShowSolution}
                 onMarkAsWrong={handleMarkAsWrong}
+                onExpectedUpdated={(text) =>
+                  setResult((prev) => (prev ? { ...prev, expected: text } : prev))
+                }
                 onNext={handleNext}
                 isSubmitting={isSubmitting}
                 result={result}
@@ -544,6 +583,7 @@ export default function ReviewPage() {
 
             {mode === "multi" && currentMultiCard && (
               <MultiReviewCard
+                entryId={currentMultiCard.entryId}
                 mainText={currentMultiCard.mainText}
                 type={currentMultiCard.type}
                 note={currentMultiCard.note}
@@ -551,6 +591,17 @@ export default function ReviewPage() {
                 onSubmit={handleMultiSubmit}
                 onShowSolution={handleMultiShowSolution}
                 onMarkAsWrong={handleMultiMarkAsWrong}
+                onExpectedUpdated={(targetLang, text) =>
+                  setMultiResults((prev) =>
+                    prev
+                      ? prev.map((r) =>
+                          r.targetLang === targetLang
+                            ? { ...r, expected: text }
+                            : r,
+                        )
+                      : prev,
+                  )
+                }
                 onNext={handleNext}
                 isSubmitting={isSubmitting}
                 results={multiResults}
