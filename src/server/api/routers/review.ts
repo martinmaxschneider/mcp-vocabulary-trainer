@@ -708,6 +708,122 @@ export const reviewRouter = createTRPCRouter({
       };
     }),
 
+  /** Override a just-rejected wrong answer as correct (e.g. valid alternate wording). */
+  markAsCorrect: publicProcedure
+    .input(
+      z.object({
+        entryId: z.string(),
+        targetLang: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.userId;
+
+      const progress = await ctx.db.userProgress.findUnique({
+        where: {
+          userId_entryId_targetLang: {
+            userId,
+            entryId: input.entryId,
+            targetLang: input.targetLang,
+          },
+        },
+        include: {
+          entry: {
+            include: {
+              translations: {
+                where: { lang: input.targetLang },
+              },
+            },
+          },
+          reviews: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+          },
+        },
+      });
+
+      if (!progress) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Progress not found",
+        });
+      }
+
+      const translation = progress.entry.translations[0];
+      if (!translation) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `No translation found for language: ${input.targetLang}`,
+        });
+      }
+
+      const lastReview = progress.reviews[0];
+      const wasWrong = lastReview?.isCorrect === false;
+
+      const boxBefore = progress.box;
+      const boxAfter = wasWrong
+        ? nextBoxOnCorrect(progress.box)
+        : progress.box;
+      const nextReviewAt = wasWrong
+        ? scheduleNextReview(boxAfter)
+        : progress.nextReviewAt;
+
+      let variants = Array.isArray(translation.variants)
+        ? (translation.variants as string[])
+        : [];
+
+      const userAnswer = lastReview?.userAnswer?.trim() ?? "";
+      const shouldAddVariant =
+        wasWrong &&
+        userAnswer.length > 0 &&
+        userAnswer !== translation.text &&
+        !variants.includes(userAnswer);
+
+      if (shouldAddVariant) {
+        variants = [...variants, userAnswer];
+        await ctx.db.translation.update({
+          where: { id: translation.id },
+          data: { variants },
+        });
+      }
+
+      const updatedProgress = wasWrong
+        ? await ctx.db.userProgress.update({
+            where: { id: progress.id },
+            data: {
+              box: boxAfter,
+              nextReviewAt,
+              correctCount: progress.correctCount + 1,
+              wrongCount: Math.max(0, progress.wrongCount - 1),
+              lastReviewedAt: new Date(),
+            },
+          })
+        : progress;
+
+      if (lastReview && wasWrong) {
+        await ctx.db.reviewLog.update({
+          where: { id: lastReview.id },
+          data: { isCorrect: true, typo: false },
+        });
+      }
+
+      return {
+        isCorrect: true as const,
+        expected: translation.text,
+        typo: false,
+        newBox: boxAfter,
+        nextReviewAt,
+        correctCount: updatedProgress.correctCount,
+        wrongCount: updatedProgress.wrongCount,
+        maxBox: MAX_BOX,
+        correct: true as const,
+        boxBefore,
+        boxAfter,
+        expectedAnswers: expectedAnswers(translation.text, variants),
+        addedVariant: shouldAddVariant ? userAnswer : null,
+      };
+    }),
+
   setBox: publicProcedure
     .input(
       z.object({

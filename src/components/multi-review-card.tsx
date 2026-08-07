@@ -36,6 +36,7 @@ interface MultiReviewCardProps {
   onSubmit: (answers: Array<{ targetLang: string; userAnswer: string }>) => void;
   onShowSolution?: () => void;
   onMarkAsWrong?: (targetLang: string) => void;
+  onMarkAsCorrect?: (targetLang: string) => void;
   onExpectedUpdated?: (targetLang: string, text: string) => void;
   onNext?: () => void;
   isSubmitting: boolean;
@@ -51,6 +52,7 @@ export function MultiReviewCard({
   onSubmit,
   onShowSolution,
   onMarkAsWrong,
+  onMarkAsCorrect,
   onExpectedUpdated,
   onNext,
   isSubmitting,
@@ -323,6 +325,16 @@ export function MultiReviewCard({
                             disabled={isSubmitting}
                           >
                             {t("markAsWrong")}
+                          </Button>
+                        )}
+                        {!result.isCorrect && onMarkAsCorrect && (
+                          <Button
+                            onClick={() => onMarkAsCorrect(result.targetLang)}
+                            variant="outline"
+                            size="sm"
+                            disabled={isSubmitting}
+                          >
+                            {t("markAsCorrect")}
                           </Button>
                         )}
                       </div>

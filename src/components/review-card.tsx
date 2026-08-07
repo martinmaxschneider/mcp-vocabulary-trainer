@@ -32,6 +32,7 @@ interface ReviewCardProps {
   onSubmit: (answer: string) => void;
   onShowSolution?: () => void;
   onMarkAsWrong?: () => void;
+  onMarkAsCorrect?: () => void;
   onExpectedUpdated?: (text: string) => void;
   onNext?: () => void;
   isSubmitting: boolean;
@@ -53,6 +54,7 @@ export function ReviewCard({
   onSubmit,
   onShowSolution,
   onMarkAsWrong,
+  onMarkAsCorrect,
   onExpectedUpdated,
   onNext,
   isSubmitting,
@@ -325,12 +327,25 @@ export function ReviewCard({
                   {t("markAsWrong")}
                 </Button>
               )}
+              {!result.isCorrect && onMarkAsCorrect && (
+                <Button
+                  onClick={onMarkAsCorrect}
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                >
+                  {t("markAsCorrect")}
+                </Button>
+              )}
               {onNext && (
                 <Button
                   onClick={onNext}
                   size="sm"
                   className={
-                    result.isCorrect && onMarkAsWrong ? "flex-1" : "w-full"
+                    (result.isCorrect && onMarkAsWrong) ||
+                    (!result.isCorrect && onMarkAsCorrect)
+                      ? "flex-1"
+                      : "w-full"
                   }
                 >
                   {result.isCorrect ? t("nextCard") : t("continue")}

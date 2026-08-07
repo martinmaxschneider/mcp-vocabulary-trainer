@@ -162,6 +162,40 @@ export default function ReviewPage() {
     },
   });
 
+  const markAsCorrectMutation = api.review.markAsCorrect.useMutation({
+    onSuccess: (data, variables) => {
+      if (mode === "multi") {
+        setMultiResults((prev) =>
+          prev
+            ? prev.map((r) =>
+                r.targetLang === variables.targetLang
+                  ? {
+                      ...r,
+                      isCorrect: true,
+                      expected: data.expected,
+                      typo: false,
+                    }
+                  : r
+              )
+            : prev
+        );
+      } else {
+        setResult({
+          isCorrect: true,
+          expected: data.expected,
+          typo: false,
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: t("markCorrectError"),
+        description: errorDescription(error.message),
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleSubmit = (answer: string) => {
     const currentCard = singleCards[currentIndex];
     if (!currentCard || !selectedLang) return;
@@ -189,6 +223,16 @@ export default function ReviewPage() {
     if (!currentCard || !selectedLang || !result) return;
 
     markAsWrongMutation.mutate({
+      entryId: currentCard.entryId,
+      targetLang: selectedLang,
+    });
+  };
+
+  const handleMarkAsCorrect = () => {
+    const currentCard = singleCards[currentIndex];
+    if (!currentCard || !selectedLang || !result) return;
+
+    markAsCorrectMutation.mutate({
       entryId: currentCard.entryId,
       targetLang: selectedLang,
     });
@@ -224,6 +268,16 @@ export default function ReviewPage() {
     if (!currentCard || !multiResults) return;
 
     markAsWrongMutation.mutate({
+      entryId: currentCard.entryId,
+      targetLang,
+    });
+  };
+
+  const handleMultiMarkAsCorrect = (targetLang: string) => {
+    const currentCard = multiCards[currentIndex];
+    if (!currentCard || !multiResults) return;
+
+    markAsCorrectMutation.mutate({
       entryId: currentCard.entryId,
       targetLang,
     });
@@ -485,7 +539,8 @@ export default function ReviewPage() {
   const isSubmitting =
     submitMutation.isPending ||
     submitMultiMutation.isPending ||
-    markAsWrongMutation.isPending;
+    markAsWrongMutation.isPending ||
+    markAsCorrectMutation.isPending;
 
   return (
     <>
@@ -572,6 +627,7 @@ export default function ReviewPage() {
                 onSubmit={handleSubmit}
                 onShowSolution={handleShowSolution}
                 onMarkAsWrong={handleMarkAsWrong}
+                onMarkAsCorrect={handleMarkAsCorrect}
                 onExpectedUpdated={(text) =>
                   setResult((prev) => (prev ? { ...prev, expected: text } : prev))
                 }
@@ -591,6 +647,7 @@ export default function ReviewPage() {
                 onSubmit={handleMultiSubmit}
                 onShowSolution={handleMultiShowSolution}
                 onMarkAsWrong={handleMultiMarkAsWrong}
+                onMarkAsCorrect={handleMultiMarkAsCorrect}
                 onExpectedUpdated={(targetLang, text) =>
                   setMultiResults((prev) =>
                     prev

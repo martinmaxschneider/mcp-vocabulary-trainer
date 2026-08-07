@@ -492,6 +492,33 @@ const handler = createMcpHandler(
     );
 
     server.tool(
+      "mark_as_correct",
+      "Korrigiert eine fälschlich abgelehnte Antwort als richtig und speichert sie ggf. als Variante.",
+      {
+        entryId: z.string(),
+        targetLang: z.string(),
+      },
+      async ({ entryId, targetLang }) => {
+        const api = await getCaller();
+        try {
+          const result = await api.review.markAsCorrect({ entryId, targetLang });
+          return jsonResult({
+            correct: true,
+            boxBefore: result.boxBefore,
+            boxAfter: result.boxAfter,
+            nextReviewAt: result.nextReviewAt,
+            expected: result.expectedAnswers,
+            correctCount: result.correctCount,
+            wrongCount: result.wrongCount,
+            addedVariant: result.addedVariant,
+          });
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
       "set_card_box",
       "Setzt manuell die Leitner-Box (1–6). Nur für Korrekturen; normalerweise submit_answer nutzen.",
       {
