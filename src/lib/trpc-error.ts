@@ -10,6 +10,8 @@ const EXACT_MESSAGE_TO_CODE: Record<string, string> = {
   "Translation not found": "TRANSLATION_NOT_FOUND",
   "No valid tenses selected": "NO_VALID_TENSES",
   "Conjugation form not found": "CONJUGATION_FORM_NOT_FOUND",
+  "Updates are disabled in development": "UPDATE_DISABLED_IN_DEV",
+  "An update is already running": "UPDATE_ALREADY_RUNNING",
 };
 
 export function resolveErrorCode(message: string | undefined): string | null {

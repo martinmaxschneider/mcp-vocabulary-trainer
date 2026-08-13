@@ -168,6 +168,7 @@ npm run build
 npm run db:migrate      # backup + apply migrations (default on every machine)
 npm run db:migrate:dev  # create new migrations locally
 npm run db:backup       # copy DB to data/backups/
+npm run update          # git pull --rebase, install, migrate, build (optional PM2 restart)
 npm run db:push         # optional schema sync shortcut
 npm run db:studio
 ```

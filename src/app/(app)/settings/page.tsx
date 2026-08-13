@@ -52,6 +52,7 @@ import {
 import { resolveErrorCode } from "~/lib/trpc-error";
 import { ThemeToggle } from "~/components/theme-toggle";
 import { PronunciationGuideSettings } from "~/components/pronunciation-guide-settings";
+import { AppUpdateCard } from "~/components/app-update-card";
 
 export default function SettingsPage() {
   const t = useTranslations("settings");
@@ -238,6 +239,8 @@ export default function SettingsPage() {
       </div>
 
       <div className="space-y-6">
+        <AppUpdateCard />
+
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">

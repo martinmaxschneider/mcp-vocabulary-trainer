@@ -1,6 +1,50 @@
+import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
+import {
+  isUpdateLocked,
+  readUpdateStatus,
+  markUpdateStarting,
+  startSelfUpdate,
+} from "~/server/self-update";
 
 export const settingsRouter = createTRPCRouter({
+  updateStatus: publicProcedure.query(() => {
+    try {
+      return readUpdateStatus();
+    } catch {
+      return {
+        status: "idle" as const,
+        step: null,
+        startedAt: null,
+        updatedAt: null,
+        error: null,
+        pid: null,
+        log: "",
+      };
+    }
+  }),
+
+  startUpdate: publicProcedure.mutation(() => {
+    if (process.env.NODE_ENV !== "production") {
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message: "Updates are disabled in development",
+      });
+    }
+
+    const current = readUpdateStatus();
+    if (isUpdateLocked(current)) {
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "An update is already running",
+      });
+    }
+
+    markUpdateStarting();
+    startSelfUpdate();
+    return { started: true };
+  }),
+
   resetProgress: publicProcedure.mutation(async ({ ctx }) => {
     // Delete all UserProgress and ReviewLog entries
     await ctx.db.reviewLog.deleteMany({});
