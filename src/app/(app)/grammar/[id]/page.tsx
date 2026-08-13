@@ -63,7 +63,7 @@ export default function GrammarTopicPage({
 
   if (topicQuery.isLoading) {
     return (
-      <div className="flex items-center gap-2 text-muted-foreground">
+      <div className="cahier-card flex items-center gap-2 p-8 text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" />
         {t("loading")}
       </div>
@@ -72,7 +72,7 @@ export default function GrammarTopicPage({
 
   if (topicQuery.isError || !topicQuery.data) {
     return (
-      <div className="space-y-4">
+      <div className="cahier-card space-y-4 p-8">
         <Button asChild variant="ghost" size="sm" className="gap-2">
           <Link href="/grammar">
             <ArrowLeft className="h-4 w-4" />
@@ -143,7 +143,7 @@ export default function GrammarTopicPage({
         {topic.blocks.map((block) => {
           const examples = (block.examples as ExampleRow[] | null) ?? [];
           return (
-            <section key={block.id} className="space-y-3">
+            <section key={block.id} className="cahier-card space-y-3 p-5 sm:p-6">
               <div className="flex items-center gap-2">
                 <Badge variant="outline">
                   {t(`blockType.${block.type}`)}
@@ -160,9 +160,9 @@ export default function GrammarTopicPage({
               ) : null}
 
               {block.type === "EXAMPLES" && examples.length > 0 ? (
-                <div className="overflow-x-auto rounded-lg border">
+                <div className="cahier-item overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead className="bg-muted/50 text-left">
+                    <thead className="bg-[#eef4fa] text-left">
                       <tr>
                         <th className="px-3 py-2 font-medium">
                           {t("exampleNative")}
@@ -177,7 +177,7 @@ export default function GrammarTopicPage({
                     </thead>
                     <tbody>
                       {examples.map((row, idx) => (
-                        <tr key={idx} className="border-t">
+                        <tr key={idx} className="border-t border-[#1e3a5f]/10">
                           <td className="px-3 py-2 align-top">{row.native}</td>
                           <td className="px-3 py-2 align-top font-medium">
                             {row.target}
@@ -193,7 +193,7 @@ export default function GrammarTopicPage({
               ) : null}
 
               {block.type === "NOTE" && block.body ? (
-                <div className="rounded-md border-l-4 border-primary/40 bg-muted/40 px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap">
+                <div className="cahier-item border-l-4 border-l-[#d45d5d] px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap">
                   {block.body}
                 </div>
               ) : null}

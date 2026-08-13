@@ -126,14 +126,14 @@ export function DomainAssignment({
         <CardDescription>{t("editDescription")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="cahier-section grid grid-cols-1 gap-2 sm:grid-cols-2">
           {allDomains?.map((domain) => (
             <div
               key={domain.id}
-              className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+              className={`cahier-item flex cursor-pointer items-center gap-3 p-3 ${
                 selectedDomains.includes(domain.id)
-                  ? "border-primary bg-primary/5"
-                  : "hover:bg-muted/50"
+                  ? "cahier-item-selected"
+                  : "cahier-item-hover"
               }`}
               onClick={() => handleToggleDomain(domain.id)}
             >

@@ -168,9 +168,9 @@ function PronunciationGuideDialog({
         {items.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t("emptyGuideShort")}</p>
         ) : (
-          <div className="space-y-3">
+          <div className="cahier-section space-y-2">
             {items.map((item) => (
-              <div key={item.id} className="rounded-lg border p-3">
+              <div key={item.id} className="cahier-item p-3">
                 <div className="flex flex-wrap items-baseline gap-2">
                   <span className="text-lg italic">{item.symbol}</span>
                   {item.approx ? (

@@ -43,7 +43,7 @@ export function WorksheetList() {
             ) : null}
 
             {lang.code === activeLang && !listQuery.isLoading && worksheets.length === 0 ? (
-              <div className="rounded-lg border border-dashed p-8 text-center">
+              <div className="cahier-card p-8 text-center">
                 <p className="font-medium">{t("empty")}</p>
                 <p className="mt-2 text-sm text-muted-foreground">{t("emptyHint")}</p>
               </div>
@@ -55,7 +55,7 @@ export function WorksheetList() {
                   <Link
                     key={ws.id}
                     href={`/worksheets/${ws.id}`}
-                    className="rounded-lg border bg-card p-5 shadow-sm transition hover:border-primary/40"
+                    className="cahier-item cahier-item-hover group p-5"
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge
@@ -68,7 +68,7 @@ export function WorksheetList() {
                       </Badge>
                       <Badge variant="outline">{ws.section}</Badge>
                     </div>
-                    <h2 className="mt-3 text-xl font-semibold">{ws.title}</h2>
+                    <h2 className="mt-3 text-xl font-semibold text-[#1e3a5f]">{ws.title}</h2>
                     {ws.description ? (
                       <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
                         {ws.description}

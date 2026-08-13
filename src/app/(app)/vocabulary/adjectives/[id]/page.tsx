@@ -156,13 +156,13 @@ export default function AdjectiveDetailPage({
             <CardDescription>{t("translationsDesc")}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4">
+            <div className="cahier-section grid gap-3">
               {adjective.translations.map((translation) => {
                 const lang = TARGET_LANGS.find(
                   (l) => l.code === translation.lang
                 );
                 return (
-                  <div key={translation.id} className="rounded-lg border p-4">
+                  <div key={translation.id} className="cahier-item p-4">
                     <div className="mb-2 flex items-center gap-2">
                       <span className="text-2xl">{lang?.flag}</span>
                       <span className="font-semibold">

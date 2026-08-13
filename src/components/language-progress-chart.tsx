@@ -76,7 +76,7 @@ export async function LanguageProgressChart({ data }: LanguageProgressChartProps
               </div>
             </div>
 
-            <div className="flex h-8 w-full overflow-hidden rounded-md border">
+            <div className="flex h-8 w-full overflow-hidden rounded-md bg-white ring-1 ring-[#1e3a5f]/10">
               {segments.map(({ key, fullLabel }) => {
                 const count = lang.boxes[key];
                 if (count === 0 || lang.total === 0) return null;

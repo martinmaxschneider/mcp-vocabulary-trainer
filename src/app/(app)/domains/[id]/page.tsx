@@ -246,14 +246,14 @@ export default function DomainDetailPage({
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
+                <div className="cahier-section space-y-2">
                   <p className="text-sm font-medium text-muted-foreground">
                     {t("translationsLabel")}
                   </p>
                   {entry.translations.map((translation) => (
                     <div
                       key={translation.id}
-                      className="text-sm p-2 rounded-lg bg-muted"
+                      className="cahier-item p-2 text-sm"
                     >
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <Badge variant="secondary" className="text-xs">

@@ -261,7 +261,7 @@ export default function SettingsPage() {
             <CardDescription>{t("nativeLanguageDesc")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex items-center justify-between rounded-lg border bg-card p-4">
+            <div className="flex items-center justify-between cahier-item p-4">
               <div className="flex items-center gap-3">
                 <CheckCircle2 className="h-5 w-5 text-green-600" />
                 <div>
@@ -319,11 +319,11 @@ export default function SettingsPage() {
             <CardDescription>{t("languagesDesc")}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
+            <div className="cahier-section space-y-3">
               {learningLanguages.map((lang) => (
                 <div
                   key={lang.code}
-                  className="flex items-center justify-between rounded-lg border bg-card p-4"
+                  className="flex items-center justify-between cahier-item p-4"
                 >
                   <div className="flex items-center gap-3">
                     <CheckCircle2 className="h-5 w-5 text-green-600" />
@@ -352,11 +352,11 @@ export default function SettingsPage() {
             <CardDescription>{t("leitnerDesc")}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
+            <div className="cahier-section space-y-2">
               {getLeitnerIntervalsForDisplay().map((interval) => (
                 <div
                   key={interval.box}
-                  className="flex items-center justify-between rounded-lg border p-3"
+                  className="flex items-center justify-between cahier-item p-3"
                 >
                   <span className="font-medium">
                     {t("leitnerBox", { number: interval.box })}
@@ -375,7 +375,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-red-500/50">
+        <Card className="border border-red-500/50">
           <CardHeader>
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-red-600" />
@@ -384,11 +384,11 @@ export default function SettingsPage() {
             <CardDescription>{t("dangerZoneDesc")}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
+            <div className="cahier-section space-y-4">
               {resetOptions.map((option) => (
                 <div
                   key={option.id}
-                  className={`flex items-center justify-between rounded-lg border p-4 ${getDangerColor(option.danger)}`}
+                  className={`flex items-center justify-between cahier-item p-4 ${getDangerColor(option.danger)}`}
                 >
                   <div className="flex-1">
                     <div className="mb-1 font-medium">{option.title}</div>

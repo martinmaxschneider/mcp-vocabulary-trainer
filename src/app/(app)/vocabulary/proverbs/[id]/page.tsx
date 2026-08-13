@@ -94,11 +94,11 @@ export default function ProverbDetailPage({
             <CardTitle>{t("translationsTitle")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
+            <div className="cahier-section space-y-3">
               {proverb.translations.map((translation) => (
                 <div
                   key={translation.id}
-                  className="border-l-4 border-primary pl-4"
+                  className="cahier-item border-l-4 border-l-[#d45d5d] p-4"
                 >
                   <div className="mb-1 flex items-center gap-2">
                     <Badge variant="outline">

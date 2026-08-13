@@ -200,11 +200,11 @@ export function ConjugationTable({
               <Badge variant="outline" className="mb-3">
                 {tense.label}
               </Badge>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div className="cahier-section grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {profile.persons.map((person) => (
                   <div
                     key={`${tense.key}-${person.index}`}
-                    className="flex items-center gap-2 rounded bg-muted/30 p-2"
+                    className="cahier-item flex items-center gap-2 p-2"
                   >
                     <span className="w-24 shrink-0 text-xs text-muted-foreground">
                       {person.label}

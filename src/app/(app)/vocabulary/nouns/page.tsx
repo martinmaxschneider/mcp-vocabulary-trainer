@@ -357,14 +357,14 @@ export default function NounsPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-3">
+                <div className="cahier-section grid gap-3">
                   {suggestions.map((suggestion, index) => (
                     <div
                       key={index}
-                      className={`flex cursor-pointer items-center gap-3 rounded-lg border p-4 transition-colors ${
+                      className={`cahier-item flex cursor-pointer items-center gap-3 p-4 ${
                         suggestion.selected
-                          ? "border-primary bg-primary/5"
-                          : "hover:bg-muted/50"
+                          ? "cahier-item-selected"
+                          : "cahier-item-hover"
                       }`}
                       onClick={() => handleToggle(index)}
                     >

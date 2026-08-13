@@ -327,12 +327,20 @@ export default function ConjugationDrillPage() {
                   : t("tensesDesc", { langCode: selectedLang.toUpperCase() })}
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent>
+              <div className="cahier-section space-y-2">
               {profile.tenses
                 .slice()
                 .sort((a, b) => a.sortOrder - b.sortOrder)
                 .map((tense) => (
-                  <div key={tense.key} className="flex items-center gap-2">
+                  <div
+                    key={tense.key}
+                    className={`cahier-item flex items-center gap-3 p-3 ${
+                      selectedTenses.includes(tense.key)
+                        ? "cahier-item-selected"
+                        : ""
+                    }`}
+                  >
                     <Checkbox
                       id={`tense-${tense.key}`}
                       checked={selectedTenses.includes(tense.key)}
@@ -341,6 +349,7 @@ export default function ConjugationDrillPage() {
                     <Label htmlFor={`tense-${tense.key}`}>{tense.label}</Label>
                   </div>
                 ))}
+              </div>
             </CardContent>
           </Card>
         )}
@@ -371,12 +380,20 @@ export default function ConjugationDrillPage() {
             <CardTitle>{t("domainsTitle")}</CardTitle>
             <CardDescription>{t("domainsDesc")}</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent>
             {(domains ?? []).length === 0 ? (
               <p className="text-sm text-muted-foreground">{t("noDomains")}</p>
             ) : (
-              (domains ?? []).map((domain) => (
-                <div key={domain.id} className="flex items-center gap-2">
+              <div className="cahier-section space-y-2">
+              {(domains ?? []).map((domain) => (
+                <div
+                  key={domain.id}
+                  className={`cahier-item flex items-center gap-3 p-3 ${
+                    selectedDomains.includes(domain.id)
+                      ? "cahier-item-selected"
+                      : ""
+                  }`}
+                >
                   <Checkbox
                     id={`domain-${domain.id}`}
                     checked={selectedDomains.includes(domain.id)}
@@ -384,7 +401,8 @@ export default function ConjugationDrillPage() {
                   />
                   <Label htmlFor={`domain-${domain.id}`}>{domain.name}</Label>
                 </div>
-              ))
+              ))}
+              </div>
             )}
           </CardContent>
         </Card>

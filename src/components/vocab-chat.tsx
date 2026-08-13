@@ -105,7 +105,7 @@ export function VocabChat({ sourceWord, translation, targetLang }: VocabChatProp
                   className={`max-w-[80%] rounded-lg px-4 py-2 ${
                     msg.role === "user"
                       ? "bg-primary text-primary-foreground"
-                      : "bg-muted"
+                      : "bg-[#eef4fa]"
                   }`}
                 >
                   <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
@@ -114,7 +114,7 @@ export function VocabChat({ sourceWord, translation, targetLang }: VocabChatProp
             ))}
             {chatMutation.isPending && (
               <div className="flex justify-start">
-                <div className="rounded-lg bg-muted px-4 py-2">
+                <div className="rounded-lg bg-[#eef4fa] px-4 py-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
                 </div>
               </div>

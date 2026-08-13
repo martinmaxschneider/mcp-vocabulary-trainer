@@ -330,14 +330,14 @@ function ManualVocabularyAddCardInner({
             </Button>
           </div>
 
-          <div className="space-y-4">
+          <div className="cahier-section space-y-3">
             {TARGET_LANGS.map((lang) => {
               const languageName = tLang(lang.code);
               const draft = translations[lang.code];
               return (
                 <div
                   key={lang.code}
-                  className="space-y-3 rounded-lg border p-4"
+                  className="cahier-item space-y-3 p-4"
                 >
                   <div className="flex items-center gap-2">
                     <Badge variant="secondary">{lang.code.toUpperCase()}</Badge>

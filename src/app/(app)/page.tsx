@@ -134,11 +134,11 @@ export default async function HomePage() {
                 {t("noProblemCards")}
               </p>
             ) : (
-              <div className="space-y-3">
+              <div className="cahier-section space-y-2.5">
                 {stats.topWrong.map((card) => (
                   <div
                     key={card.id}
-                    className="flex items-center justify-between p-3 rounded-lg border"
+                    className="cahier-item flex items-center justify-between p-3"
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
@@ -209,11 +209,11 @@ export default async function HomePage() {
                   {t("noDomainsYet")}
                 </p>
               ) : (
-                <div className="space-y-2 mb-4">
+                <div className="cahier-section mb-4 space-y-2.5">
                   {stats.domainStats.map((domain) => (
                     <div
                       key={domain.name}
-                      className="flex items-center justify-between p-2 rounded-lg border"
+                      className="cahier-item flex items-center justify-between p-2"
                     >
                       <span className="font-medium">{domain.name}</span>
                       <Badge variant="secondary">

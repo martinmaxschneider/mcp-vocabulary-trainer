@@ -399,7 +399,7 @@ function ConjugationGridInput({ payload, value, onChange, disabled, targetLang }
         <span className="mx-2 text-slate-300">·</span>
         {tenseLabel}
       </p>
-      <div className="overflow-x-auto rounded-md border border-slate-200">
+      <div className="cahier-item overflow-x-auto">
         <table className="w-full text-sm">
           <tbody>
             {parsed.data.persons.map((personIndex) => {

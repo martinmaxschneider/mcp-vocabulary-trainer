@@ -263,7 +263,8 @@ export default function EditEntryPage({
             <CardTitle>{t("translationsTitle")}</CardTitle>
             <CardDescription>{t("translationsEditDesc")}</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent>
+            <div className="cahier-section space-y-3">
             {TARGET_LANGS.map((lang) => {
               const languageName = tLang(
                 lang.code
@@ -271,7 +272,7 @@ export default function EditEntryPage({
               return (
                 <div
                   key={lang.code}
-                  className="space-y-3 p-4 border rounded-lg"
+                  className="cahier-item space-y-3 p-4"
                 >
                   <div className="flex items-center gap-2">
                     <Badge variant="secondary">
@@ -343,6 +344,7 @@ export default function EditEntryPage({
                 </div>
               );
             })}
+            </div>
           </CardContent>
         </Card>
 

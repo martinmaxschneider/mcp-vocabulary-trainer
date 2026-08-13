@@ -279,15 +279,15 @@ export function PronunciationGuideSettings() {
                   {tCommon("loading")}
                 </div>
               ) : items.length === 0 ? (
-                <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                <p className="cahier-item p-4 text-sm text-muted-foreground">
                   {t("emptyGuide", { pair: pairLabel })}
                 </p>
               ) : (
-                <div className="space-y-2">
+                <div className="cahier-section space-y-2">
                   {items.map((item) => (
                     <div
                       key={item.id}
-                      className="flex items-start justify-between gap-3 rounded-lg border p-3"
+                      className="cahier-item flex items-start justify-between gap-3 p-3"
                     >
                       <div className="min-w-0 space-y-1">
                         <div className="flex flex-wrap items-baseline gap-2">

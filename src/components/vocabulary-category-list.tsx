@@ -140,7 +140,7 @@ export function VocabularyCategoryList({
           </Link>
         </div>
 
-        <div className="mt-6 flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:flex-wrap sm:items-end">
+        <div className="cahier-section mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
           <div className="space-y-1.5">
             <Label>{tLang("targetLanguage")}</Label>
             <Select value={targetLang} onValueChange={setTargetLang}>

@@ -293,12 +293,12 @@ export default function AddProverbsPage() {
             </CardContent>
           </Card>
 
-          <div className="space-y-3">
+          <div className="cahier-section space-y-3">
             {suggestions.map((proverb, index) => (
               <Card
                 key={index}
-                className={`cursor-pointer transition-colors ${
-                  proverb.selected ? "border-primary" : ""
+                className={`cahier-item cursor-pointer ${
+                  proverb.selected ? "cahier-item-selected" : "cahier-item-hover"
                 }`}
                 onClick={() => handleToggle(index)}
               >
