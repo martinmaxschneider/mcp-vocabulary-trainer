@@ -68,6 +68,25 @@
       linear-gradient(to bottom, rgba(147, 174, 196, 0.35) 1px, transparent 1px);
     background-size: 22px 22px;
     color: #1e3a5f;
+    --background: 210 40% 96%;
+    --foreground: 213 52% 25%;
+    --card: 0 0% 100%;
+    --card-foreground: 213 52% 25%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 213 52% 25%;
+    --primary: 213 52% 25%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 25% 92%;
+    --secondary-foreground: 213 52% 25%;
+    --muted: 210 25% 92%;
+    --muted-foreground: 215 16% 38%;
+    --accent: 210 25% 92%;
+    --accent-foreground: 213 52% 25%;
+    --border: 214 22% 84%;
+    --input: 214 22% 84%;
+    --ring: 213 52% 25%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
   }
 
   .cahier-sheet::before {
@@ -87,7 +106,7 @@
     z-index: 2;
     margin-left: auto;
     margin-right: auto;
-    max-width: 48rem;
+    max-width: 80rem;
     padding: 2.5rem 1.5rem 3rem;
   }
 
@@ -96,6 +115,80 @@
       padding-left: 5rem;
       padding-right: 2.5rem;
     }
+  }
+
+  .cahier-inner-narrow {
+    max-width: 48rem;
+  }
+
+  .cahier-card {
+    background: #ffffff;
+    color: #1e3a5f;
+    border-radius: 1rem;
+    box-shadow: 0 10px 30px rgba(30, 58, 95, 0.08);
+  }
+
+  .cahier-section {
+    border-radius: 1rem;
+    background: rgba(220, 232, 244, 0.8);
+    padding: 1rem;
+    box-shadow: inset 0 0 0 1px rgba(30, 58, 95, 0.1);
+  }
+
+  @media (min-width: 640px) {
+    .cahier-section {
+      padding: 1.25rem;
+    }
+  }
+
+  .cahier-item {
+    background: #ffffff;
+    border-radius: 0.75rem;
+    box-shadow:
+      0 1px 2px rgba(30, 58, 95, 0.06),
+      0 0 0 1px rgba(30, 58, 95, 0.1);
+  }
+
+  .cahier-item-hover {
+    transition:
+      transform 150ms ease,
+      box-shadow 150ms ease;
+  }
+
+  .cahier-item-hover:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 8px 20px rgba(30, 58, 95, 0.12),
+      0 0 0 1px rgba(30, 58, 95, 0.22);
+  }
+
+  .cahier-item-selected {
+    background: #f4f8fc;
+    box-shadow:
+      0 1px 2px rgba(30, 58, 95, 0.06),
+      0 0 0 2px #1e3a5f;
+  }
+
+  .cahier-accent {
+    margin-top: 0.25rem;
+    height: 2rem;
+    width: 0.25rem;
+    flex-shrink: 0;
+    border-radius: 9999px;
+    background: rgba(212, 93, 93, 0.8);
+    transition: background-color 150ms ease;
+  }
+
+  .cahier-item-hover:hover .cahier-accent {
+    background: #1e3a5f;
+  }
+
+  .cahier-sheet .bg-card {
+    box-shadow: 0 10px 30px rgba(30, 58, 95, 0.08);
+  }
+
+  .cahier-sheet .rounded-lg.border {
+    background-color: #ffffff;
   }
 }
 

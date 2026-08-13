@@ -204,9 +204,7 @@ export function WorksheetPlayer({ id, cursiveClassName, serifClassName }: Props)
   }
 
   return (
-    <div className="relative left-1/2 w-screen -translate-x-1/2 -mt-8">
-      <div className="cahier-sheet">
-        <div className="cahier-inner space-y-8">
+    <div className="mx-auto max-w-3xl space-y-8">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <Button asChild variant="ghost" size="sm" className="-ml-2 gap-2 text-[#1e3a5f]">
               <Link href="/worksheets">
@@ -274,7 +272,7 @@ export function WorksheetPlayer({ id, cursiveClassName, serifClassName }: Props)
             </div>
           </header>
 
-          <div className="flex rounded-lg border border-slate-200 bg-white/70 p-1">
+          <div className="flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
             <button
               type="button"
               onClick={() => setMode("sequential")}
@@ -440,8 +438,6 @@ export function WorksheetPlayer({ id, cursiveClassName, serifClassName }: Props)
               ) : null}
             </>
           ) : null}
-        </div>
-      </div>
     </div>
   );
 }

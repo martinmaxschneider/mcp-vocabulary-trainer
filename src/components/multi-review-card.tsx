@@ -197,7 +197,7 @@ export function MultiReviewCard({
   const allCorrect = results != null && correctCount === totalCount && totalCount > 0;
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
+    <Card className="cahier-card mx-auto w-full max-w-2xl">
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-2xl">{mainText}</CardTitle>

@@ -150,6 +150,7 @@
   "review": {
     "setupTitle": "Configurer la révision",
     "setupSubtitle": "Choisissez la langue cible et éventuellement des thèmes",
+    "cahierLabel": "carnet — révision",
     "quickStart": "Démarrage rapide",
     "quickStartDesc": "Réviser tous les thèmes d'une langue — ou toutes les langues à la fois",
     "quickStartAllLanguages": "Toutes les langues",

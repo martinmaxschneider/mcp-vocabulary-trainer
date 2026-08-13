@@ -150,6 +150,7 @@
   "review": {
     "setupTitle": "Wiederholung einrichten",
     "setupSubtitle": "Wähle Zielsprache und optional Themen",
+    "cahierLabel": "carnet — révision",
     "quickStart": "Schnellstart",
     "quickStartDesc": "Alle Themen in einer Sprache wiederholen — oder alle Sprachen auf einmal",
     "quickStartAllLanguages": "Alle Sprachen",

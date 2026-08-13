@@ -139,7 +139,7 @@ export function ReviewCard({
   }, [result, onNext]);
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
+    <Card className="cahier-card mx-auto w-full max-w-2xl">
       <CardHeader>
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">

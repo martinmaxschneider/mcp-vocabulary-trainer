@@ -150,6 +150,7 @@
   "review": {
     "setupTitle": "Configurar repaso",
     "setupSubtitle": "Elige idioma de destino y temas opcionales",
+    "cahierLabel": "cuaderno — repaso",
     "quickStart": "Inicio rápido",
     "quickStartDesc": "Repasar todos los temas de un idioma — o todos los idiomas a la vez",
     "quickStartAllLanguages": "Todos los idiomas",

@@ -150,6 +150,7 @@
   "review": {
     "setupTitle": "Configurar revisão",
     "setupSubtitle": "Escolha a língua de destino e temas opcionais",
+    "cahierLabel": "caderno — revisão",
     "quickStart": "Início rápido",
     "quickStartDesc": "Rever todos os temas de uma língua — ou todas as línguas de uma vez",
     "quickStartAllLanguages": "Todas as línguas",

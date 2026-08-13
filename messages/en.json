@@ -150,6 +150,7 @@
   "review": {
     "setupTitle": "Set up review",
     "setupSubtitle": "Choose target language and optional topics",
+    "cahierLabel": "notebook — review",
     "quickStart": "Quick start",
     "quickStartDesc": "Review all topics in one language — or all languages at once",
     "quickStartAllLanguages": "All languages",

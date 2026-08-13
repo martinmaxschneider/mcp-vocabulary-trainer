@@ -10,19 +10,24 @@ import {
   MultiReviewCard,
   type MultiLangResult,
 } from "~/components/multi-review-card";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "~/components/ui/card";
 import { useToast } from "~/hooks/use-toast";
-import { BookOpen, CheckCircle, Globe, Languages, Play } from "lucide-react";
-import { Badge } from "~/components/ui/badge";
+import { BookOpen, CheckCircle, Globe, Play } from "lucide-react";
 import { getTargetLang } from "~/lib/languages";
 import { resolveErrorCode } from "~/lib/trpc-error";
 import { PronunciationGuideMenu } from "~/components/clickable-ipa";
+import { cn } from "~/lib/utils";
+import { Caveat, Libre_Baskerville } from "next/font/google";
+
+const caveat = Caveat({
+  subsets: ["latin", "latin-ext"],
+  weight: ["400", "600", "700"],
+});
+
+const libreBaskerville = Libre_Baskerville({
+  subsets: ["latin", "latin-ext"],
+  weight: ["400", "700"],
+  style: ["normal", "italic"],
+});
 
 type ReviewState = "setup" | "active";
 type ReviewMode = "single" | "multi";
@@ -401,136 +406,161 @@ export default function ReviewPage() {
   if (reviewState === "setup") {
     return (
       <>
-        <div className="mb-8">
-          <h1 className="mb-2 text-4xl font-bold">{t("setupTitle")}</h1>
-          <p className="text-muted-foreground">{t("setupSubtitle")}</p>
-        </div>
+        <header className="mb-8 space-y-3">
+          <p className={cn("text-lg text-red-600", caveat.className)}>
+            {t("cahierLabel")}
+          </p>
+          <h1
+            className={cn(
+              "text-4xl font-bold text-[#1e3a5f]",
+              libreBaskerville.className,
+            )}
+          >
+            {t("setupTitle")}
+          </h1>
+          <p className="text-sm text-slate-600">{t("setupSubtitle")}</p>
+        </header>
 
-        <div className="mx-auto max-w-5xl space-y-8">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Play className="h-5 w-5" />
-                {t("quickStart")}
-              </CardTitle>
-              <CardDescription>{t("quickStartDesc")}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Button
-                variant="default"
-                size="lg"
-                className="h-auto w-full py-6 flex flex-col items-center gap-2"
+        <div className="space-y-8">
+          <section className="cahier-card p-6 sm:p-8">
+            <h2
+              className={cn(
+                "text-2xl font-bold text-[#1e3a5f]",
+                libreBaskerville.className,
+              )}
+            >
+              {t("quickStart")}
+            </h2>
+            <p className="mt-1 text-sm text-slate-600">{t("quickStartDesc")}</p>
+
+            <div className="mt-6 space-y-4">
+              <button
+                type="button"
+                className="flex h-auto w-full flex-col items-center gap-2 rounded-xl bg-[#1e3a5f] px-4 py-6 text-white shadow-sm transition hover:bg-[#16304d]"
                 onClick={handleQuickStartAll}
               >
                 <Globe className="h-8 w-8" />
                 <span className="font-semibold">
                   {t("quickStartAllLanguages")}
                 </span>
-                <span className="text-sm font-normal opacity-90">
+                <span className="text-sm font-normal text-white/80">
                   {t("quickStartAllLanguagesDesc")}
                 </span>
-              </Button>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              </button>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {TARGET_LANGS.map((lang) => (
-                  <Button
+                  <button
                     key={lang.code}
-                    variant="outline"
-                    size="lg"
-                    className="h-auto py-6 flex flex-col items-center gap-2"
+                    type="button"
+                    className="flex h-auto flex-col items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-6 text-[#1e3a5f] shadow-sm transition hover:border-[#1e3a5f]/40"
                     onClick={() => handleQuickStart(lang.code)}
                   >
                     <span className="text-4xl">{lang.flag}</span>
-                    <span className="font-semibold">
-                      {tLang(lang.code)}
-                    </span>
-                  </Button>
+                    <span className="font-semibold">{tLang(lang.code)}</span>
+                  </button>
                 ))}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </section>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Languages className="h-5 w-5" />
-                {t("customSetup")}
-              </CardTitle>
-              <CardDescription>{t("customSetupDesc")}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
+          <section className="cahier-card p-6 sm:p-8">
+            <h2
+              className={cn(
+                "text-2xl font-bold text-[#1e3a5f]",
+                libreBaskerville.className,
+              )}
+            >
+              {t("customSetup")}
+            </h2>
+            <p className="mt-1 text-sm text-slate-600">{t("customSetupDesc")}</p>
+
+            <div className="mt-6 space-y-6">
               <div>
-                <h3 className="mb-3 font-semibold">
+                <h3 className="mb-3 font-semibold text-[#1e3a5f]">
                   {t("selectLanguage")}
                 </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   {TARGET_LANGS.map((lang) => (
-                    <Button
+                    <button
                       key={lang.code}
-                      variant={
-                        selectedLang === lang.code ? "default" : "outline"
-                      }
-                      className="h-auto py-4 flex flex-col items-center gap-1"
+                      type="button"
+                      className={cn(
+                        "flex h-auto flex-col items-center gap-1 rounded-xl border px-3 py-4 transition",
+                        selectedLang === lang.code
+                          ? "border-[#1e3a5f] bg-[#1e3a5f] text-white"
+                          : "border-slate-200 bg-white text-[#1e3a5f] hover:border-[#1e3a5f]/40",
+                      )}
                       onClick={() => setSelectedLang(lang.code)}
                     >
                       <span className="text-2xl">{lang.flag}</span>
                       <span className="text-sm">{tLang(lang.code)}</span>
-                    </Button>
+                    </button>
                   ))}
                 </div>
               </div>
 
               <div>
                 <div className="mb-3 flex items-center justify-between">
-                  <h3 className="font-semibold">{t("selectDomains")}</h3>
-                  <Button variant="ghost" size="sm" onClick={toggleAllDomains}>
+                  <h3 className="font-semibold text-[#1e3a5f]">
+                    {t("selectDomains")}
+                  </h3>
+                  <button
+                    type="button"
+                    className="text-xs text-slate-500 hover:text-[#1e3a5f]"
+                    onClick={toggleAllDomains}
+                  >
                     {selectedDomains.length === (domains?.length ?? 0)
                       ? tCommon("deselectAll")
                       : tCommon("selectAll")}
-                  </Button>
+                  </button>
                 </div>
                 {domains && domains.length > 0 ? (
                   <div className="grid max-h-64 grid-cols-1 gap-3 overflow-y-auto p-1 sm:grid-cols-2 lg:grid-cols-3">
                     {domains.map((domain) => (
-                      <div
+                      <button
                         key={domain.id}
-                        className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors ${
+                        type="button"
+                        className={cn(
+                          "flex items-center gap-3 rounded-xl border p-3 text-left transition",
                           selectedDomains.includes(domain.id)
-                            ? "border-primary bg-primary/5"
-                            : "hover:bg-muted/50"
-                        }`}
+                            ? "border-[#1e3a5f] bg-[#1e3a5f]/5"
+                            : "border-slate-200 bg-white hover:border-[#1e3a5f]/30",
+                        )}
                         onClick={() => toggleDomain(domain.id)}
                       >
-                        <input
-                          type="checkbox"
-                          checked={selectedDomains.includes(domain.id)}
-                          onChange={() => toggleDomain(domain.id)}
-                          className="h-4 w-4 cursor-pointer"
+                        <span
+                          className={cn(
+                            "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
+                            selectedDomains.includes(domain.id)
+                              ? "border-[#1e3a5f] bg-[#1e3a5f]"
+                              : "border-slate-300 bg-white",
+                          )}
                         />
-                        <span className="font-medium">{domain.name}</span>
-                      </div>
+                        <span className="font-medium text-[#1e3a5f]">
+                          {domain.name}
+                        </span>
+                      </button>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">
-                    {t("noDomains")}
-                  </p>
+                  <p className="text-sm text-slate-500">{t("noDomains")}</p>
                 )}
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {t("leaveEmpty")}
-                </p>
+                <p className="mt-2 text-xs text-slate-500">{t("leaveEmpty")}</p>
               </div>
 
-              <Button
-                onClick={handleStartReview}
-                disabled={!selectedLang}
-                size="lg"
-                className="w-full"
-              >
-                <Play className="mr-2 h-5 w-5" />
-                {t("startSession")}
-              </Button>
-            </CardContent>
-          </Card>
+              <div className="flex justify-end">
+                <Button
+                  onClick={handleStartReview}
+                  disabled={!selectedLang}
+                  size="lg"
+                  className="bg-[#1e3a5f] text-white hover:bg-[#16304d]"
+                >
+                  <Play className="mr-2 h-5 w-5" />
+                  {t("startSession")}
+                </Button>
+              </div>
+            </div>
+          </section>
         </div>
       </>
     );
@@ -544,51 +574,73 @@ export default function ReviewPage() {
 
   return (
     <>
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="mb-2 text-4xl font-bold">{t("sessionTitle")}</h1>
-            <p className="text-muted-foreground">{t("sessionSubtitle")}</p>
+      <header className="mb-8 space-y-3">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="space-y-3">
+            <p className={cn("text-lg text-red-600", caveat.className)}>
+              {t("cahierLabel")}
+            </p>
+            <h1
+              className={cn(
+                "text-4xl font-bold text-[#1e3a5f]",
+                libreBaskerville.className,
+              )}
+            >
+              {t("sessionTitle")}
+            </h1>
+            <p className="text-sm text-slate-600">{t("sessionSubtitle")}</p>
           </div>
-          <Button variant="outline" onClick={handleBackToSetup}>
+          <Button
+            variant="ghost"
+            onClick={handleBackToSetup}
+            className="text-[#1e3a5f] hover:bg-white/70 hover:text-[#1e3a5f]"
+          >
             {t("backToSetup")}
           </Button>
         </div>
-      </div>
+      </header>
 
-      <div className="mx-auto max-w-4xl space-y-6">
+      <div className="space-y-6">
         {isLoading ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <div className="flex flex-col items-center gap-4">
-                <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-primary" />
-                <p className="text-muted-foreground">{t("loadingCards")}</p>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="cahier-card py-12 text-center">
+            <div className="flex flex-col items-center gap-4">
+              <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-[#1e3a5f]" />
+              <p className="text-slate-600">{t("loadingCards")}</p>
+            </div>
+          </div>
         ) : totalCards === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <CheckCircle className="mx-auto mb-4 h-12 w-12 text-green-600" />
-              <h2 className="mb-2 text-2xl font-bold">{t("allCaughtUp")}</h2>
-              <p className="mb-6 text-muted-foreground">
-                {t("allCaughtUpDesc")}
-              </p>
-              <div className="flex justify-center gap-4">
-                <Button onClick={() => void refetch()}>
-                  {tCommon("refresh")}
-                </Button>
-                <Button variant="outline" onClick={handleBackToSetup}>
-                  {t("backToSetup")}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="cahier-card py-12 text-center">
+            <CheckCircle className="mx-auto mb-4 h-12 w-12 text-emerald-600" />
+            <h2
+              className={cn(
+                "mb-2 text-2xl font-bold text-[#1e3a5f]",
+                libreBaskerville.className,
+              )}
+            >
+              {t("allCaughtUp")}
+            </h2>
+            <p className="mb-6 text-slate-600">{t("allCaughtUpDesc")}</p>
+            <div className="flex justify-center gap-4">
+              <Button
+                onClick={() => void refetch()}
+                className="bg-[#1e3a5f] text-white hover:bg-[#16304d]"
+              >
+                {tCommon("refresh")}
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={handleBackToSetup}
+                className="text-[#1e3a5f] hover:bg-slate-100"
+              >
+                {t("backToSetup")}
+              </Button>
+            </div>
+          </div>
         ) : (
           <>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between text-[#1e3a5f]">
               <div className="flex items-center gap-2">
-                <BookOpen className="h-5 w-5 text-primary" />
+                <BookOpen className="h-5 w-5" />
                 <span className="font-medium">
                   {totalAvailable - currentIndex - 1 === 0
                     ? t("lastCard")
@@ -599,19 +651,19 @@ export default function ReviewPage() {
               </div>
               <div className="flex items-center gap-1">
                 <PronunciationGuideMenu options={pronunciationOptions} />
-                <Badge variant="secondary">
+                <span className="rounded-md bg-slate-200/80 px-2.5 py-1 text-xs text-slate-700">
                   {mode === "multi" ? (
-                    <>
-                      <Globe className="mr-1 h-3.5 w-3.5" />
+                    <span className="inline-flex items-center gap-1">
+                      <Globe className="h-3.5 w-3.5" />
                       {t("quickStartAllLanguages")}
-                    </>
+                    </span>
                   ) : (
                     <>
                       {getTargetLang(selectedLang ?? "")?.flag}{" "}
                       {selectedLang ? tLang(selectedLang) : null}
                     </>
                   )}
-                </Badge>
+                </span>
               </div>
             </div>
 
