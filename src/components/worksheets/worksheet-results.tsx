@@ -23,14 +23,14 @@ export function WorksheetResults({ worksheet, serifClassName, onReview }: Props)
     .sort((a, b) => b[1].wrong - a[1].wrong);
 
   return (
-    <section className="rounded-2xl bg-white p-6 shadow-[0_10px_30px_rgba(30,58,95,0.08)] sm:p-8">
+    <section className="cahier-card p-6 sm:p-8">
       <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-600">
         {t("resultsEyebrow")}
       </p>
-      <h2 className={cn("mt-2 text-3xl font-bold text-[#1e3a5f]", serifClassName)}>
+      <h2 className={cn("mt-2 text-3xl font-bold text-foreground", serifClassName)}>
         {t("score", { score: worksheet.score, max: worksheet.max })}
       </h2>
-      <p className="mt-2 text-sm text-slate-600">
+      <p className="mt-2 text-sm text-muted-foreground">
         {t("correctCount", {
           correct: worksheet.correctCount,
           total: worksheet.questionCount,
@@ -51,7 +51,7 @@ export function WorksheetResults({ worksheet, serifClassName, onReview }: Props)
       ) : null}
 
       {worksheet.analysis.weakGrammarTopics.length > 0 ? (
-        <p className="mt-3 text-sm text-slate-600">
+        <p className="mt-3 text-sm text-muted-foreground">
           {t("weakTopics")}:{" "}
           {worksheet.analysis.weakGrammarTopics.map((topic) => topic.title).join(", ")}
         </p>
@@ -62,7 +62,7 @@ export function WorksheetResults({ worksheet, serifClassName, onReview }: Props)
           <Button
             type="button"
             onClick={onReview}
-            className="bg-[#1e3a5f] text-white hover:bg-[#16304d]"
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {t("reviewQuestions")}
           </Button>

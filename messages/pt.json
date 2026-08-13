@@ -18,7 +18,8 @@
     "proverbs": "Expressões",
     "add": "Adicionar",
     "settings": "Definições",
-    "settingsAriaLabel": "Definições"
+    "settingsAriaLabel": "Definições",
+    "focusLangAria": "Definir o idioma de aprendizagem atual"
   },
   "common": {
     "back": "Voltar",

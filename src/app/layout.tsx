@@ -8,6 +8,7 @@ import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import { TRPCReactProvider } from "~/trpc/client";
 import { Toaster } from "~/components/ui/toaster";
 import { ThemeProvider } from "~/components/theme-provider";
+import { FocusLangProvider } from "~/components/focus-lang-provider";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("metadata");
@@ -38,8 +39,10 @@ export default async function RootLayout({
           disableTransitionOnChange
         >
           <NextIntlClientProvider locale={locale} messages={messages}>
-            <TRPCReactProvider>{children}</TRPCReactProvider>
-            <Toaster />
+            <FocusLangProvider>
+              <TRPCReactProvider>{children}</TRPCReactProvider>
+              <Toaster />
+            </FocusLangProvider>
           </NextIntlClientProvider>
         </ThemeProvider>
       </body>

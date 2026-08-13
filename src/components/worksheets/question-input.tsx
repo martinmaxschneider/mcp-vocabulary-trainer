@@ -27,7 +27,7 @@ type Props = {
 };
 
 const sheetInputClass =
-  "border-slate-300 bg-white text-[#1e3a5f] placeholder:text-slate-400 focus-visible:ring-[#1e3a5f]";
+  "border-input bg-card text-foreground placeholder:text-muted-foreground focus-visible:ring-ring";
 
 export function QuestionInput(props: Props) {
   switch (props.type) {

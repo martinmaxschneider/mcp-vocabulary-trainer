@@ -23,9 +23,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
-import { SOURCE_LANG, TARGET_LANGS } from "~/lib/languages";
+import {
+  SOURCE_LANG,
+  TARGET_LANGS,
+  isTargetLang,
+  type LearningLangCode,
+} from "~/lib/languages";
 import { Eye, Plus } from "lucide-react";
 import { ClickableIpa } from "~/components/clickable-ipa";
+import { useFocusLang } from "~/components/focus-lang-provider";
 
 type SortBy = "mainText" | "translation" | "createdAt";
 type SortDir = "asc" | "desc";
@@ -85,7 +91,10 @@ export function VocabularyCategoryList({
   const tCategories = useTranslations("categories");
   const tNav = useTranslations("nav");
 
-  const [targetLang, setTargetLang] = useState<string>("en");
+  const { focusLang: targetLang, setFocusLang } = useFocusLang();
+  const setTargetLang = (code: string) => {
+    if (isTargetLang(code)) setFocusLang(code as LearningLangCode);
+  };
   const [onlyWithTranslation, setOnlyWithTranslation] = useState(false);
   const [sortBy, setSortBy] = useState<SortBy>("mainText");
   const [sortDir, setSortDir] = useState<SortDir>("asc");

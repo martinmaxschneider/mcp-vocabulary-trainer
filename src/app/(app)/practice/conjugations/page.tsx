@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { TARGET_LANGS } from "~/lib/languages";
+import { TARGET_LANGS, isTargetLang, type LearningLangCode } from "~/lib/languages";
 import {
   CONJUGATABLE_LANGS,
   getConjugationProfile,
@@ -31,6 +31,7 @@ import {
   Play,
   XCircle,
 } from "lucide-react";
+import { useFocusLang } from "~/components/focus-lang-provider";
 
 type DrillState = "setup" | "active";
 type DrillMode = "single" | "paradigm";
@@ -53,11 +54,13 @@ export default function ConjugationDrillPage() {
   const conjugatableLangs = TARGET_LANGS.filter((l) =>
     (CONJUGATABLE_LANGS as readonly string[]).includes(l.code),
   );
-  const [selectedLang, setSelectedLang] = useState<string>(
-    conjugatableLangs.find((l) => l.code === "de")?.code ??
-      conjugatableLangs[0]?.code ??
-      "es",
-  );
+  const { focusLang, setFocusLang } = useFocusLang();
+  const selectedLang = conjugatableLangs.some((l) => l.code === focusLang)
+    ? focusLang
+    : (conjugatableLangs[0]?.code ?? "es");
+  const setSelectedLang = (code: string) => {
+    if (isTargetLang(code)) setFocusLang(code as LearningLangCode);
+  };
   const [selectedDomains, setSelectedDomains] = useState<string[]>([]);
   const [selectedTenses, setSelectedTenses] = useState<string[]>([]);
   const [onlyIrregular, setOnlyIrregular] = useState(false);
@@ -82,6 +85,10 @@ export default function ConjugationDrillPage() {
 
   const { data: domains } = api.domain.list.useQuery();
   const profile = getConjugationProfile(selectedLang);
+
+  useEffect(() => {
+    setSelectedTenses([]);
+  }, [selectedLang]);
 
   const tenseKeys = useMemo(() => {
     if (selectedTenses.length > 0) return selectedTenses;

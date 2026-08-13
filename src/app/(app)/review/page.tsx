@@ -16,6 +16,7 @@ import { getTargetLang } from "~/lib/languages";
 import { resolveErrorCode } from "~/lib/trpc-error";
 import { PronunciationGuideMenu } from "~/components/clickable-ipa";
 import { cn } from "~/lib/utils";
+import { useFocusLang } from "~/components/focus-lang-provider";
 import { Caveat, Libre_Baskerville } from "next/font/google";
 
 const caveat = Caveat({
@@ -38,9 +39,10 @@ export default function ReviewPage() {
   const tLang = useTranslations("languages");
   const tErrors = useTranslations("errors.codes");
   const { toast } = useToast();
+  const { focusLang, setFocusLang } = useFocusLang();
   const [reviewState, setReviewState] = useState<ReviewState>("setup");
   const [mode, setMode] = useState<ReviewMode>("single");
-  const [selectedLang, setSelectedLang] = useState<string | null>(null);
+  const selectedLang = mode === "multi" ? null : focusLang;
   const [selectedDomains, setSelectedDomains] = useState<string[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [result, setResult] = useState<{
@@ -309,7 +311,7 @@ export default function ReviewPage() {
 
   const handleQuickStart = (lang: string) => {
     setMode("single");
-    setSelectedLang(lang);
+    setFocusLang(lang as typeof focusLang);
     setSelectedDomains([]);
     setReviewState("active");
     setCurrentIndex(0);
@@ -319,7 +321,6 @@ export default function ReviewPage() {
 
   const handleQuickStartAll = () => {
     setMode("multi");
-    setSelectedLang(null);
     setSelectedDomains([]);
     setReviewState("active");
     setCurrentIndex(0);
@@ -345,7 +346,6 @@ export default function ReviewPage() {
   const handleBackToSetup = () => {
     setReviewState("setup");
     setMode("single");
-    setSelectedLang(null);
     setSelectedDomains([]);
     setCurrentIndex(0);
     setResult(null);
@@ -490,7 +490,7 @@ export default function ReviewPage() {
                           ? "border-[#1e3a5f] bg-[#1e3a5f] text-white"
                           : "border-slate-200 bg-white text-[#1e3a5f] hover:border-[#1e3a5f]/40",
                       )}
-                      onClick={() => setSelectedLang(lang.code)}
+                      onClick={() => setFocusLang(lang.code)}
                     >
                       <span className="text-2xl">{lang.flag}</span>
                       <span className="text-sm">{tLang(lang.code)}</span>

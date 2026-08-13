@@ -9,6 +9,7 @@ import { TARGET_LANGS, type LearningLangCode } from "~/lib/languages";
 import { Input } from "~/components/ui/input";
 import { Badge } from "~/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
+import { useFocusLang } from "~/components/focus-lang-provider";
 
 const KNOWN_CATEGORIES = [
   "basics",
@@ -32,8 +33,7 @@ function categoryLabel(
 export function GrammarBrowser() {
   const t = useTranslations("grammar");
   const tLang = useTranslations("languages");
-  const defaultLang: LearningLangCode = TARGET_LANGS[0]?.code ?? "en";
-  const [activeLang, setActiveLang] = useState<LearningLangCode>(defaultLang);
+  const { focusLang: activeLang, setFocusLang } = useFocusLang();
   const [query, setQuery] = useState("");
 
   const listQuery = api.grammar.listByLang.useQuery({ targetLang: activeLang });
@@ -61,7 +61,7 @@ export function GrammarBrowser() {
     <div className="space-y-6">
       <Tabs
         value={activeLang}
-        onValueChange={(v) => setActiveLang(v as LearningLangCode)}
+        onValueChange={(v) => setFocusLang(v as LearningLangCode)}
       >
         <TabsList className="flex h-auto flex-wrap gap-1">
           {TARGET_LANGS.map((lang) => (

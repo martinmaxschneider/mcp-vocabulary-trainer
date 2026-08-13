@@ -18,7 +18,8 @@
     "proverbs": "Redewendungen",
     "add": "Hinzufügen",
     "settings": "Einstellungen",
-    "settingsAriaLabel": "Einstellungen"
+    "settingsAriaLabel": "Einstellungen",
+    "focusLangAria": "Aktuelle Lernsprache festlegen"
   },
   "common": {
     "back": "Zurück",

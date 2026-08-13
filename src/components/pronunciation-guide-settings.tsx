@@ -42,6 +42,7 @@ import {
 import { useToast } from "~/hooks/use-toast";
 import { resolveErrorCode } from "~/lib/trpc-error";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
+import { useFocusLang } from "~/components/focus-lang-provider";
 
 type ItemDraft = {
   symbol: string;
@@ -66,9 +67,8 @@ export function PronunciationGuideSettings() {
   const tErrors = useTranslations("errors.codes");
   const { toast } = useToast();
 
-  const defaultTarget: LearningLangCode = TARGET_LANGS[0]?.code ?? "en";
-  const [activeTarget, setActiveTarget] =
-    useState<LearningLangCode>(defaultTarget);
+  const { focusLang: activeTarget, setFocusLang } = useFocusLang();
+  const setActiveTarget = (code: LearningLangCode) => setFocusLang(code);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<ItemDraft>(emptyDraft);

@@ -22,6 +22,7 @@ import {
   NotebookPen,
 } from "lucide-react";
 import { ThemeToggle } from "~/components/theme-toggle";
+import { FocusLangSelect } from "~/components/focus-lang-select";
 
 function isActive(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/";
@@ -48,7 +49,7 @@ export function Nav() {
   const isVocabularyActive = pathname.startsWith("/vocabulary");
 
   return (
-    <nav className="border-b bg-background">
+    <nav className="border-b border-border bg-background">
       <div className="container flex h-16 items-center justify-between px-4">
         <div className="flex items-center gap-6">
           <Link href="/" className="flex items-center space-x-2">
@@ -152,6 +153,7 @@ export function Nav() {
         </div>
 
         <div className="flex items-center gap-1">
+          <FocusLangSelect />
           <ThemeToggle />
           <Button
             asChild

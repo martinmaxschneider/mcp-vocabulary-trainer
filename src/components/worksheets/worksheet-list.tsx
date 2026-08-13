@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
@@ -9,12 +8,12 @@ import { TARGET_LANGS, type LearningLangCode } from "~/lib/languages";
 import { Badge } from "~/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { cn } from "~/lib/utils";
+import { useFocusLang } from "~/components/focus-lang-provider";
 
 export function WorksheetList() {
   const t = useTranslations("worksheets");
   const tLang = useTranslations("languages");
-  const defaultLang: LearningLangCode = TARGET_LANGS[0]?.code ?? "en";
-  const [activeLang, setActiveLang] = useState<LearningLangCode>(defaultLang);
+  const { focusLang: activeLang, setFocusLang } = useFocusLang();
 
   const listQuery = api.worksheet.list.useQuery({ targetLang: activeLang });
   const worksheets = listQuery.data ?? [];
@@ -23,7 +22,7 @@ export function WorksheetList() {
     <div className="space-y-6">
       <Tabs
         value={activeLang}
-        onValueChange={(value) => setActiveLang(value as LearningLangCode)}
+        onValueChange={(value) => setFocusLang(value as LearningLangCode)}
       >
         <TabsList className="flex h-auto flex-wrap gap-1">
           {TARGET_LANGS.map((lang) => (

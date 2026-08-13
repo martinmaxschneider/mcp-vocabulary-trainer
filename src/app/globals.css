@@ -27,25 +27,26 @@
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --background: 213 28% 9%;
+    --foreground: 214 40% 91%;
+    --card: 215 32% 16%;
+    --card-foreground: 214 40% 91%;
+    --popover: 215 32% 13%;
+    --popover-foreground: 214 40% 91%;
+    --primary: 210 42% 88%;
+    --primary-foreground: 213 28% 10%;
+    --secondary: 215 26% 20%;
+    --secondary-foreground: 214 36% 90%;
+    --muted: 215 26% 20%;
+    --muted-foreground: 213 18% 68%;
+    --accent: 215 26% 22%;
+    --accent-foreground: 214 36% 90%;
+    --destructive: 0 55% 42%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 213 24% 24%;
+    --input: 213 24% 24%;
+    --ring: 210 40% 78%;
+    color-scheme: dark;
   }
 }
 
@@ -60,14 +61,29 @@
 
 @layer components {
   .cahier-sheet {
+    --cahier-sheet-bg: #eef4fa;
+    --cahier-grid: rgba(147, 174, 196, 0.35);
+    --cahier-paper: #ffffff;
+    --cahier-ink: #1e3a5f;
+    --cahier-muted: #475569;
+    --cahier-section: rgba(220, 232, 244, 0.8);
+    --cahier-item: #ffffff;
+    --cahier-item-selected: #f4f8fc;
+    --cahier-red: #d45d5d;
+    --cahier-ring: rgba(30, 58, 95, 0.1);
+    --cahier-shadow: 0 10px 30px rgba(30, 58, 95, 0.08);
+    --cahier-btn: #1e3a5f;
+    --cahier-btn-hover: #16304d;
+    --cahier-btn-fg: #ffffff;
+
     position: relative;
     min-height: calc(100vh - 4rem);
-    background-color: #eef4fa;
+    background-color: var(--cahier-sheet-bg);
     background-image:
-      linear-gradient(to right, rgba(147, 174, 196, 0.35) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(147, 174, 196, 0.35) 1px, transparent 1px);
+      linear-gradient(to right, var(--cahier-grid) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--cahier-grid) 1px, transparent 1px);
     background-size: 22px 22px;
-    color: #1e3a5f;
+    color: var(--cahier-ink);
     --background: 210 40% 96%;
     --foreground: 213 52% 25%;
     --card: 0 0% 100%;
@@ -89,6 +105,53 @@
     --destructive-foreground: 0 0% 100%;
   }
 
+  .dark .cahier-sheet {
+    --cahier-sheet-bg: #101820;
+    --cahier-grid: rgba(110, 145, 180, 0.12);
+    --cahier-paper: #1b2636;
+    --cahier-ink: #dce7f4;
+    --cahier-muted: #9aadc2;
+    --cahier-section: rgba(10, 16, 26, 0.72);
+    --cahier-item: #223044;
+    --cahier-item-selected: #2a3d55;
+    --cahier-red: #d07a7a;
+    --cahier-ring: rgba(150, 180, 210, 0.14);
+    --cahier-shadow: 0 14px 40px rgba(0, 0, 0, 0.38),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    --cahier-btn: #d5e3f4;
+    --cahier-btn-hover: #c3d5eb;
+    --cahier-btn-fg: #121922;
+
+    background-image:
+      radial-gradient(
+        ellipse 120% 55% at 50% -8%,
+        rgba(90, 130, 180, 0.14),
+        transparent 58%
+      ),
+      linear-gradient(to right, var(--cahier-grid) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--cahier-grid) 1px, transparent 1px);
+    background-size: auto, 22px 22px, 22px 22px;
+    --background: 215 28% 14%;
+    --foreground: 214 40% 91%;
+    --card: 215 32% 16%;
+    --card-foreground: 214 40% 91%;
+    --popover: 215 32% 13%;
+    --popover-foreground: 214 40% 91%;
+    --primary: 210 42% 88%;
+    --primary-foreground: 213 28% 10%;
+    --secondary: 215 26% 20%;
+    --secondary-foreground: 214 36% 90%;
+    --muted: 215 26% 20%;
+    --muted-foreground: 213 18% 68%;
+    --accent: 215 26% 22%;
+    --accent-foreground: 214 36% 90%;
+    --border: 213 24% 24%;
+    --input: 213 24% 24%;
+    --ring: 210 40% 78%;
+    --destructive: 0 55% 42%;
+    --destructive-foreground: 0 0% 98%;
+  }
+
   .cahier-sheet::before {
     content: "";
     position: absolute;
@@ -96,9 +159,13 @@
     top: 0;
     bottom: 0;
     width: 2px;
-    background: #d45d5d;
+    background: var(--cahier-red);
     pointer-events: none;
     z-index: 1;
+  }
+
+  .dark .cahier-sheet::before {
+    box-shadow: 0 0 14px rgba(208, 122, 122, 0.28);
   }
 
   .cahier-inner {
@@ -122,17 +189,17 @@
   }
 
   .cahier-card {
-    background: #ffffff;
-    color: #1e3a5f;
+    background: var(--cahier-paper);
+    color: var(--cahier-ink);
     border-radius: 1rem;
-    box-shadow: 0 10px 30px rgba(30, 58, 95, 0.08);
+    box-shadow: var(--cahier-shadow);
   }
 
   .cahier-section {
     border-radius: 1rem;
-    background: rgba(220, 232, 244, 0.8);
+    background: var(--cahier-section);
     padding: 1rem;
-    box-shadow: inset 0 0 0 1px rgba(30, 58, 95, 0.1);
+    box-shadow: inset 0 0 0 1px var(--cahier-ring);
   }
 
   @media (min-width: 640px) {
@@ -142,11 +209,18 @@
   }
 
   .cahier-item {
-    background: #ffffff;
+    background: var(--cahier-item);
+    color: var(--cahier-ink);
     border-radius: 0.75rem;
     box-shadow:
       0 1px 2px rgba(30, 58, 95, 0.06),
-      0 0 0 1px rgba(30, 58, 95, 0.1);
+      0 0 0 1px var(--cahier-ring);
+  }
+
+  .dark .cahier-item {
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.28),
+      0 0 0 1px var(--cahier-ring);
   }
 
   .cahier-item-hover {
@@ -162,11 +236,17 @@
       0 0 0 1px rgba(30, 58, 95, 0.22);
   }
 
+  .dark .cahier-item-hover:hover {
+    box-shadow:
+      0 10px 28px rgba(0, 0, 0, 0.45),
+      0 0 0 1px rgba(180, 210, 235, 0.28);
+  }
+
   .cahier-item-selected {
-    background: #f4f8fc;
+    background: var(--cahier-item-selected);
     box-shadow:
       0 1px 2px rgba(30, 58, 95, 0.06),
-      0 0 0 2px #1e3a5f;
+      0 0 0 2px var(--cahier-ink);
   }
 
   .cahier-accent {
@@ -175,20 +255,102 @@
     width: 0.25rem;
     flex-shrink: 0;
     border-radius: 9999px;
-    background: rgba(212, 93, 93, 0.8);
+    background: var(--cahier-red);
     transition: background-color 150ms ease;
   }
 
   .cahier-item-hover:hover .cahier-accent {
-    background: #1e3a5f;
+    background: var(--cahier-ink);
   }
 
   .cahier-sheet .bg-card {
-    box-shadow: 0 10px 30px rgba(30, 58, 95, 0.08);
+    box-shadow: var(--cahier-shadow);
   }
 
   .cahier-sheet .rounded-lg.border {
-    background-color: #ffffff;
+    background-color: var(--cahier-paper);
+  }
+}
+
+@layer utilities {
+  .dark .cahier-sheet .bg-white,
+  .dark .cahier-sheet .bg-slate-50,
+  .dark .cahier-sheet .bg-slate-100 {
+    background-color: var(--cahier-paper);
+  }
+
+  .dark .cahier-sheet .bg-\[\#eef4fa\],
+  .dark .cahier-sheet .bg-\[\#dce8f4\]\/80 {
+    background-color: var(--cahier-section);
+  }
+
+  .dark .cahier-sheet .bg-slate-200\/80 {
+    background-color: hsl(var(--secondary));
+    color: hsl(var(--secondary-foreground));
+  }
+
+  .dark .cahier-sheet .text-\[\#1e3a5f\] {
+    color: var(--cahier-ink);
+  }
+
+  .dark .cahier-sheet .text-slate-400,
+  .dark .cahier-sheet .text-slate-500,
+  .dark .cahier-sheet .text-slate-600,
+  .dark .cahier-sheet .text-slate-700 {
+    color: var(--cahier-muted);
+  }
+
+  .dark .cahier-sheet .border-slate-200,
+  .dark .cahier-sheet .border-slate-300 {
+    border-color: hsl(var(--border));
+  }
+
+  .dark .cahier-sheet .bg-\[\#1e3a5f\] {
+    background-color: var(--cahier-btn);
+    color: var(--cahier-btn-fg);
+  }
+
+  .dark .cahier-sheet .hover\:bg-\[\#16304d\]:hover,
+  .dark .cahier-sheet .hover\:bg-\[\#1e3a5f\]:hover {
+    background-color: var(--cahier-btn-hover);
+    color: var(--cahier-btn-fg);
+  }
+
+  .dark .cahier-sheet .border-\[\#1e3a5f\] {
+    border-color: var(--cahier-btn);
+  }
+
+  .dark .cahier-sheet .bg-\[\#1e3a5f\]\/5 {
+    background-color: rgba(213, 227, 244, 0.08);
+  }
+
+  .dark .cahier-sheet .ring-\[\#1e3a5f\]\/10 {
+    --tw-ring-color: var(--cahier-ring);
+  }
+
+  .dark .cahier-sheet .hover\:border-\[\#1e3a5f\]\/40:hover,
+  .dark .cahier-sheet .hover\:border-\[\#1e3a5f\]\/30:hover,
+  .dark .cahier-sheet .hover\:border-\[\#1e3a5f\]:hover {
+    border-color: var(--cahier-btn);
+  }
+
+  .dark .cahier-sheet .hover\:text-\[\#1e3a5f\]:hover,
+  .dark .cahier-sheet .group:hover .group-hover\:text-\[\#1e3a5f\] {
+    color: var(--cahier-ink);
+  }
+
+  .dark .cahier-sheet .hover\:bg-white\/70:hover,
+  .dark .cahier-sheet .hover\:bg-slate-100:hover {
+    background-color: hsl(var(--accent));
+  }
+
+  .dark .cahier-sheet .border-\[\#1e3a5f\]\/10 {
+    border-color: var(--cahier-ring);
+  }
+
+  .dark .cahier-sheet .bg-\[\#1e3a5f\] .text-white,
+  .dark .cahier-sheet .bg-\[\#1e3a5f\].text-white {
+    color: var(--cahier-btn-fg);
   }
 }
 

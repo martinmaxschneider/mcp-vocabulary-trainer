@@ -18,7 +18,8 @@
     "proverbs": "Idioms",
     "add": "Add",
     "settings": "Settings",
-    "settingsAriaLabel": "Settings"
+    "settingsAriaLabel": "Settings",
+    "focusLangAria": "Set current learning language"
   },
   "common": {
     "back": "Back",

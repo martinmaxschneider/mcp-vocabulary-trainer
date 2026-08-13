@@ -61,17 +61,17 @@ export function QuestionCard({
       : t("incorrect");
 
   return (
-    <article className="rounded-2xl bg-white p-6 shadow-[0_10px_30px_rgba(30,58,95,0.08)] sm:p-8">
+    <article className="cahier-card p-6 sm:p-8">
       {question.categoryLabel ? (
         <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-amber-600">
           {question.categoryLabel}
         </p>
       ) : null}
-      <h2 className={cn("text-2xl font-bold leading-snug text-[#1e3a5f]", serifClassName)}>
+      <h2 className={cn("text-2xl font-bold leading-snug text-foreground", serifClassName)}>
         {question.prompt}
       </h2>
       {question.hint ? (
-        <p className="mt-2 text-sm italic text-slate-500">{question.hint}</p>
+        <p className="mt-2 text-sm italic text-muted-foreground">{question.hint}</p>
       ) : null}
 
       <div className="mt-6">
@@ -90,8 +90,8 @@ export function QuestionCard({
           className={cn(
             "mt-6 rounded-lg border px-4 py-3 text-sm",
             isCorrect
-              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-              : "border-red-200 bg-red-50 text-red-800",
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300"
+              : "border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/50 dark:text-red-300",
           )}
         >
           <p className="font-medium">{resultLabel}</p>
@@ -112,7 +112,7 @@ export function QuestionCard({
             type="button"
             onClick={onCheck}
             disabled={!canCheck || checking}
-            className="bg-[#1e3a5f] text-white hover:bg-[#16304d]"
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {checking ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {t("checkAnswer")}
