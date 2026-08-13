@@ -1,14 +1,15 @@
 // MCP-Endpoint (Streamable HTTP) unter /mcp — für ChatGPT via OpenAI Secure MCP Tunnel.
-// Persistenz only: CRUD, Konjugationen, Review, Leitner, Grammatik, Stats. Keine KI.
+// Persistenz only: CRUD, Konjugationen, Review, Leitner, Grammatik, Arbeitsblätter, Stats. Keine KI.
 import { createMcpHandler } from "mcp-handler";
 import { z } from "zod";
-import { EntryType, WordCategory } from "@prisma/client";
+import { EntryType, WordCategory, WorksheetStatus } from "@prisma/client";
 import type { TRPCRequestInfo } from "@trpc/server/http";
 import { createCaller } from "~/server/api/root";
 import { createTRPCContext } from "~/server/api/trpc";
 import { createEntryInputSchema } from "~/server/api/routers/entry";
 import { pronunciationGuideItemInputSchema } from "~/server/api/routers/pronunciation";
 import { grammarBlockInputSchema } from "~/server/api/routers/grammar";
+import { worksheetQuestionInputSchema } from "~/lib/schemas/worksheet";
 import { conjugationsSchema } from "~/lib/schemas/translation";
 import { MAX_BOX, MIN_BOX } from "~/lib/leitner";
 import { SOURCE_LANG } from "~/lib/languages";
@@ -785,6 +786,132 @@ const handler = createMcpHandler(
         const api = await getCaller();
         try {
           return jsonResult(await api.grammar.delete({ id }));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    // ── Worksheets (Klausuren; Inhalt via Chat, Ausfüllen in der App) ──
+    server.tool(
+      "list_worksheets",
+      "Listet Arbeitsblätter (id, Titel, Thema/section, Status OPEN|IN_PROGRESS|COMPLETED, Score, Datum). " +
+        "Vor create_worksheet prüfen, ob ein ähnliches Blatt schon existiert. " +
+        "Filter optional nach targetLang und status.",
+      {
+        targetLang: z.string().optional(),
+        status: z.nativeEnum(WorksheetStatus).optional(),
+      },
+      async (args) => {
+        const api = await getCaller();
+        return jsonResult(await api.worksheet.list(args));
+      },
+    );
+
+    server.tool(
+      "get_worksheet",
+      "Lädt ein Arbeitsblatt inkl. aller Fragen, Lösungen (accepted) und gegebener Antworten. " +
+        "Für Kontrolle, Weiterbearbeitung und als Kontext vor update_worksheet.",
+      {
+        id: z.string(),
+      },
+      async ({ id }) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.worksheet.getById({ id }));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "get_worksheet_results",
+      "Liefert die Nutzerantworten zu einem Arbeitsblatt inkl. automatischer Bewertung, " +
+        "manueller Korrektur (richtig↔falsch via manualOverride) und einer Schwächen-Zusammenfassung " +
+        "(byType, byTag, weakGrammarTopics, weakEntries). " +
+        "Danach Grammatik-Kapitel/Vokabeln gezielt wiederholen.",
+      {
+        id: z.string(),
+      },
+      async ({ id }) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.worksheet.getResults({ id }));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "create_worksheet",
+      "Legt ein neues Arbeitsblatt an. WICHTIG: Vorher nachfragen " +
+        "(„Soll ich das als Arbeitsblatt speichern?“). Zuerst Wissensstand laden " +
+        "(list/search_grammar_topics, search_entries, get_stats, list_cards) und IDs verlinken " +
+        "(grammarTopicId, entryId, tags). Status wird OPEN; der Nutzer füllt in der App aus. " +
+        "Fragetypen: MULTIPLE_CHOICE (payload.options, accepted.optionId), " +
+        "CLOZE (payload.text mit ___, accepted.blanks[].values), " +
+        "FREE_TEXT (payload {}, accepted.values), " +
+        "ERROR_CORRECTION (payload.sentence, accepted.values), " +
+        "SENTENCE_REORDER (payload.tokens, accepted.order), " +
+        "MATCHING (payload.left/right, accepted.pairs), " +
+        "TRUE_FALSE (payload {}, accepted.isTrue; Begründung bewertet die App nicht), " +
+        "CONJUGATION_GRID (payload.verb/tenseKey/persons, accepted.cells[].values). " +
+        "maxScore typisch 20 (französische Notation).",
+      {
+        targetLang: z.string(),
+        title: z.string(),
+        description: z.string().optional(),
+        section: z.string(),
+        maxScore: z.number().int().optional(),
+        questions: z.array(worksheetQuestionInputSchema).min(1).max(50),
+      },
+      async (args) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.worksheet.create(args));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "update_worksheet",
+      "Ergänzt oder korrigiert ein noch nicht abgeschlossenes Arbeitsblatt (nicht COMPLETED). " +
+        "Metadaten optional. questions: ohne id = anhängen, mit id = bestehende unbeantwortete Frage ändern. " +
+        "deleteQuestionIds nur für unbeantwortete Fragen. Vorher nachfragen.",
+      {
+        id: z.string(),
+        targetLang: z.string().optional(),
+        title: z.string().optional(),
+        description: z.string().nullable().optional(),
+        section: z.string().optional(),
+        maxScore: z.number().int().nullable().optional(),
+        questions: z.array(worksheetQuestionInputSchema).min(1).max(50).optional(),
+        deleteQuestionIds: z.array(z.string()).max(50).optional(),
+      },
+      async (args) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.worksheet.update(args));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "delete_worksheet",
+      "Löscht ein Arbeitsblatt inkl. Fragen und Antworten. Vorher nachfragen.",
+      {
+        id: z.string(),
+      },
+      async ({ id }) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.worksheet.delete({ id }));
         } catch (e) {
           return errorResult(e instanceof Error ? e.message : String(e));
         }

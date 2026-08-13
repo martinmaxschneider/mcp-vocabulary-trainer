@@ -19,6 +19,7 @@ import {
   ChevronDown,
   Library,
   Languages,
+  NotebookPen,
 } from "lucide-react";
 import { ThemeToggle } from "~/components/theme-toggle";
 
@@ -41,6 +42,7 @@ export function Nav() {
       icon: BookOpen,
     },
     { href: "/grammar", label: t("grammar"), icon: Languages },
+    { href: "/worksheets", label: t("worksheets"), icon: NotebookPen },
   ];
 
   const isVocabularyActive = pathname.startsWith("/vocabulary");

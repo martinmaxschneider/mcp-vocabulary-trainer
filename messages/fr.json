@@ -11,6 +11,7 @@
     "vocabulary": "Vocabulaire",
     "conjugations": "Conjugaisons",
     "grammar": "Grammaire",
+    "worksheets": "Feuilles",
     "verbs": "Verbes",
     "nouns": "Noms",
     "adjectives": "Adjectifs",
@@ -470,7 +471,10 @@
       "TRANSLATION_NOT_FOUND": "Traduction introuvable",
       "NO_VALID_TENSES": "Aucun temps valide sélectionné",
       "CONJUGATION_FORM_NOT_FOUND": "Forme de conjugaison introuvable",
-      "NO_CONJUGATION_CATALOG": "Aucun catalogue de conjugaison pour cette langue"
+      "NO_CONJUGATION_CATALOG": "Aucun catalogue de conjugaison pour cette langue",
+      "WORKSHEET_NOT_FOUND": "Feuille d'exercices introuvable",
+      "QUESTION_ALREADY_ANSWERED": "Cette question a déjà une réponse",
+      "WORKSHEET_COMPLETED": "Les feuilles terminées ne peuvent plus être modifiées"
     }
   },
   "toasts": {
@@ -540,7 +544,13 @@
     "pronunciationSaveError": "Erreur lors de l'enregistrement du guide",
     "pronunciationDeleteError": "Erreur lors de la suppression du guide",
     "grammarDeleted": "Chapitre de grammaire supprimé",
-    "grammarDeleteError": "Erreur lors de la suppression du chapitre"
+    "grammarDeleteError": "Erreur lors de la suppression du chapitre",
+    "worksheetDeleted": "Feuille supprimée",
+    "worksheetDeleteError": "Erreur lors de la suppression de la feuille",
+    "worksheetSubmitError": "Impossible de vérifier la réponse",
+    "worksheetMarkedCorrect": "Réponse marquée comme correcte",
+    "worksheetMarkedIncorrect": "Réponse marquée comme fausse",
+    "worksheetMarkError": "Impossible de corriger la réponse"
   },
   "grammar": {
     "title": "Grammaire",
@@ -568,6 +578,59 @@
       "word_order": "Ordre des mots",
       "adjectives": "Adjectifs",
       "prepositions": "Prépositions"
+    }
+  },
+  "worksheets": {
+    "title": "Feuilles d'exercices",
+    "subtitle": "Contrôles et fiches — à créer dans le chat via MCP, à remplir ici",
+    "loading": "Chargement des feuilles…",
+    "empty": "Pas encore de feuilles pour cette langue.",
+    "emptyHint": "Chargez grammaire ou vocabulaire dans le chat et enregistrez-les (create_worksheet).",
+    "status": {
+      "OPEN": "Ouverte",
+      "IN_PROGRESS": "Commencée",
+      "COMPLETED": "Terminée"
+    },
+    "questionCount": "{count, plural, one {1 question} other {# questions}}",
+    "notation": "Notation : /{max}",
+    "score": "{score}/{max}",
+    "correctCount": "{correct} sur {total} justes",
+    "modeSequential": "Question par question",
+    "modeSheet": "Feuille entière",
+    "progressQuestion": "Question {current} / {total}",
+    "progressSheet": "{total} questions",
+    "correctSoFar": "{count, plural, one {1 juste} other {# justes}}",
+    "checkAnswer": "Vérifier la réponse",
+    "markCorrect": "Marquer comme juste",
+    "markIncorrect": "Marquer comme faux",
+    "next": "Suivant",
+    "showResults": "Voir le bilan",
+    "reviewQuestions": "Revoir les questions",
+    "submitRemaining": "{count, plural, one {Envoyer 1 réponse} other {Envoyer # réponses}}",
+    "answerPlaceholder": "Saisir la réponse…",
+    "blankPlaceholder": "…",
+    "correctionPlaceholder": "Phrase corrigée…",
+    "justificationPlaceholder": "Justification (facultatif)…",
+    "trueLabel": "Vrai",
+    "falseLabel": "Faux",
+    "correct": "Juste",
+    "correctWithTypo": "Juste (petite faute)",
+    "incorrect": "Faux",
+    "markedCorrect": "Marquée comme juste",
+    "markedIncorrect": "Marquée comme fausse",
+    "solution": "Solution",
+    "resultsEyebrow": "Bilan",
+    "weakTopics": "À revoir",
+    "deleteConfirmTitle": "Supprimer cette feuille ?",
+    "deleteConfirmDesc": "« {title} » et toutes les réponses seront supprimées.",
+    "cahierLabel": {
+      "fr": "carnet de français — devoir surveillé",
+      "es": "cuaderno de español — examen",
+      "de": "Heft — Klassenarbeit",
+      "en": "English notebook — timed test",
+      "pt": "caderno de português — prova",
+      "gsw": "Heft — Prüefig",
+      "fallback": "carnet — {language}"
     }
   },
   "pronunciation": {

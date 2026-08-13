@@ -11,6 +11,7 @@
     "vocabulary": "Wortschatz",
     "conjugations": "Konjugationen",
     "grammar": "Grammatik",
+    "worksheets": "Arbeitsblätter",
     "verbs": "Verben",
     "nouns": "Nomen",
     "adjectives": "Adjektive",
@@ -470,7 +471,10 @@
       "TRANSLATION_NOT_FOUND": "Übersetzung nicht gefunden",
       "NO_VALID_TENSES": "Keine gültigen Zeiten ausgewählt",
       "CONJUGATION_FORM_NOT_FOUND": "Konjugationsform nicht gefunden",
-      "NO_CONJUGATION_CATALOG": "Kein Konjugationskatalog für diese Sprache"
+      "NO_CONJUGATION_CATALOG": "Kein Konjugationskatalog für diese Sprache",
+      "WORKSHEET_NOT_FOUND": "Arbeitsblatt nicht gefunden",
+      "QUESTION_ALREADY_ANSWERED": "Frage wurde bereits beantwortet",
+      "WORKSHEET_COMPLETED": "Abgeschlossene Arbeitsblätter können nicht mehr geändert werden"
     }
   },
   "toasts": {
@@ -540,7 +544,13 @@
     "pronunciationSaveError": "Fehler beim Speichern der Aussprache-Hilfe",
     "pronunciationDeleteError": "Fehler beim Löschen der Aussprache-Hilfe",
     "grammarDeleted": "Grammatik-Kapitel gelöscht",
-    "grammarDeleteError": "Fehler beim Löschen des Grammatik-Kapitels"
+    "grammarDeleteError": "Fehler beim Löschen des Grammatik-Kapitels",
+    "worksheetDeleted": "Arbeitsblatt gelöscht",
+    "worksheetDeleteError": "Fehler beim Löschen des Arbeitsblatts",
+    "worksheetSubmitError": "Antwort konnte nicht geprüft werden",
+    "worksheetMarkedCorrect": "Antwort als richtig gewertet",
+    "worksheetMarkedIncorrect": "Antwort als falsch gewertet",
+    "worksheetMarkError": "Antwort konnte nicht korrigiert werden"
   },
   "grammar": {
     "title": "Grammatik",
@@ -568,6 +578,59 @@
       "word_order": "Satzbau",
       "adjectives": "Adjektive",
       "prepositions": "Präpositionen"
+    }
+  },
+  "worksheets": {
+    "title": "Arbeitsblätter",
+    "subtitle": "Klausuren und Übungsblätter — anlegen im Chat über MCP, ausfüllen hier",
+    "loading": "Lade Arbeitsblätter…",
+    "empty": "Noch keine Arbeitsblätter für diese Sprache.",
+    "emptyHint": "Im Chat Grammatik oder Vokabeln laden und als Arbeitsblatt speichern lassen (create_worksheet).",
+    "status": {
+      "OPEN": "Offen",
+      "IN_PROGRESS": "Begonnen",
+      "COMPLETED": "Abgeschlossen"
+    },
+    "questionCount": "{count, plural, one {1 Frage} other {# Fragen}}",
+    "notation": "Notation: /{max}",
+    "score": "{score}/{max}",
+    "correctCount": "{correct} von {total} richtig",
+    "modeSequential": "Frage für Frage",
+    "modeSheet": "Ganzes Blatt",
+    "progressQuestion": "Frage {current} / {total}",
+    "progressSheet": "{total} Fragen",
+    "correctSoFar": "{count, plural, one {1 richtig} other {# richtig}}",
+    "checkAnswer": "Antwort prüfen",
+    "markCorrect": "Als richtig werten",
+    "markIncorrect": "Als falsch werten",
+    "next": "Weiter",
+    "showResults": "Auswertung anzeigen",
+    "reviewQuestions": "Fragen ansehen",
+    "submitRemaining": "{count, plural, one {1 Antwort abgeben} other {# Antworten abgeben}}",
+    "answerPlaceholder": "Antwort eintippen …",
+    "blankPlaceholder": "…",
+    "correctionPlaceholder": "Korrigierter Satz …",
+    "justificationPlaceholder": "Begründung (optional) …",
+    "trueLabel": "Richtig",
+    "falseLabel": "Falsch",
+    "correct": "Richtig",
+    "correctWithTypo": "Richtig (kleiner Tippfehler)",
+    "incorrect": "Leider falsch",
+    "markedCorrect": "Als richtig gewertet",
+    "markedIncorrect": "Als falsch gewertet",
+    "solution": "Lösung",
+    "resultsEyebrow": "Auswertung",
+    "weakTopics": "Wiederholen",
+    "deleteConfirmTitle": "Arbeitsblatt wirklich löschen?",
+    "deleteConfirmDesc": "„{title}“ und alle Antworten werden entfernt.",
+    "cahierLabel": {
+      "fr": "carnet de français — devoir surveillé",
+      "es": "cuaderno de español — examen",
+      "de": "Heft — Klassenarbeit",
+      "en": "English notebook — timed test",
+      "pt": "caderno de português — prova",
+      "gsw": "Heft — Prüefig",
+      "fallback": "carnet — {language}"
     }
   },
   "pronunciation": {

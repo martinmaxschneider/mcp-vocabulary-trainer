@@ -47,9 +47,10 @@ model Entry {
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
-  translations Translation[]
-  progresses   UserProgress[]
-  domains      DomainEntry[]
+  translations        Translation[]
+  progresses          UserProgress[]
+  domains             DomainEntry[]
+  worksheetQuestions  WorksheetQuestion[]
 }
 
 model DomainEntry {
@@ -197,11 +198,12 @@ model GrammarTopic {
   /// Einzeilige Kurzfassung für die Themenliste
   summary    String
   /// Suchbegriffe als JSON-Array, z.B. ["possessiv","mi","tu"]
-  keywords   Json?
-  sortOrder  Int            @default(0)
-  blocks     GrammarBlock[]
-  createdAt  DateTime       @default(now())
-  updatedAt  DateTime       @updatedAt
+  keywords           Json?
+  sortOrder          Int                 @default(0)
+  blocks             GrammarBlock[]
+  worksheetQuestions WorksheetQuestion[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 
   @@unique([targetLang, slug])
   @@index([targetLang, category, sortOrder])
@@ -223,4 +225,87 @@ model GrammarBlock {
   updatedAt DateTime         @updatedAt
 
   @@index([topicId, sortOrder])
+}
+
+enum WorksheetStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum WorksheetQuestionType {
+  MULTIPLE_CHOICE
+  CLOZE
+  FREE_TEXT
+  ERROR_CORRECTION
+  SENTENCE_REORDER
+  MATCHING
+  TRUE_FALSE
+  CONJUGATION_GRID
+}
+
+/// Klausur-/Übungsblatt; Inhalt via MCP, Ausfüllen in der App
+model Worksheet {
+  id          String              @id @default(cuid())
+  targetLang  String
+  title       String
+  description String?
+  /// z.B. Teilungsartikel, Verneinung
+  section     String
+  /// Anzeige-Nenner (z.B. 20); sonst Summe der Fragenspunkte
+  maxScore    Int?
+  status      WorksheetStatus     @default(OPEN)
+  startedAt   DateTime?
+  completedAt DateTime?
+  questions   WorksheetQuestion[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@index([targetLang, status])
+  @@index([createdAt])
+}
+
+model WorksheetQuestion {
+  id             String                @id @default(cuid())
+  worksheetId    String
+  worksheet      Worksheet             @relation(fields: [worksheetId], references: [id], onDelete: Cascade)
+  sortOrder      Int                   @default(0)
+  type           WorksheetQuestionType
+  categoryLabel  String?
+  prompt         String
+  hint           String?
+  points         Int                   @default(1)
+  /// Typ-spezifisch: Optionen, Lückentext, Tokens, Paare, Raster …
+  payload        Json
+  /// Erwartete Lösung(en)
+  accepted       Json
+  explanation    String?
+  grammarTopicId String?
+  grammarTopic   GrammarTopic?         @relation(fields: [grammarTopicId], references: [id], onDelete: SetNull)
+  entryId        String?
+  entry          Entry?                @relation(fields: [entryId], references: [id], onDelete: SetNull)
+  /// JSON-Array, z.B. ["partitive","negation"]
+  tags           Json?
+  answer         WorksheetAnswer?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  @@index([worksheetId, sortOrder])
+  @@index([grammarTopicId])
+  @@index([entryId])
+}
+
+model WorksheetAnswer {
+  id                    String            @id @default(cuid())
+  questionId            String            @unique
+  question              WorksheetQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  userAnswer            Json
+  autoCorrect           Boolean
+  isTypo                Boolean           @default(false)
+  /// null = automatische Bewertung, true = manuell richtig, false = manuell falsch
+  manualOverride        Boolean?
+  checkedAt             DateTime          @default(now())
+  overriddenAt          DateTime?
+
+  @@index([questionId])
 }

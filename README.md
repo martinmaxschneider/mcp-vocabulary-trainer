@@ -25,8 +25,9 @@ This project is meant to run **on your own machine** (or local Docker). It is no
 - Fuzzy answer matching (typo-tolerant)
 - Conjugation practice
 - Grammar reference (cheat sheets; create/refine via MCP chat)
+- Worksheets / grammar tests (create via MCP, fill in the app, results for later analysis)
 - Optional OpenAI-powered translation suggestions
-- ChatGPT MCP at `/mcp` (persistence + review + grammar; AI stays in ChatGPT)
+- ChatGPT MCP at `/mcp` (persistence + review + grammar + worksheets; AI stays in ChatGPT)
 
 ## Quick start
 
@@ -103,7 +104,7 @@ App: [http://localhost:4810](http://localhost:4810).
 
 ## ChatGPT MCP
 
-Persistence MCP at `/mcp` (domains, entries, conjugations, review/Leitner, grammar, stats). Details for `tunnel-client` and ChatGPT Developer Mode: [SETUP.md](SETUP.md).
+Persistence MCP at `/mcp` (domains, entries, conjugations, review/Leitner, grammar, worksheets, stats). Details for `tunnel-client` and ChatGPT Developer Mode: [SETUP.md](SETUP.md).
 
 ```bash
 npm run dev          # app + tunnel (development)
@@ -119,6 +120,14 @@ Grammar chapters live in the DB and are shown under **Grammatik** in the app. Co
 1. **New** — learn a topic → AI asks whether to save → `create_grammar_topic` (RULE + EXAMPLES + NOTE)
 2. **Resume** — “I want to learn possessives” → `search_grammar_topics` / `get_grammar_topic` → discuss from your saved chapter
 3. **Personalize** — add your own mnemonic → `upsert_grammar_blocks` (after confirmation)
+
+### Worksheets via chat
+
+Worksheets live in the DB and are shown under **Arbeitsblätter** in the app. The AI creates them from your grammar/vocabulary; you fill them in the app.
+
+1. **New** — ask the AI to load your grammar/vocab/stats, then save a worksheet → `create_worksheet` (8 question types: multiple choice, cloze, free text, error correction, sentence reorder, matching, true/false, conjugation grid)
+2. **List / inspect** — `list_worksheets` / `get_worksheet` to resume or tweak an open sheet (`update_worksheet` until completed)
+3. **Analyse** — after you finish in the app, `get_worksheet_results` shows answers, auto-grade, manual overrides, and weak tags/topics
 
 ### Voice Chat workaround
 

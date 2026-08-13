@@ -11,6 +11,7 @@
     "vocabulary": "Vocabulary",
     "conjugations": "Conjugations",
     "grammar": "Grammar",
+    "worksheets": "Worksheets",
     "verbs": "Verbs",
     "nouns": "Nouns",
     "adjectives": "Adjectives",
@@ -470,7 +471,10 @@
       "TRANSLATION_NOT_FOUND": "Translation not found",
       "NO_VALID_TENSES": "No valid tenses selected",
       "CONJUGATION_FORM_NOT_FOUND": "Conjugation form not found",
-      "NO_CONJUGATION_CATALOG": "No conjugation catalog for this language"
+      "NO_CONJUGATION_CATALOG": "No conjugation catalog for this language",
+      "WORKSHEET_NOT_FOUND": "Worksheet not found",
+      "QUESTION_ALREADY_ANSWERED": "This question has already been answered",
+      "WORKSHEET_COMPLETED": "Completed worksheets cannot be changed"
     }
   },
   "toasts": {
@@ -540,7 +544,13 @@
     "pronunciationSaveError": "Error saving pronunciation guide",
     "pronunciationDeleteError": "Error deleting pronunciation guide",
     "grammarDeleted": "Grammar chapter deleted",
-    "grammarDeleteError": "Error deleting grammar chapter"
+    "grammarDeleteError": "Error deleting grammar chapter",
+    "worksheetDeleted": "Worksheet deleted",
+    "worksheetDeleteError": "Error deleting worksheet",
+    "worksheetSubmitError": "Could not check the answer",
+    "worksheetMarkedCorrect": "Answer marked as correct",
+    "worksheetMarkedIncorrect": "Answer marked as incorrect",
+    "worksheetMarkError": "Could not override the answer"
   },
   "grammar": {
     "title": "Grammar",
@@ -568,6 +578,59 @@
       "word_order": "Word order",
       "adjectives": "Adjectives",
       "prepositions": "Prepositions"
+    }
+  },
+  "worksheets": {
+    "title": "Worksheets",
+    "subtitle": "Tests and exercise sheets — create them in chat via MCP, fill them in here",
+    "loading": "Loading worksheets…",
+    "empty": "No worksheets for this language yet.",
+    "emptyHint": "Load grammar or vocabulary in chat and save as a worksheet (create_worksheet).",
+    "status": {
+      "OPEN": "Open",
+      "IN_PROGRESS": "In progress",
+      "COMPLETED": "Completed"
+    },
+    "questionCount": "{count, plural, one {1 question} other {# questions}}",
+    "notation": "Grading: /{max}",
+    "score": "{score}/{max}",
+    "correctCount": "{correct} of {total} correct",
+    "modeSequential": "One by one",
+    "modeSheet": "Full sheet",
+    "progressQuestion": "Question {current} / {total}",
+    "progressSheet": "{total} questions",
+    "correctSoFar": "{count, plural, one {1 correct} other {# correct}}",
+    "checkAnswer": "Check answer",
+    "markCorrect": "Mark as correct",
+    "markIncorrect": "Mark as incorrect",
+    "next": "Next",
+    "showResults": "Show results",
+    "reviewQuestions": "Review questions",
+    "submitRemaining": "{count, plural, one {Submit 1 answer} other {Submit # answers}}",
+    "answerPlaceholder": "Type your answer…",
+    "blankPlaceholder": "…",
+    "correctionPlaceholder": "Corrected sentence…",
+    "justificationPlaceholder": "Reason (optional)…",
+    "trueLabel": "True",
+    "falseLabel": "False",
+    "correct": "Correct",
+    "correctWithTypo": "Correct (minor typo)",
+    "incorrect": "Not quite",
+    "markedCorrect": "Marked as correct",
+    "markedIncorrect": "Marked as incorrect",
+    "solution": "Solution",
+    "resultsEyebrow": "Results",
+    "weakTopics": "Review",
+    "deleteConfirmTitle": "Delete this worksheet?",
+    "deleteConfirmDesc": "“{title}” and all answers will be removed.",
+    "cahierLabel": {
+      "fr": "carnet de français — devoir surveillé",
+      "es": "cuaderno de español — examen",
+      "de": "Heft — Klassenarbeit",
+      "en": "English notebook — timed test",
+      "pt": "caderno de português — prova",
+      "gsw": "Heft — Prüefig",
+      "fallback": "notebook — {language}"
     }
   },
   "pronunciation": {

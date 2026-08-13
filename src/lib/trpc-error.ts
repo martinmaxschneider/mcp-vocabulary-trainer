@@ -25,5 +25,15 @@ export function resolveErrorCode(message: string | undefined): string | null {
     return "NO_CONJUGATION_CATALOG";
   }
 
+  if (message.startsWith("Worksheet ") && message.includes("not found")) {
+    return "WORKSHEET_NOT_FOUND";
+  }
+  if (message.includes("already answered")) {
+    return "QUESTION_ALREADY_ANSWERED";
+  }
+  if (message.startsWith("Cannot update a completed worksheet")) {
+    return "WORKSHEET_COMPLETED";
+  }
+
   return null;
 }

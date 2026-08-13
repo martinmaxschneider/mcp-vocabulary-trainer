@@ -24,7 +24,7 @@ export const settingsRouter = createTRPCRouter({
   }),
 
   resetEverything: publicProcedure.mutation(async ({ ctx }) => {
-    // Delete everything in the correct order
+    await ctx.db.worksheet.deleteMany({});
     await ctx.db.reviewLog.deleteMany({});
     await ctx.db.userProgress.deleteMany({});
     await ctx.db.domainEntry.deleteMany({});

@@ -11,6 +11,7 @@
     "vocabulary": "Vocabulario",
     "conjugations": "Conjugaciones",
     "grammar": "Gramática",
+    "worksheets": "Fichas",
     "verbs": "Verbos",
     "nouns": "Sustantivos",
     "adjectives": "Adjetivos",
@@ -470,7 +471,10 @@
       "TRANSLATION_NOT_FOUND": "Traducción no encontrada",
       "NO_VALID_TENSES": "No se seleccionaron tiempos válidos",
       "CONJUGATION_FORM_NOT_FOUND": "Forma de conjugación no encontrada",
-      "NO_CONJUGATION_CATALOG": "No hay catálogo de conjugación para este idioma"
+      "NO_CONJUGATION_CATALOG": "No hay catálogo de conjugación para este idioma",
+      "WORKSHEET_NOT_FOUND": "Ficha no encontrada",
+      "QUESTION_ALREADY_ANSWERED": "Esta pregunta ya está respondida",
+      "WORKSHEET_COMPLETED": "Las fichas completadas no se pueden modificar"
     }
   },
   "toasts": {
@@ -540,7 +544,13 @@
     "pronunciationSaveError": "Error al guardar la guía de pronunciación",
     "pronunciationDeleteError": "Error al eliminar la guía de pronunciación",
     "grammarDeleted": "Capítulo de gramática eliminado",
-    "grammarDeleteError": "Error al eliminar el capítulo de gramática"
+    "grammarDeleteError": "Error al eliminar el capítulo de gramática",
+    "worksheetDeleted": "Ficha eliminada",
+    "worksheetDeleteError": "Error al eliminar la ficha",
+    "worksheetSubmitError": "No se pudo comprobar la respuesta",
+    "worksheetMarkedCorrect": "Respuesta marcada como correcta",
+    "worksheetMarkedIncorrect": "Respuesta marcada como incorrecta",
+    "worksheetMarkError": "No se pudo corregir la respuesta"
   },
   "grammar": {
     "title": "Gramática",
@@ -568,6 +578,59 @@
       "word_order": "Orden de palabras",
       "adjectives": "Adjetivos",
       "prepositions": "Preposiciones"
+    }
+  },
+  "worksheets": {
+    "title": "Fichas",
+    "subtitle": "Exámenes y hojas de ejercicios — créalas en el chat vía MCP, rellénalas aquí",
+    "loading": "Cargando fichas…",
+    "empty": "Aún no hay fichas para este idioma.",
+    "emptyHint": "Carga gramática o vocabulario en el chat y guárdalo como ficha (create_worksheet).",
+    "status": {
+      "OPEN": "Abierta",
+      "IN_PROGRESS": "Empezada",
+      "COMPLETED": "Completada"
+    },
+    "questionCount": "{count, plural, one {1 pregunta} other {# preguntas}}",
+    "notation": "Nota: /{max}",
+    "score": "{score}/{max}",
+    "correctCount": "{correct} de {total} correctas",
+    "modeSequential": "Una por una",
+    "modeSheet": "Hoja completa",
+    "progressQuestion": "Pregunta {current} / {total}",
+    "progressSheet": "{total} preguntas",
+    "correctSoFar": "{count, plural, one {1 correcta} other {# correctas}}",
+    "checkAnswer": "Comprobar respuesta",
+    "markCorrect": "Marcar como correcta",
+    "markIncorrect": "Marcar como incorrecta",
+    "next": "Siguiente",
+    "showResults": "Ver resultados",
+    "reviewQuestions": "Ver preguntas",
+    "submitRemaining": "{count, plural, one {Enviar 1 respuesta} other {Enviar # respuestas}}",
+    "answerPlaceholder": "Escribe la respuesta…",
+    "blankPlaceholder": "…",
+    "correctionPlaceholder": "Frase corregida…",
+    "justificationPlaceholder": "Justificación (opcional)…",
+    "trueLabel": "Verdadero",
+    "falseLabel": "Falso",
+    "correct": "Correcto",
+    "correctWithTypo": "Correcto (falta menor)",
+    "incorrect": "Incorrecto",
+    "markedCorrect": "Marcada como correcta",
+    "markedIncorrect": "Marcada como incorrecta",
+    "solution": "Solución",
+    "resultsEyebrow": "Resultados",
+    "weakTopics": "Repasar",
+    "deleteConfirmTitle": "¿Eliminar esta ficha?",
+    "deleteConfirmDesc": "“{title}” y todas las respuestas se eliminarán.",
+    "cahierLabel": {
+      "fr": "carnet de français — devoir surveillé",
+      "es": "cuaderno de español — examen",
+      "de": "Heft — Klassenarbeit",
+      "en": "English notebook — timed test",
+      "pt": "caderno de português — prova",
+      "gsw": "Heft — Prüefig",
+      "fallback": "cuaderno — {language}"
     }
   },
   "pronunciation": {

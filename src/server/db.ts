@@ -12,7 +12,18 @@ const globalForPrisma = globalThis as unknown as {
   prisma: ReturnType<typeof createPrismaClient> | undefined;
 };
 
-export const db = globalForPrisma.prisma ?? createPrismaClient();
+function getClient() {
+  if (env.NODE_ENV !== "production" && globalForPrisma.prisma) {
+    // Drop the cached client after `prisma generate` / schema changes.
+    // Otherwise Next.js HMR keeps an instance whose query engine still
+    // references dropped columns (e.g. WorksheetAnswer.manuallyMarkedCorrect).
+    void globalForPrisma.prisma.$disconnect();
+    globalForPrisma.prisma = undefined;
+  }
 
-if (env.NODE_ENV !== "production") globalForPrisma.prisma = db;
+  const client = globalForPrisma.prisma ?? createPrismaClient();
+  if (env.NODE_ENV !== "production") globalForPrisma.prisma = client;
+  return client;
+}
 
+export const db = getClient();
