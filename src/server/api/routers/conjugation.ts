@@ -491,17 +491,7 @@ export const conjugationRouter = createTRPCRouter({
         };
       }
 
-      const byTranslation = new Map<string, FormRow[]>();
-      for (const form of forms) {
-        const list = byTranslation.get(form.translationId) ?? [];
-        list.push(form);
-        byTranslation.set(form.translationId, list);
-      }
-
-      const pickId = chosenGroup?.translationId;
-      const group =
-        (pickId ? byTranslation.get(pickId) : undefined) ??
-        byTranslation.get([...byTranslation.keys()][0]!)!;
+      const group = chosenGroup?.forms ?? forms;
       const head = group[0]!;
 
       const slots = group
@@ -525,7 +515,7 @@ export const conjugationRouter = createTRPCRouter({
 
       return {
         mode: "paradigm" as const,
-        totalAvailable: byTranslation.size,
+        totalAvailable: tenseGroups.size,
         dueCount,
         card: null,
         paradigm: {

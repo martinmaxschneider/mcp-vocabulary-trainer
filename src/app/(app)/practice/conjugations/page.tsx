@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { TARGET_LANGS, isTargetLang, type LearningLangCode } from "~/lib/languages";
 import {
@@ -49,6 +50,8 @@ export default function ConjugationDrillPage() {
   const tLang = useTranslations("languages");
   const tErrors = useTranslations("errors.codes");
   const { toast } = useToast();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [drillState, setDrillState] = useState<DrillState>("setup");
   const [drillMode, setDrillMode] = useState<DrillMode>("single");
   const conjugatableLangs = TARGET_LANGS.filter((l) =>
@@ -95,6 +98,24 @@ export default function ConjugationDrillPage() {
 
   const { data: domains } = api.domain.list.useQuery();
   const profile = getConjugationProfile(selectedLang);
+
+  useEffect(() => {
+    if (searchParams.get("start") !== "1") return;
+    setSelectedDomains([]);
+    setSelectedTenses([]);
+    setOnlyIrregular(false);
+    setDrillMode("paradigm");
+    setResult(null);
+    setAnswer("");
+    setParadigmAnswers({});
+    setParadigmResults(null);
+    setParadigmScore(null);
+    setParadigmTenseResults([]);
+    setAwaitingParadigm(false);
+    setCardKey((k) => k + 1);
+    setDrillState("active");
+    router.replace("/practice/conjugations", { scroll: false });
+  }, [searchParams, router]);
 
   useEffect(() => {
     setSelectedTenses([]);

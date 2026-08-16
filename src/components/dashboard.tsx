@@ -22,10 +22,12 @@ import {
   Sparkles,
   BookA,
   BookText,
+  Play,
 } from "lucide-react";
 import { Badge } from "~/components/ui/badge";
 import { useFocusLang } from "~/components/focus-lang-provider";
 import { getTargetLang } from "~/lib/languages";
+import { isConjugatableLang } from "~/lib/conjugation-catalog";
 
 const SHOW_ALL_STORAGE_KEY = "sprachen-dashboard-show-all";
 
@@ -92,6 +94,65 @@ export function Dashboard() {
             {t("showAllLanguages")}
           </Button>
         </div>
+      </div>
+
+      <div className="mb-8 grid gap-3 sm:grid-cols-2">
+        <Button asChild size="lg" className="h-auto justify-start gap-3 py-4">
+          <Link
+            href={
+              showAll ? "/review?start=1&mode=multi" : "/review?start=1"
+            }
+          >
+            <Play className="h-5 w-5" />
+            <span className="flex flex-col items-start text-left">
+              <span>{t("startVocabReview")}</span>
+              <span className="text-xs font-normal opacity-80">
+                {showAll
+                  ? t("startVocabReviewAllDesc")
+                  : t("startVocabReviewDesc", {
+                      language: tLang(focusLang),
+                    })}
+              </span>
+            </span>
+          </Link>
+        </Button>
+        {isConjugatableLang(focusLang) ? (
+          <Button
+            asChild
+            size="lg"
+            variant="outline"
+            className="h-auto justify-start gap-3 py-4"
+          >
+            <Link href="/practice/conjugations?start=1">
+              <BookOpen className="h-5 w-5" />
+              <span className="flex flex-col items-start text-left">
+                <span>{t("startConjugationReview")}</span>
+                <span className="text-xs font-normal text-muted-foreground">
+                  {t("startConjugationReviewDesc", {
+                    language: tLang(focusLang),
+                  })}
+                </span>
+              </span>
+            </Link>
+          </Button>
+        ) : (
+          <Button
+            size="lg"
+            variant="outline"
+            className="h-auto justify-start gap-3 py-4"
+            disabled
+          >
+            <BookOpen className="h-5 w-5" />
+            <span className="flex flex-col items-start text-left">
+              <span>{t("startConjugationReview")}</span>
+              <span className="text-xs font-normal text-muted-foreground">
+                {t("startConjugationReviewDesc", {
+                  language: tLang(focusLang),
+                })}
+              </span>
+            </span>
+          </Button>
+        )}
       </div>
 
       {isLoading || !stats ? (

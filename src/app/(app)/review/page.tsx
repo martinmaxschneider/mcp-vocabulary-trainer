@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { SOURCE_LANG, TARGET_LANGS, TARGET_LANG_CODES } from "~/lib/languages";
 import { api } from "~/trpc/client";
@@ -39,6 +40,8 @@ export default function ReviewPage() {
   const tLang = useTranslations("languages");
   const tErrors = useTranslations("errors.codes");
   const { toast } = useToast();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { focusLang, setFocusLang } = useFocusLang();
   const [reviewState, setReviewState] = useState<ReviewState>("setup");
   const [mode, setMode] = useState<ReviewMode>("single");
@@ -60,6 +63,18 @@ export default function ReviewPage() {
   };
 
   const { data: domains } = api.domain.list.useQuery();
+
+  useEffect(() => {
+    if (searchParams.get("start") !== "1") return;
+    const nextMode = searchParams.get("mode") === "multi" ? "multi" : "single";
+    setMode(nextMode);
+    setSelectedDomains([]);
+    setCurrentIndex(0);
+    setResult(null);
+    setMultiResults(null);
+    setReviewState("active");
+    router.replace("/review", { scroll: false });
+  }, [searchParams, router]);
 
   const singleQuery = api.review.getDue.useQuery(
     {
