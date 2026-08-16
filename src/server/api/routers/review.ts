@@ -34,6 +34,19 @@ function vocabProgressWhere(
   };
 }
 
+type BoxCounts = Record<1 | 2 | 3 | 4 | 5 | 6, number>;
+
+function emptyBoxCounts(): BoxCounts {
+  return { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
+}
+
+function addBoxCount(counts: BoxCounts, box: number, amount: number) {
+  if (box >= MIN_BOX && box <= MAX_BOX) {
+    const key = box as keyof BoxCounts;
+    counts[key] += amount;
+  }
+}
+
 function entryDomainFilter(domainIds?: string[]) {
   if (!domainIds || domainIds.length === 0) return undefined;
   return {
@@ -311,6 +324,23 @@ export const reviewRouter = createTRPCRouter({
 
       const totalAvailable = totalDueCount + totalNewCount;
 
+      const dueByBox = await ctx.db.userProgress.groupBy({
+        by: ["box"],
+        where: {
+          userId,
+          targetLang: input.targetLang,
+          cardType: CardType.VOCAB,
+          nextReviewAt: { lte: now },
+          ...(domainFilter ? { entry: domainFilter } : {}),
+        },
+        _count: { _all: true },
+      });
+      const boxCounts = emptyBoxCounts();
+      for (const row of dueByBox) {
+        addBoxCount(boxCounts, row.box, row._count._all);
+      }
+      addBoxCount(boxCounts, MIN_BOX, totalNewCount);
+
       return {
         cards: allCards.map((progress) => ({
           ...mapCardWithoutSolution(progress),
@@ -318,6 +348,7 @@ export const reviewRouter = createTRPCRouter({
           translation: progress.entry.translations[0],
         })),
         totalAvailable,
+        boxCounts,
       };
     }),
 
@@ -347,6 +378,7 @@ export const reviewRouter = createTRPCRouter({
         select: {
           entryId: true,
           nextReviewAt: true,
+          box: true,
         },
       });
 
@@ -390,8 +422,25 @@ export const reviewRouter = createTRPCRouter({
       const totalAvailable = entryOrder.length;
       const batchIds = entryOrder.slice(0, input.limit);
 
+      const boxCounts = emptyBoxCounts();
+      const boxByEntry = new Map<string, number>();
+      for (const progress of dueProgresses) {
+        const prev = boxByEntry.get(progress.entryId);
+        if (prev === undefined || progress.box < prev) {
+          boxByEntry.set(progress.entryId, progress.box);
+        }
+      }
+      for (const entry of entriesWithMissingProgress) {
+        if (!boxByEntry.has(entry.id)) {
+          boxByEntry.set(entry.id, MIN_BOX);
+        }
+      }
+      for (const box of boxByEntry.values()) {
+        addBoxCount(boxCounts, box, 1);
+      }
+
       if (batchIds.length === 0) {
-        return { cards: [], totalAvailable: 0 };
+        return { cards: [], totalAvailable: 0, boxCounts };
       }
 
       const entries = await ctx.db.entry.findMany({
@@ -476,6 +525,7 @@ export const reviewRouter = createTRPCRouter({
       return {
         cards: cards.filter((c): c is NonNullable<typeof c> => c !== null),
         totalAvailable,
+        boxCounts,
       };
     }),
 

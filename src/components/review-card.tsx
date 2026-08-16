@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { Card, CardContent } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Badge } from "~/components/ui/badge";
+import { Libre_Baskerville } from "next/font/google";
+import { cn } from "~/lib/utils";
 import {
   CheckCircle2,
   XCircle,
@@ -19,6 +21,12 @@ import { api } from "~/trpc/client";
 import { SOURCE_LANG } from "~/lib/languages";
 import { useToast } from "~/hooks/use-toast";
 import { resolveErrorCode } from "~/lib/trpc-error";
+
+const libreBaskerville = Libre_Baskerville({
+  subsets: ["latin", "latin-ext"],
+  weight: ["400", "700"],
+  style: ["normal", "italic"],
+});
 
 interface ReviewCardProps {
   entryId: string;
@@ -62,6 +70,7 @@ export function ReviewCard({
 }: ReviewCardProps) {
   const t = useTranslations("review");
   const tCommon = useTranslations("common");
+  const tCategories = useTranslations("categories");
   const tToasts = useTranslations("toasts");
   const tErrors = useTranslations("errors.codes");
   const { toast } = useToast();
@@ -138,42 +147,54 @@ export function ReviewCard({
     }
   }, [result, onNext]);
 
+  const typeLabel =
+    type === "PROVERB"
+      ? tCategories("entryTypeProverb")
+      : tCategories("entryTypeWord");
+
   return (
-    <Card className="cahier-card mx-auto w-full max-w-2xl">
-      <CardHeader>
-        <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <CardTitle className="text-2xl">{mainText}</CardTitle>
-            {result && ipa ? (
-              <ClickableIpa ipa={ipa} items={guideItems} />
-            ) : null}
-          </div>
-          <div className="flex shrink-0 gap-2">
-            <Badge variant="outline">{type}</Badge>
-            <Badge variant="secondary">{tCommon("box", { number: box })}</Badge>
-          </div>
+    <Card className="cahier-card mx-auto w-full overflow-hidden">
+      <CardContent className="px-6 py-10 sm:px-12 sm:py-14">
+        <div className="mb-6 flex items-center justify-center gap-2">
+          <Badge variant="outline">{typeLabel}</Badge>
+          <Badge variant="secondary">{tCommon("box", { number: box })}</Badge>
         </div>
-        {note && <p className="text-sm text-muted-foreground mt-2">{note}</p>}
-      </CardHeader>
-      <CardContent className="space-y-4">
+        <h2
+          className={cn(
+            "text-center text-4xl font-bold leading-tight text-[#1e3a5f] sm:text-5xl",
+            libreBaskerville.className,
+          )}
+        >
+          {mainText}
+        </h2>
+        {note ? (
+          <p className="mt-3 text-center text-sm text-muted-foreground">
+            {note}
+          </p>
+        ) : null}
+        {result && ipa ? (
+          <div className="mt-3 flex justify-center">
+            <ClickableIpa ipa={ipa} items={guideItems} />
+          </div>
+        ) : null}
+
+        <div className="mx-auto mt-10 max-w-xl space-y-4">
         {!result ? (
           <>
-            <div>
-              <Input
-                placeholder={t("answerPlaceholder")}
-                value={answer}
-                onChange={(e) => setAnswer(e.target.value)}
-                onKeyDown={handleKeyDown}
-                disabled={isSubmitting}
-                autoFocus
-                className="text-lg"
-              />
-            </div>
-            <div className="flex gap-2">
+            <Input
+              placeholder={t("answerPlaceholder")}
+              value={answer}
+              onChange={(e) => setAnswer(e.target.value)}
+              onKeyDown={handleKeyDown}
+              disabled={isSubmitting}
+              autoFocus
+              className="h-14 text-center text-xl"
+            />
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Button
                 onClick={handleSubmit}
                 disabled={isSubmitting || !answer.trim()}
-                className="flex-1"
+                className="h-12 flex-1 bg-[#1e3a5f] text-white hover:bg-[#16304d]"
                 size="lg"
               >
                 {isSubmitting ? t("checking") : t("checkAnswer")}
@@ -182,8 +203,9 @@ export function ReviewCard({
                 <Button
                   onClick={onShowSolution}
                   disabled={isSubmitting}
-                  variant="outline"
+                  variant="ghost"
                   size="lg"
+                  className="h-12 text-[#1e3a5f]"
                 >
                   {t("showSolution")}
                 </Button>
@@ -364,6 +386,7 @@ export function ReviewCard({
             />
           </div>
         )}
+        </div>
       </CardContent>
     </Card>
   );

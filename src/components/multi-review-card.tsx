@@ -2,10 +2,12 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { Card, CardContent } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Badge } from "~/components/ui/badge";
+import { Libre_Baskerville } from "next/font/google";
+import { cn } from "~/lib/utils";
 import {
   CheckCircle2,
   XCircle,
@@ -18,6 +20,12 @@ import { ClickableIpa } from "~/components/clickable-ipa";
 import { api } from "~/trpc/client";
 import { useToast } from "~/hooks/use-toast";
 import { resolveErrorCode } from "~/lib/trpc-error";
+
+const libreBaskerville = Libre_Baskerville({
+  subsets: ["latin", "latin-ext"],
+  weight: ["400", "700"],
+  style: ["normal", "italic"],
+});
 
 export type MultiLangResult = {
   targetLang: string;
@@ -60,6 +68,7 @@ export function MultiReviewCard({
 }: MultiReviewCardProps) {
   const t = useTranslations("review");
   const tCommon = useTranslations("common");
+  const tCategories = useTranslations("categories");
   const tLang = useTranslations("languages");
   const tToasts = useTranslations("toasts");
   const tErrors = useTranslations("errors.codes");
@@ -196,16 +205,28 @@ export function MultiReviewCard({
   const totalCount = results?.length ?? 0;
   const allCorrect = results != null && correctCount === totalCount && totalCount > 0;
 
+  const typeLabel =
+    type === "PROVERB"
+      ? tCategories("entryTypeProverb")
+      : tCategories("entryTypeWord");
+
   return (
-    <Card className="cahier-card mx-auto w-full max-w-2xl">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-2xl">{mainText}</CardTitle>
-          <Badge variant="outline">{type}</Badge>
+    <Card className="cahier-card mx-auto w-full overflow-hidden">
+      <CardContent className="space-y-6 px-6 py-10 sm:px-12 sm:py-14">
+        <div className="text-center">
+          <Badge variant="outline">{typeLabel}</Badge>
+          <h2
+            className={cn(
+              "mt-4 text-4xl font-bold leading-tight text-[#1e3a5f] sm:text-5xl",
+              libreBaskerville.className,
+            )}
+          >
+            {mainText}
+          </h2>
+          {note ? (
+            <p className="mt-3 text-sm text-muted-foreground">{note}</p>
+          ) : null}
         </div>
-        {note && <p className="text-sm text-muted-foreground mt-2">{note}</p>}
-      </CardHeader>
-      <CardContent className="space-y-4">
         {!results ? (
           <>
             <div className="space-y-3">
