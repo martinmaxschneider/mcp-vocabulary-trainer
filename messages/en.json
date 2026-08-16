@@ -91,6 +91,8 @@
   "dashboard": {
     "title": "Welcome back!",
     "subtitle": "Track your vocabulary learning progress",
+    "showFocusLang": "Only {language}",
+    "showAllLanguages": "All languages",
     "dueToday": "Due today",
     "dueDesc": "Cards to review",
     "total": "Total",
@@ -126,7 +128,9 @@
   },
   "progressChart": {
     "title": "Learning progress by language",
-    "description": "Distribution of vocabulary across Leitner boxes (Box 4–6 = mastered)",
+    "description": "Distribution of translations and verb conjugations across Leitner boxes (Box 4–6 = mastered)",
+    "trackVocab": "Translations",
+    "trackConjugations": "Conjugations",
     "mastery": "{percent}% mastered ({mastered}/{total})",
     "totalWords": "{total} words total",
     "legendNew": "New: {count}",

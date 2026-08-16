@@ -1,27 +1,103 @@
-import { CardType } from "@prisma/client";
+import { z } from "zod";
+import { CardType, WordCategory } from "@prisma/client";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
-import { LANGUAGE_NAMES, TARGET_LANG_CODES } from "~/lib/languages";
+import { isValidTense } from "~/lib/conjugation-catalog";
+import {
+  isTargetLang,
+  LANGUAGE_NAMES,
+  TARGET_LANG_CODES,
+} from "~/lib/languages";
+import { conjugationCardKey } from "~/lib/leitner";
+
+type LeitnerBoxes = {
+  new: number;
+  box1: number;
+  box2: number;
+  box3: number;
+  box4: number;
+  box5: number;
+  box6: number;
+};
+
+function summarizeLeitnerTrack(
+  availableIds: Iterable<string>,
+  progressed: Iterable<{ id: string; box: number }>,
+) {
+  const boxes = [0, 0, 0, 0, 0, 0, 0];
+  const progressedIds = new Set<string>();
+
+  for (const item of progressed) {
+    progressedIds.add(item.id);
+    if (item.box >= 1 && item.box <= 6) {
+      boxes[item.box] = (boxes[item.box] ?? 0) + 1;
+    }
+  }
+
+  let newCount = 0;
+  for (const id of availableIds) {
+    if (!progressedIds.has(id)) newCount += 1;
+  }
+  boxes[0] = newCount;
+
+  const total = boxes.reduce((sum, count) => sum + count, 0);
+  const mastered = (boxes[4] ?? 0) + (boxes[5] ?? 0) + (boxes[6] ?? 0);
+
+  return {
+    boxes: {
+      new: boxes[0] ?? 0,
+      box1: boxes[1] ?? 0,
+      box2: boxes[2] ?? 0,
+      box3: boxes[3] ?? 0,
+      box4: boxes[4] ?? 0,
+      box5: boxes[5] ?? 0,
+      box6: boxes[6] ?? 0,
+    } satisfies LeitnerBoxes,
+    total,
+    mastered,
+    masteryPercentage: total > 0 ? Math.round((mastered / total) * 100) : 0,
+  };
+}
 
 export const statsRouter = createTRPCRouter({
-  dashboard: publicProcedure.query(async ({ ctx }) => {
+  dashboard: publicProcedure
+    .input(
+      z
+        .object({
+          targetLang: z.string().optional(),
+        })
+        .optional(),
+    )
+    .query(async ({ ctx, input }) => {
     const userId = ctx.userId;
     const now = new Date();
+    const targetLang =
+      input?.targetLang && isTargetLang(input.targetLang)
+        ? input.targetLang
+        : undefined;
+    const langs = targetLang ? [targetLang] : [...TARGET_LANG_CODES];
+    const hasTranslation = targetLang
+      ? { translations: { some: { lang: targetLang } } }
+      : {};
 
     const dueCount = await ctx.db.userProgress.count({
       where: {
         userId,
         cardType: CardType.VOCAB,
         nextReviewAt: { lte: now },
+        ...(targetLang ? { targetLang } : {}),
       },
     });
 
-    const totalEntries = await ctx.db.entry.count();
+    const totalEntries = await ctx.db.entry.count({
+      where: hasTranslation,
+    });
 
     const topWrong = await ctx.db.userProgress.findMany({
       where: {
         userId,
         cardType: CardType.VOCAB,
         wrongCount: { gt: 0 },
+        ...(targetLang ? { targetLang } : {}),
       },
       orderBy: [{ wrongCount: "desc" }, { correctCount: "asc" }],
       take: 10,
@@ -65,47 +141,58 @@ export const statsRouter = createTRPCRouter({
     const domainStats = await ctx.db.domain.findMany({
       include: {
         _count: {
-          select: { domainEntries: true },
+          select: {
+            domainEntries: {
+              where: targetLang
+                ? {
+                    entry: {
+                      translations: { some: { lang: targetLang } },
+                    },
+                  }
+                : {},
+            },
+          },
         },
       },
     });
 
     const wordCount = await ctx.db.entry.count({
-      where: { type: "WORD" },
+      where: { type: "WORD", ...hasTranslation },
     });
     const proverbCount = await ctx.db.entry.count({
-      where: { type: "PROVERB" },
+      where: { type: "PROVERB", ...hasTranslation },
     });
 
     const verbCount = await ctx.db.entry.count({
-      where: { category: "VERB" },
+      where: { category: "VERB", ...hasTranslation },
     });
     const nounCount = await ctx.db.entry.count({
-      where: { category: "NOUN" },
+      where: { category: "NOUN", ...hasTranslation },
     });
     const adjectiveCount = await ctx.db.entry.count({
-      where: { category: "ADJECTIVE" },
+      where: { category: "ADJECTIVE", ...hasTranslation },
     });
     const proverbCategoryCount = await ctx.db.entry.count({
-      where: { category: "PROVERB" },
+      where: { category: "PROVERB", ...hasTranslation },
     });
 
     const progresses = await ctx.db.userProgress.findMany({
       where: {
         userId,
-        cardType: CardType.VOCAB,
-        targetLang: { in: [...TARGET_LANG_CODES] },
+        targetLang: { in: langs },
       },
       select: {
         entryId: true,
         targetLang: true,
         box: true,
+        cardType: true,
+        cardKey: true,
       },
     });
 
     const translations = await ctx.db.translation.findMany({
       where: {
-        lang: { in: [...TARGET_LANG_CODES] },
+        lang: { in: langs },
       },
       select: {
         entryId: true,
@@ -113,48 +200,51 @@ export const statsRouter = createTRPCRouter({
       },
     });
 
-    const languageProgress = [...TARGET_LANG_CODES].map((lang) => {
-      const boxes = [0, 1, 2, 3, 4, 5, 6].map(() => 0);
-      const progressedEntryIds = new Set<string>();
+    const conjugationForms = await ctx.db.conjugationForm.findMany({
+      where: {
+        translation: {
+          lang: { in: langs },
+          entry: { category: WordCategory.VERB },
+        },
+      },
+      select: {
+        tenseKey: true,
+        translation: {
+          select: { entryId: true, lang: true },
+        },
+      },
+    });
 
-      for (const progress of progresses) {
-        if (progress.targetLang !== lang) continue;
-        progressedEntryIds.add(progress.entryId);
-        const box = progress.box;
-        if (box >= 1 && box <= 6) {
-          boxes[box] = (boxes[box] ?? 0) + 1;
-        }
+    const languageProgress = langs.map((lang) => {
+      const vocabAvailable = translations
+        .filter((t) => t.lang === lang)
+        .map((t) => t.entryId);
+      const vocabProgressed = progresses
+        .filter((p) => p.targetLang === lang && p.cardType === CardType.VOCAB)
+        .map((p) => ({ id: p.entryId, box: p.box }));
+
+      const conjugationAvailable = new Set<string>();
+      for (const form of conjugationForms) {
+        if (form.translation.lang !== lang) continue;
+        if (!isValidTense(lang, form.tenseKey)) continue;
+        conjugationAvailable.add(
+          `${form.translation.entryId}:${conjugationCardKey(form.tenseKey)}`,
+        );
       }
-
-      const entryIdsWithTranslation = new Set(
-        translations.filter((t) => t.lang === lang).map((t) => t.entryId)
-      );
-      let newCount = 0;
-      for (const entryId of entryIdsWithTranslation) {
-        if (!progressedEntryIds.has(entryId)) newCount += 1;
-      }
-      boxes[0] = newCount;
-
-      const total = boxes.reduce((sum, count) => sum + count, 0);
-      const mastered = (boxes[4] ?? 0) + (boxes[5] ?? 0) + (boxes[6] ?? 0);
-      const masteryPercentage =
-        total > 0 ? Math.round((mastered / total) * 100) : 0;
+      const conjugationProgressed = progresses
+        .filter(
+          (p) => p.targetLang === lang && p.cardType === CardType.CONJUGATION,
+        )
+        .map((p) => ({ id: `${p.entryId}:${p.cardKey}`, box: p.box }));
 
       return {
         language: lang,
         languageName: LANGUAGE_NAMES[lang] ?? lang,
-        boxes: {
-          new: boxes[0] ?? 0,
-          box1: boxes[1] ?? 0,
-          box2: boxes[2] ?? 0,
-          box3: boxes[3] ?? 0,
-          box4: boxes[4] ?? 0,
-          box5: boxes[5] ?? 0,
-          box6: boxes[6] ?? 0,
-        },
-        total,
-        mastered,
-        masteryPercentage,
+        vocab: summarizeLeitnerTrack(vocabAvailable, vocabProgressed),
+        conjugations: summarizeLeitnerTrack(
+          conjugationAvailable,
+          conjugationProgressed,
+        ),
       };
     });
 

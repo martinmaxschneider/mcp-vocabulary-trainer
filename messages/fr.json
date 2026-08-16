@@ -91,6 +91,8 @@
   "dashboard": {
     "title": "Bon retour !",
     "subtitle": "Suivez votre progression d'apprentissage du vocabulaire",
+    "showFocusLang": "Uniquement {language}",
+    "showAllLanguages": "Toutes les langues",
     "dueToday": "À réviser aujourd'hui",
     "dueDesc": "Cartes à réviser",
     "total": "Total",
@@ -126,7 +128,9 @@
   },
   "progressChart": {
     "title": "Progression par langue",
-    "description": "Répartition du vocabulaire dans les boîtes Leitner (Boîte 4–6 = maîtrisé)",
+    "description": "Répartition des traductions et des conjugaisons dans les boîtes Leitner (Boîte 4–6 = maîtrisé)",
+    "trackVocab": "Traductions",
+    "trackConjugations": "Conjugaisons",
     "mastery": "{percent}% maîtrisé ({mastered}/{total})",
     "totalWords": "{total} mots au total",
     "legendNew": "Nouveau : {count}",

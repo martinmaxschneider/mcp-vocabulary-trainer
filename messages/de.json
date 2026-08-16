@@ -91,6 +91,8 @@
   "dashboard": {
     "title": "Willkommen zurück!",
     "subtitle": "Verfolge deinen Vokabel-Lernfortschritt",
+    "showFocusLang": "Nur {language}",
+    "showAllLanguages": "Alle Sprachen",
     "dueToday": "Fällig heute",
     "dueDesc": "Karten zum Wiederholen",
     "total": "Gesamt",
@@ -126,7 +128,9 @@
   },
   "progressChart": {
     "title": "Lernfortschritt pro Sprache",
-    "description": "Verteilung der Vokabeln über die Leitner-Boxen (Box 4–6 = verinnerlicht)",
+    "description": "Verteilung von Übersetzungen und Verbkonjugationen über die Leitner-Boxen (Box 4–6 = verinnerlicht)",
+    "trackVocab": "Übersetzungen",
+    "trackConjugations": "Konjugationen",
     "mastery": "{percent}% verinnerlicht ({mastered}/{total})",
     "totalWords": "{total} Wörter gesamt",
     "legendNew": "Neu: {count}",

@@ -91,6 +91,8 @@
   "dashboard": {
     "title": "¡Bienvenido de nuevo!",
     "subtitle": "Sigue tu progreso de aprendizaje de vocabulario",
+    "showFocusLang": "Solo {language}",
+    "showAllLanguages": "Todos los idiomas",
     "dueToday": "Pendientes hoy",
     "dueDesc": "Tarjetas para repasar",
     "total": "Total",
@@ -126,7 +128,9 @@
   },
   "progressChart": {
     "title": "Progreso de aprendizaje por idioma",
-    "description": "Distribución del vocabulario en las cajas Leitner (Caja 4–6 = dominado)",
+    "description": "Distribución de traducciones y conjugaciones verbales en las cajas Leitner (Caja 4–6 = dominado)",
+    "trackVocab": "Traducciones",
+    "trackConjugations": "Conjugaciones",
     "mastery": "{percent}% dominado ({mastered}/{total})",
     "totalWords": "{total} palabras en total",
     "legendNew": "Nuevo: {count}",

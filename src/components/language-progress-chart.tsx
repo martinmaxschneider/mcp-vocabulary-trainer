@@ -1,4 +1,6 @@
-import { getTranslations } from "next-intl/server";
+"use client";
+
+import { useTranslations } from "next-intl";
 import {
   Card,
   CardContent,
@@ -9,26 +11,32 @@ import {
 import { Badge } from "~/components/ui/badge";
 import { cn } from "~/lib/utils";
 
+type LeitnerTrack = {
+  boxes: {
+    new: number;
+    box1: number;
+    box2: number;
+    box3: number;
+    box4: number;
+    box5: number;
+    box6: number;
+  };
+  total: number;
+  mastered: number;
+  masteryPercentage: number;
+};
+
 interface LanguageProgressChartProps {
   data: Array<{
     language: string;
     languageName: string;
-    boxes: {
-      new: number;
-      box1: number;
-      box2: number;
-      box3: number;
-      box4: number;
-      box5: number;
-      box6: number;
-    };
-    total: number;
-    mastered: number;
-    masteryPercentage: number;
+    vocab: LeitnerTrack;
+    conjugations: LeitnerTrack;
   }>;
+  showLanguageHeader?: boolean;
 }
 
-type BoxKey = keyof LanguageProgressChartProps["data"][number]["boxes"];
+type BoxKey = keyof LeitnerTrack["boxes"];
 
 const BOX_COLORS: Record<BoxKey, string> = {
   new: "bg-gray-400 dark:bg-gray-500",
@@ -40,8 +48,73 @@ const BOX_COLORS: Record<BoxKey, string> = {
   box6: "bg-emerald-500",
 };
 
-export async function LanguageProgressChart({ data }: LanguageProgressChartProps) {
-  const t = await getTranslations("progressChart");
+function LeitnerBar({
+  track,
+  segments,
+}: {
+  track: LeitnerTrack;
+  segments: Array<{ key: BoxKey; fullLabel: string }>;
+}) {
+  return (
+    <div className="flex h-7 w-full overflow-hidden rounded-md bg-white ring-1 ring-[#1e3a5f]/10">
+      {segments.map(({ key, fullLabel }) => {
+        const count = track.boxes[key];
+        if (count === 0 || track.total === 0) return null;
+
+        const percentage = (count / track.total) * 100;
+        const showLabel = percentage >= 6;
+
+        return (
+          <div
+            key={key}
+            className={cn(
+              BOX_COLORS[key],
+              "flex shrink-0 items-center justify-center",
+            )}
+            style={{ width: `${percentage}%` }}
+            title={`${fullLabel}: ${count}`}
+          >
+            {showLabel ? (
+              <span className="text-xs font-semibold text-white drop-shadow-sm">
+                {count}
+              </span>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function TrackRow({
+  label,
+  track,
+  masteryLabel,
+  segments,
+}: {
+  label: string;
+  track: LeitnerTrack;
+  masteryLabel: string;
+  segments: Array<{ key: BoxKey; fullLabel: string }>;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm text-muted-foreground">{label}</span>
+        <span className="text-right text-xs text-muted-foreground">
+          {masteryLabel}
+        </span>
+      </div>
+      <LeitnerBar track={track} segments={segments} />
+    </div>
+  );
+}
+
+export function LanguageProgressChart({
+  data,
+  showLanguageHeader = true,
+}: LanguageProgressChartProps) {
+  const t = useTranslations("progressChart");
 
   const segments: Array<{ key: BoxKey; fullLabel: string }> = [
     { key: "new", fullLabel: t("boxNew") },
@@ -54,7 +127,7 @@ export async function LanguageProgressChart({ data }: LanguageProgressChartProps
   ];
 
   return (
-    <Card>
+    <Card className="mb-8">
       <CardHeader>
         <CardTitle>{t("title")}</CardTitle>
         <CardDescription>{t("description")}</CardDescription>
@@ -62,48 +135,36 @@ export async function LanguageProgressChart({ data }: LanguageProgressChartProps
       <CardContent className="space-y-6">
         {data.map((lang) => (
           <div key={lang.language} className="space-y-3">
-            <div className="flex items-center justify-between gap-3">
+            {showLanguageHeader ? (
               <div className="flex items-center gap-2">
                 <span className="font-medium">{lang.languageName}</span>
                 <Badge variant="outline">{lang.language.toUpperCase()}</Badge>
               </div>
-              <div className="text-right text-sm text-muted-foreground">
-                {t("mastery", {
-                  percent: lang.masteryPercentage,
-                  mastered: lang.mastered,
-                  total: lang.total,
-                })}
-              </div>
-            </div>
+            ) : null}
 
-            <div className="flex h-8 w-full overflow-hidden rounded-md bg-white ring-1 ring-[#1e3a5f]/10">
-              {segments.map(({ key, fullLabel }) => {
-                const count = lang.boxes[key];
-                if (count === 0 || lang.total === 0) return null;
-
-                const percentage = (count / lang.total) * 100;
-                const showLabel = percentage >= 6;
-
-                return (
-                  <div
-                    key={key}
-                    className={cn(
-                      BOX_COLORS[key],
-                      "flex shrink-0 items-center justify-center",
-                    )}
-                    style={{ width: `${percentage}%` }}
-                    title={`${fullLabel}: ${count}`}
-                  >
-                    {showLabel ? (
-                      <span className="text-xs font-semibold text-white drop-shadow-sm">
-                        {count}
-                      </span>
-                    ) : null}
-                  </div>
-                );
+            <TrackRow
+              label={t("trackVocab")}
+              track={lang.vocab}
+              masteryLabel={t("mastery", {
+                percent: lang.vocab.masteryPercentage,
+                mastered: lang.vocab.mastered,
+                total: lang.vocab.total,
               })}
-            </div>
+              segments={segments}
+            />
 
+            {lang.conjugations.total > 0 ? (
+              <TrackRow
+                label={t("trackConjugations")}
+                track={lang.conjugations}
+                masteryLabel={t("mastery", {
+                  percent: lang.conjugations.masteryPercentage,
+                  mastered: lang.conjugations.mastered,
+                  total: lang.conjugations.total,
+                })}
+                segments={segments}
+              />
+            ) : null}
           </div>
         ))}
 
