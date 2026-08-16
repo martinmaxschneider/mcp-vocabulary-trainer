@@ -4,7 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { TARGET_LANGS, isTargetLang, type LearningLangCode } from "~/lib/languages";
+import {
+  TARGET_LANGS,
+  getTargetLang,
+  isTargetLang,
+  type LearningLangCode,
+} from "~/lib/languages";
+import { cn } from "~/lib/utils";
+import { Caveat, Libre_Baskerville } from "next/font/google";
 import {
   CONJUGATABLE_LANGS,
   getConjugationProfile,
@@ -33,6 +40,18 @@ import {
   XCircle,
 } from "lucide-react";
 import { useFocusLang } from "~/components/focus-lang-provider";
+import { ReviewBoxBar } from "~/components/review-box-bar";
+
+const caveat = Caveat({
+  subsets: ["latin", "latin-ext"],
+  weight: ["400", "600", "700"],
+});
+
+const libreBaskerville = Libre_Baskerville({
+  subsets: ["latin", "latin-ext"],
+  weight: ["400", "700"],
+  style: ["normal", "italic"],
+});
 
 type DrillState = "setup" | "active";
 type DrillMode = "single" | "paradigm";
@@ -249,6 +268,17 @@ export default function ConjugationDrillPage() {
     setParadigmScore(null);
     setParadigmTenseResults([]);
   }, [drillMode, paradigm?.translationId, cardKey]);
+
+  const backToSetup = () => {
+    setDrillState("setup");
+    setResult(null);
+    setAnswer("");
+    setParadigmAnswers({});
+    setParadigmResults(null);
+    setParadigmScore(null);
+    setParadigmTenseResults([]);
+    setAwaitingParadigm(false);
+  };
 
   const startDrill = () => {
     setResult(null);
@@ -467,136 +497,176 @@ export default function ConjugationDrillPage() {
     );
   }
 
+  const currentLang = getTargetLang(selectedLang);
+  const remainingInRun = drillData?.boxCounts
+    ? Object.values(drillData.boxCounts).reduce((sum, n) => sum + n, 0)
+    : 0;
+
   return (
-    <div className="mx-auto max-w-xl">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="mx-auto max-w-3xl">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <Button
           variant="ghost"
-          onClick={() => {
-            setDrillState("setup");
-            setResult(null);
-            setAnswer("");
-            setParadigmAnswers({});
-            setParadigmResults(null);
-            setParadigmScore(null);
-            setParadigmTenseResults([]);
-            setAwaitingParadigm(false);
-          }}
+          size="sm"
+          onClick={backToSetup}
+          className="text-[#1e3a5f] hover:bg-white/70 hover:text-[#1e3a5f]"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           {tCommon("back")}
         </Button>
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          {dueCount > 0 && (
-            <Badge>{t("dueCount", { count: dueCount })}</Badge>
-          )}
-          <Badge variant="outline">
-            {drillMode === "paradigm"
-              ? t("verbsAvailable", { count: totalAvailable })
-              : t("formsAvailable", { count: totalAvailable })}
-          </Badge>
+        <div className="flex items-center gap-2">
+          {remainingInRun > 0 ? (
+            <span className="text-sm font-medium text-[#1e3a5f]">
+              {tReview("cardsLeft", { count: remainingInRun })}
+            </span>
+          ) : null}
+          <span className="rounded-md bg-slate-200/80 px-2.5 py-1 text-xs text-slate-700">
+            {currentLang?.flag} {tLang(selectedLang)}
+          </span>
         </div>
       </div>
 
+      <p
+        className={cn(
+          "mb-6 text-center text-base text-red-600",
+          caveat.className,
+        )}
+      >
+        {t("cahierLabel")}
+      </p>
+      {drillData?.boxCounts && hasContent ? (
+        <div className="mb-6">
+          <ReviewBoxBar remaining={drillData.boxCounts} />
+        </div>
+      ) : null}
+
       {isLoading || awaitingParadigm || (isFetching && !hasContent) ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="h-8 w-8 animate-spin" />
+        <div className="cahier-card py-16 text-center">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-[#1e3a5f]" />
         </div>
       ) : !hasContent ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <p className="mb-4 text-muted-foreground">{t("noFormsFound")}</p>
-            <Button variant="outline" onClick={() => setDrillState("setup")}>
-              {t("changeSelection")}
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="cahier-card py-16 text-center">
+          <p className="mb-4 text-slate-600">{t("noFormsFound")}</p>
+          <Button variant="outline" onClick={backToSetup}>
+            {t("changeSelection")}
+          </Button>
+        </div>
       ) : drillMode === "paradigm" && paradigm ? (
-        <Card key={cardKey}>
-          <CardHeader>
-            <CardDescription>{t("paradigmPrompt")}</CardDescription>
-            <CardTitle className="text-3xl">{paradigm.mainText}</CardTitle>
-            <p className="text-muted-foreground">
-              {t("infinitive")}{" "}
-              <span className="font-medium">{paradigm.infinitive}</span>
-            </p>
-            <div className="flex flex-wrap gap-2 pt-2">
-              <Badge variant="secondary">
-                {t("formsInParadigm", { count: slots.length })}
-              </Badge>
-              {paradigm.isIrregular && (
-                <Badge variant="outline">{tCommon("irregular")}</Badge>
+        <Card key={cardKey} className="cahier-card overflow-hidden">
+          <CardContent className="px-6 py-10 sm:px-12 sm:py-14">
+            {slotsByTense[0] ? (
+              <p className="mb-3 text-center text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                {slotsByTense[0].tenseLabel}
+              </p>
+            ) : null}
+            <h2
+              className={cn(
+                "text-center text-4xl font-bold leading-tight text-[#1e3a5f] sm:text-5xl",
+                libreBaskerville.className,
               )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleParadigmSubmit} className="space-y-6">
-              {slotsByTense.map((group) => (
-                <div key={group.tenseKey} className="space-y-3">
-                  <h3 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                    {group.tenseLabel}
-                  </h3>
-                  <div className="space-y-2">
-                    {group.slots.map((slot) => {
-                      const slotResult = paradigmResults?.[slot.formId];
-                      return (
-                        <div key={slot.formId} className="space-y-1">
-                          <div className="flex items-center gap-3">
-                            <Label
-                              htmlFor={`slot-${slot.formId}`}
-                              className="w-24 shrink-0 text-sm"
-                            >
-                              {slot.personLabel}
-                            </Label>
-                            <Input
-                              id={`slot-${slot.formId}`}
-                              value={paradigmAnswers[slot.formId] ?? ""}
-                              onChange={(e) =>
-                                setParadigmAnswers((prev) => ({
-                                  ...prev,
-                                  [slot.formId]: e.target.value,
-                                }))
-                              }
-                              placeholder={t("formPlaceholder")}
-                              disabled={
-                                !!paradigmResults ||
-                                submitParadigmMutation.isPending
-                              }
-                              className={
-                                slotResult
-                                  ? slotResult.isCorrect
-                                    ? "border-green-500/60"
-                                    : "border-red-500/60"
-                                  : undefined
-                              }
-                            />
-                            {slotResult ? (
-                              slotResult.isCorrect ? (
-                                <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600" />
-                              ) : (
-                                <XCircle className="h-5 w-5 shrink-0 text-red-600" />
-                              )
-                            ) : null}
-                          </div>
-                          {slotResult && !slotResult.isCorrect && (
-                            <p className="pl-28 text-xs text-muted-foreground">
-                              {t("expectedLabel")}{" "}
-                              <span className="font-medium">
-                                {slotResult.expected}
-                              </span>
-                            </p>
-                          )}
+            >
+              {paradigm.mainText}
+            </h2>
+            <p className="mt-3 text-center text-sm text-slate-600">
+              <span className="italic">{paradigm.infinitive}</span>
+              {paradigm.isIrregular ? (
+                <span className="ml-2 text-xs uppercase tracking-wide text-red-600">
+                  {tCommon("irregular")}
+                </span>
+              ) : null}
+            </p>
+
+            <form
+              onSubmit={handleParadigmSubmit}
+              className="mx-auto mt-10 max-w-2xl space-y-8"
+            >
+              {slotsByTense.map((group) => {
+                const singular = group.slots.filter((s) => s.personIndex < 3);
+                const plural = group.slots.filter((s) => s.personIndex >= 3);
+                const columns =
+                  singular.length > 0 && plural.length > 0
+                    ? [singular, plural]
+                    : [group.slots];
+                return (
+                  <div key={group.tenseKey} className="space-y-4">
+                    {slotsByTense.length > 1 ? (
+                      <h3 className="text-center text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                        {group.tenseLabel}
+                      </h3>
+                    ) : null}
+                    <div
+                      className={cn(
+                        "grid gap-x-10 gap-y-3",
+                        columns.length > 1 && "sm:grid-cols-2",
+                      )}
+                    >
+                      {columns.map((column, colIdx) => (
+                        <div key={colIdx} className="space-y-3">
+                          {column.map((slot) => {
+                            const slotResult = paradigmResults?.[slot.formId];
+                            return (
+                              <div key={slot.formId} className="space-y-1">
+                                <div className="flex items-center gap-3">
+                                  <Label
+                                    htmlFor={`slot-${slot.formId}`}
+                                    className="w-20 shrink-0 text-sm text-[#1e3a5f]"
+                                  >
+                                    {slot.personLabel}
+                                  </Label>
+                                  <Input
+                                    id={`slot-${slot.formId}`}
+                                    value={paradigmAnswers[slot.formId] ?? ""}
+                                    onChange={(e) =>
+                                      setParadigmAnswers((prev) => ({
+                                        ...prev,
+                                        [slot.formId]: e.target.value,
+                                      }))
+                                    }
+                                    placeholder={t("formPlaceholder")}
+                                    disabled={
+                                      !!paradigmResults ||
+                                      submitParadigmMutation.isPending
+                                    }
+                                    className={cn(
+                                      "h-12 text-base",
+                                      slotResult?.isCorrect &&
+                                        "border-green-500/60",
+                                      slotResult &&
+                                        !slotResult.isCorrect &&
+                                        "border-red-500/60",
+                                    )}
+                                  />
+                                  {slotResult ? (
+                                    slotResult.isCorrect ? (
+                                      <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600" />
+                                    ) : (
+                                      <XCircle className="h-5 w-5 shrink-0 text-red-600" />
+                                    )
+                                  ) : null}
+                                </div>
+                                {slotResult && !slotResult.isCorrect ? (
+                                  <p className="pl-[5.75rem] text-xs text-slate-500">
+                                    {t("expectedLabel")}{" "}
+                                    <span className="font-medium text-[#1e3a5f]">
+                                      {slotResult.expected}
+                                    </span>
+                                  </p>
+                                ) : null}
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
 
               {!paradigmResults ? (
                 <Button
                   type="submit"
-                  className="w-full"
+                  size="lg"
+                  className="h-12 w-full bg-[#1e3a5f] text-white hover:bg-[#16304d]"
                   disabled={
                     paradigmFilledCount === 0 ||
                     submitParadigmMutation.isPending
@@ -609,16 +679,16 @@ export default function ConjugationDrillPage() {
                 </Button>
               ) : (
                 <div className="space-y-4">
-                  {paradigmScore && (
-                    <p className="text-center text-sm font-medium">
+                  {paradigmScore ? (
+                    <p className="text-center text-sm font-medium text-[#1e3a5f]">
                       {t("paradigmScore", {
                         correct: paradigmScore.correctCount,
                         total: paradigmScore.totalCount,
                       })}
                     </p>
-                  )}
-                  {paradigmTenseResults.length > 0 && (
-                    <div className="space-y-1 text-center text-sm text-muted-foreground">
+                  ) : null}
+                  {paradigmTenseResults.length > 0 ? (
+                    <div className="space-y-1 text-center text-sm text-slate-500">
                       {paradigmTenseResults.map((tense) => (
                         <p key={tense.tenseKey}>
                           {tense.tenseLabel}:{" "}
@@ -629,19 +699,20 @@ export default function ConjugationDrillPage() {
                         </p>
                       ))}
                     </div>
-                  )}
+                  ) : null}
                   <Button
                     type="button"
-                    className="w-full"
+                    size="lg"
+                    className="h-12 w-full bg-[#1e3a5f] text-white hover:bg-[#16304d]"
                     onClick={() => void nextParadigm()}
                   >
                     {t("nextVerb")}
                   </Button>
                   <Button
                     type="button"
-                    variant="link"
+                    variant="ghost"
                     asChild
-                    className="w-full"
+                    className="w-full text-[#1e3a5f]"
                   >
                     <Link href={`/vocabulary/verbs/${paradigm.entryId}`}>
                       {t("openVerb")}
@@ -653,36 +724,44 @@ export default function ConjugationDrillPage() {
           </CardContent>
         </Card>
       ) : singleCard ? (
-        <Card key={cardKey}>
-          <CardHeader>
-            <CardDescription>{t("conjugatePrompt")}</CardDescription>
-            <CardTitle className="text-3xl">{singleCard.mainText}</CardTitle>
-            <p className="text-muted-foreground">
-              {t("infinitive")}{" "}
-              <span className="font-medium">{singleCard.infinitive}</span>
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex flex-wrap gap-2">
-              <Badge>{singleCard.tenseLabel}</Badge>
+        <Card key={cardKey} className="cahier-card overflow-hidden">
+          <CardContent className="px-6 py-10 sm:px-12 sm:py-14">
+            <div className="mb-6 flex flex-wrap items-center justify-center gap-2">
+              <Badge variant="outline">{singleCard.tenseLabel}</Badge>
               <Badge variant="secondary">{singleCard.personLabel}</Badge>
-              {singleCard.isIrregular && (
+              {singleCard.isIrregular ? (
                 <Badge variant="outline">{tCommon("irregular")}</Badge>
-              )}
+              ) : null}
             </div>
+            <h2
+              className={cn(
+                "text-center text-4xl font-bold leading-tight text-[#1e3a5f] sm:text-5xl",
+                libreBaskerville.className,
+              )}
+            >
+              {singleCard.mainText}
+            </h2>
+            <p className="mt-3 text-center text-sm italic text-slate-600">
+              {singleCard.infinitive}
+            </p>
 
-            <form onSubmit={handleSingleSubmit} className="space-y-4">
+            <form
+              onSubmit={handleSingleSubmit}
+              className="mx-auto mt-10 max-w-xl space-y-4"
+            >
               <Input
                 value={answer}
                 onChange={(e) => setAnswer(e.target.value)}
                 placeholder={t("formPlaceholder")}
                 disabled={!!result || submitMutation.isPending}
                 autoFocus
+                className="h-14 text-center text-xl"
               />
               {!result ? (
                 <Button
                   type="submit"
-                  className="w-full"
+                  size="lg"
+                  className="h-12 w-full bg-[#1e3a5f] text-white hover:bg-[#16304d]"
                   disabled={!answer.trim() || submitMutation.isPending}
                 >
                   {submitMutation.isPending ? (
@@ -693,10 +772,10 @@ export default function ConjugationDrillPage() {
               ) : (
                 <div className="space-y-4">
                   <div
-                    className={`flex items-start gap-3 rounded-lg border p-4 ${
+                    className={`flex items-start gap-3 rounded-lg p-4 ${
                       result.isCorrect
-                        ? "border-green-500/40 bg-green-500/10"
-                        : "border-red-500/40 bg-red-500/10"
+                        ? "bg-green-50 dark:bg-green-950"
+                        : "bg-red-50 dark:bg-red-950"
                     }`}
                   >
                     {result.isCorrect ? (
@@ -726,16 +805,17 @@ export default function ConjugationDrillPage() {
                   </div>
                   <Button
                     type="button"
-                    className="w-full"
+                    size="lg"
+                    className="h-12 w-full bg-[#1e3a5f] text-white hover:bg-[#16304d]"
                     onClick={() => void nextSingle()}
                   >
                     {t("nextForm")}
                   </Button>
                   <Button
                     type="button"
-                    variant="link"
+                    variant="ghost"
                     asChild
-                    className="w-full"
+                    className="w-full text-[#1e3a5f]"
                   >
                     <Link href={`/vocabulary/verbs/${singleCard.entryId}`}>
                       {t("openVerb")}

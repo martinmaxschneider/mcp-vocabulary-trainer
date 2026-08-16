@@ -14,6 +14,7 @@ import {
   tenseLabel,
 } from "~/lib/conjugation-catalog";
 import {
+  MAX_BOX,
   MIN_BOX,
   applyLeitnerResult,
   conjugationCardKey,
@@ -29,6 +30,46 @@ const formInputSchema = z.object({
   personIndex: z.number().int().min(0).max(20),
   form: z.string(),
 });
+
+type ConjBoxCounts = Record<1 | 2 | 3 | 4 | 5 | 6, number>;
+
+function emptyConjBoxCounts(): ConjBoxCounts {
+  return { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
+}
+
+function addConjBoxCount(counts: ConjBoxCounts, box: number) {
+  if (box >= MIN_BOX && box <= MAX_BOX) {
+    counts[box as keyof ConjBoxCounts] += 1;
+  }
+}
+
+function boxCountsForRun(
+  dueGroups: Array<{ entryId: string; tenseKey: string }>,
+  unseenGroups: Array<{ entryId: string; tenseKey: string }>,
+  laterGroups: Array<{ group: { entryId: string; tenseKey: string } }>,
+  progressByIdentity: Map<string, { box: number }>,
+): ConjBoxCounts {
+  const counts = emptyConjBoxCounts();
+  for (const group of unseenGroups) {
+    addConjBoxCount(counts, MIN_BOX);
+  }
+  for (const group of dueGroups) {
+    const progress = progressByIdentity.get(
+      `${group.entryId}:${conjugationCardKey(group.tenseKey)}`,
+    );
+    addConjBoxCount(counts, progress?.box ?? MIN_BOX);
+  }
+  const remaining = Object.values(counts).reduce((sum, n) => sum + n, 0);
+  if (remaining === 0) {
+    for (const { group } of laterGroups) {
+      const progress = progressByIdentity.get(
+        `${group.entryId}:${conjugationCardKey(group.tenseKey)}`,
+      );
+      addConjBoxCount(counts, progress?.box ?? MIN_BOX);
+    }
+  }
+  return counts;
+}
 
 type TenseReviewLog = {
   userAnswer: string;
@@ -379,6 +420,7 @@ export const conjugationRouter = createTRPCRouter({
           paradigm: null,
           totalAvailable: 0,
           dueCount: 0,
+          boxCounts: emptyConjBoxCounts(),
         };
       }
 
@@ -425,6 +467,7 @@ export const conjugationRouter = createTRPCRouter({
           entryId: true,
           cardKey: true,
           nextReviewAt: true,
+          box: true,
         },
       });
       const progressByIdentity = new Map(
@@ -463,6 +506,7 @@ export const conjugationRouter = createTRPCRouter({
             : (laterGroups[0]?.group ?? null);
 
       const dueCount = dueGroups.length;
+      const boxCounts = boxCountsForRun(dueGroups, unseenGroups, laterGroups, progressByIdentity);
 
       if (input.mode === "single") {
         const source = chosenGroup?.forms ?? forms;
@@ -472,6 +516,7 @@ export const conjugationRouter = createTRPCRouter({
           mode: "single" as const,
           totalAvailable: forms.length,
           dueCount,
+          boxCounts,
           paradigm: null,
           card: {
             formId: pick.id,
@@ -517,6 +562,7 @@ export const conjugationRouter = createTRPCRouter({
         mode: "paradigm" as const,
         totalAvailable: tenseGroups.size,
         dueCount,
+        boxCounts,
         card: null,
         paradigm: {
           entryId: head.translation.entryId,
