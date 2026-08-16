@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { WordCategory } from "@prisma/client";
@@ -29,12 +29,22 @@ import {
   isTargetLang,
   type LearningLangCode,
 } from "~/lib/languages";
-import { Eye, Plus } from "lucide-react";
+import { Eye, LayoutGrid, List, Plus } from "lucide-react";
 import { ClickableIpa } from "~/components/clickable-ipa";
 import { useFocusLang } from "~/components/focus-lang-provider";
 
 type SortBy = "mainText" | "translation" | "createdAt";
 type SortDir = "asc" | "desc";
+type VocabView = "cards" | "list";
+
+const VIEW_STORAGE_KEY = "sprachen-vocab-view";
+
+function readStoredView(): VocabView {
+  if (typeof window === "undefined") return "cards";
+  return window.localStorage.getItem(VIEW_STORAGE_KEY) === "list"
+    ? "list"
+    : "cards";
+}
 
 const CATEGORY_I18N_KEY: Record<
   WordCategory,
@@ -98,6 +108,16 @@ export function VocabularyCategoryList({
   const [onlyWithTranslation, setOnlyWithTranslation] = useState(false);
   const [sortBy, setSortBy] = useState<SortBy>("mainText");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [view, setView] = useState<VocabView>("cards");
+
+  useEffect(() => {
+    setView(readStoredView());
+  }, []);
+
+  const setVocabView = (next: VocabView) => {
+    setView(next);
+    window.localStorage.setItem(VIEW_STORAGE_KEY, next);
+  };
 
   const queryInput = useMemo(
     () => ({
@@ -141,12 +161,38 @@ export function VocabularyCategoryList({
                   : t("listCount", { count: entries.length })}
             </p>
           </div>
-          <Link href={addHref}>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              {tNav("add")}
-            </Button>
-          </Link>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="inline-flex rounded-md border border-input">
+              <Button
+                type="button"
+                size="icon"
+                variant={view === "cards" ? "secondary" : "ghost"}
+                className="rounded-r-none"
+                aria-label={t("viewCards")}
+                aria-pressed={view === "cards"}
+                onClick={() => setVocabView("cards")}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant={view === "list" ? "secondary" : "ghost"}
+                className="rounded-l-none"
+                aria-label={t("viewList")}
+                aria-pressed={view === "list"}
+                onClick={() => setVocabView("list")}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
+            <Link href={addHref}>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                {tNav("add")}
+              </Button>
+            </Link>
+          </div>
         </div>
 
         <div className="cahier-section mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
@@ -246,81 +292,151 @@ export function VocabularyCategoryList({
         </Card>
       ) : (
         <>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {entries.map((entry) => {
-              const translation = entry.translations.find(
-                (tr) => tr.lang === targetLang
-              );
-              return (
-                <Card
-                  key={entry.id}
-                  className="transition-shadow hover:shadow-md"
-                >
-                  <CardHeader>
-                    <div className="mb-1 flex items-center gap-2">
-                      <Badge variant="outline">{categoryBadge}</Badge>
+          {view === "list" ? (
+            <div className="cahier-section space-y-2">
+              <div className="hidden px-3 text-xs font-medium text-muted-foreground sm:grid sm:grid-cols-[1fr_1fr_auto] sm:gap-3">
+                <span>{tLang(SOURCE_LANG.code)}</span>
+                <span>{targetLangName}</span>
+                <span className="w-10" />
+              </div>
+              {entries.map((entry) => {
+                const translation = entry.translations.find(
+                  (tr) => tr.lang === targetLang
+                );
+                return (
+                  <div
+                    key={entry.id}
+                    className="cahier-item grid items-center gap-2 p-3 sm:grid-cols-[1fr_1fr_auto] sm:gap-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground sm:hidden">
+                        {tLang(SOURCE_LANG.code)}
+                      </p>
+                      <p className="font-medium">{entry.mainText}</p>
+                      {entry.domains.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {entry.domains.map((d) => (
+                            <Badge
+                              key={d.id}
+                              variant="secondary"
+                              className="text-xs"
+                            >
+                              {d.domain.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <CardTitle className="text-xl">{entry.mainText}</CardTitle>
-                    {entry.note && (
-                      <CardDescription className="mt-2">
-                        {entry.note}
-                      </CardDescription>
-                    )}
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div>
-                      <p className="mb-1 text-sm font-medium text-muted-foreground">
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground sm:hidden">
                         {targetLangName}
                       </p>
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <p className="text-base">
+                        <span className="font-medium">
                           {translation?.text ?? (
                             <span className="text-muted-foreground">—</span>
                           )}
-                        </p>
+                        </span>
                         {translation?.ipa ? (
-                          <div className="ml-auto shrink-0 text-right">
-                            <ClickableIpa
-                              ipa={translation.ipa}
-                              items={guideItems}
-                              className="m-0 text-sm italic tracking-wide text-foreground/80"
-                              showFullListButton={false}
-                              targetLangName={targetLangName}
-                            />
-                          </div>
+                          <ClickableIpa
+                            ipa={translation.ipa}
+                            items={guideItems}
+                            className="m-0 text-sm italic tracking-wide text-foreground/80"
+                            showFullListButton={false}
+                            targetLangName={targetLangName}
+                          />
                         ) : null}
                       </div>
                     </div>
-
-                    {entry.domains.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {entry.domains.map((d) => (
-                          <Badge
-                            key={d.id}
-                            variant="secondary"
-                            className="text-xs"
-                          >
-                            {d.domain.name}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-
-                    <Link href={detailHref(entry.id)}>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="mt-2 w-full"
-                      >
-                        <Eye className="mr-2 h-4 w-4" />
-                        {tCommon("details")}
+                    <div className="flex justify-end">
+                      <Button size="icon" variant="ghost" asChild>
+                        <Link href={detailHref(entry.id)}>
+                          <Eye className="h-4 w-4" />
+                          <span className="sr-only">{tCommon("details")}</span>
+                        </Link>
                       </Button>
-                    </Link>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {entries.map((entry) => {
+                const translation = entry.translations.find(
+                  (tr) => tr.lang === targetLang
+                );
+                return (
+                  <Card
+                    key={entry.id}
+                    className="transition-shadow hover:shadow-md"
+                  >
+                    <CardHeader>
+                      <div className="mb-1 flex items-center gap-2">
+                        <Badge variant="outline">{categoryBadge}</Badge>
+                      </div>
+                      <CardTitle className="text-xl">{entry.mainText}</CardTitle>
+                      {entry.note && (
+                        <CardDescription className="mt-2">
+                          {entry.note}
+                        </CardDescription>
+                      )}
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div>
+                        <p className="mb-1 text-sm font-medium text-muted-foreground">
+                          {targetLangName}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <p className="text-base">
+                            {translation?.text ?? (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </p>
+                          {translation?.ipa ? (
+                            <div className="ml-auto shrink-0 text-right">
+                              <ClickableIpa
+                                ipa={translation.ipa}
+                                items={guideItems}
+                                className="m-0 text-sm italic tracking-wide text-foreground/80"
+                                showFullListButton={false}
+                                targetLangName={targetLangName}
+                              />
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      {entry.domains.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {entry.domains.map((d) => (
+                            <Badge
+                              key={d.id}
+                              variant="secondary"
+                              className="text-xs"
+                            >
+                              {d.domain.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+
+                      <Link href={detailHref(entry.id)}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-2 w-full"
+                        >
+                          <Eye className="mr-2 h-4 w-4" />
+                          {tCommon("details")}
+                        </Button>
+                      </Link>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
 
           {hasNextPage && (
             <div className="mt-6 flex justify-center">

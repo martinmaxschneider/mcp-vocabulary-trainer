@@ -363,6 +363,8 @@
     "listCount": "{count, plural, =0 {0 en tu colección} one {1 en tu colección} other {# en tu colección}}",
     "listCountMore": "{count}+ en tu colección",
     "onlyWithTranslation": "Solo con traducción",
+    "viewCards": "Vista de tarjetas",
+    "viewList": "Vista de lista",
     "addFirst": "Añadir primeras entradas",
     "verbsListTitle": "Todos los verbos",
     "verbsEmpty": "Aún no se han añadido verbos.",

@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Check, ChevronDown } from "lucide-react";
+import { Check } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import {
   DropdownMenu,
@@ -23,16 +23,13 @@ export function FocusLangSelect() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
-          variant="outline"
-          size="sm"
-          className="gap-2"
+          variant="ghost"
+          size="icon"
           aria-label={t("focusLangAria")}
         >
-          <span aria-hidden>{current?.flag}</span>
-          <span className="hidden max-w-[9rem] truncate sm:inline">
-            {tLang(focusLang)}
+          <span aria-hidden className="text-lg leading-none">
+            {current?.flag}
           </span>
-          <ChevronDown className="h-3 w-3 opacity-70" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
