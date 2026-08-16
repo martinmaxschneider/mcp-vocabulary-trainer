@@ -123,27 +123,40 @@ export const entryRouter = createTRPCRouter({
       z.object({
         domainId: z.string().optional(),
         type: z.nativeEnum(EntryType).optional(),
-        limit: z.number().min(1).max(100).default(50),
+        // Omit limit to load the full result (domain detail). Paginated callers pass limit.
+        limit: z.number().min(1).max(10_000).optional(),
         cursor: z.string().optional(),
       })
     )
     .query(async ({ ctx, input }) => {
+      const where = {
+        ...(input.domainId && {
+          domains: {
+            some: { domainId: input.domainId },
+          },
+        }),
+        ...(input.type && { type: input.type }),
+      };
+      const include = {
+        translations: true,
+        ...domainsInclude,
+      };
+
+      if (input.limit == null) {
+        const entries = await ctx.db.entry.findMany({
+          where,
+          orderBy: { createdAt: "desc" },
+          include,
+        });
+        return { entries, nextCursor: undefined };
+      }
+
       const entries = await ctx.db.entry.findMany({
-        where: {
-          ...(input.domainId && {
-            domains: {
-              some: { domainId: input.domainId },
-            },
-          }),
-          ...(input.type && { type: input.type }),
-        },
+        where,
         take: input.limit + 1,
         cursor: input.cursor ? { id: input.cursor } : undefined,
         orderBy: { createdAt: "desc" },
-        include: {
-          translations: true,
-          ...domainsInclude,
-        },
+        include,
       });
 
       let nextCursor: typeof input.cursor | undefined = undefined;
