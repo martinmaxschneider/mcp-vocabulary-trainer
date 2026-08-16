@@ -229,7 +229,7 @@
     "dailyGoalSaved": "Objectif quotidien enregistré",
     "updateTitle": "Mettre à jour l’application",
     "updateDesc": "Récupère le dernier code, sauvegarde la base, migre et reconstruit.",
-    "updateHelp": "Cela prend quelques minutes. Sous PM2, l’application redémarre ensuite toute seule.",
+    "updateHelp": "Cela prend quelques minutes. Sous PM2 ou avec PM2_PROCESS dans .env, l’application redémarre ensuite toute seule.",
     "updateButton": "Mettre à jour",
     "updateConfirmTitle": "Mettre à jour l’application ?",
     "updateConfirmDesc": "Git pull avec rebase, npm install, sauvegarde et migration de la base, puis build de production. Les modifications git non commitées bloquent la mise à jour.",

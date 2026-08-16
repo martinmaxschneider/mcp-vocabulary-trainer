@@ -229,7 +229,7 @@
     "dailyGoalSaved": "Tagesziel gespeichert",
     "updateTitle": "App aktualisieren",
     "updateDesc": "Holt den neuesten Stand, sichert die Datenbank, migriert und baut neu.",
-    "updateHelp": "Dauert einige Minuten. Läuft die App unter PM2, startet sie danach von selbst neu.",
+    "updateHelp": "Dauert einige Minuten. Unter PM2 oder mit PM2_PROCESS in der .env startet die App danach von selbst neu.",
     "updateButton": "Jetzt aktualisieren",
     "updateConfirmTitle": "App aktualisieren?",
     "updateConfirmDesc": "Git pull mit Rebase, npm install, Datenbank-Backup und Migration, dann Production-Build. Ungespeicherte Git-Änderungen blockieren das Update.",

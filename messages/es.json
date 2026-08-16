@@ -229,7 +229,7 @@
     "dailyGoalSaved": "Meta diaria guardada",
     "updateTitle": "Actualizar la aplicación",
     "updateDesc": "Trae el código más reciente, copia la base de datos, migra y vuelve a construir.",
-    "updateHelp": "Tarda unos minutos. Si la app corre bajo PM2, se reinicia sola después.",
+    "updateHelp": "Tarda unos minutos. Bajo PM2 o con PM2_PROCESS en .env, la app se reinicia sola después.",
     "updateButton": "Actualizar ahora",
     "updateConfirmTitle": "¿Actualizar la aplicación?",
     "updateConfirmDesc": "Git pull con rebase, npm install, copia de seguridad y migración de la base, luego el build de producción. Los cambios git sin confirmar bloquean la actualización.",

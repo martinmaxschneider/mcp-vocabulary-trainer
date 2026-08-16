@@ -103,6 +103,7 @@ export function markUpdateStarting(): void {
         startedAt: now,
         updatedAt: now,
         error: null,
+        // Script treats running + pid:null as "UI just started us"
         pid: null,
       },
       null,

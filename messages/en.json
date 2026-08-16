@@ -229,7 +229,7 @@
     "dailyGoalSaved": "Daily goal saved",
     "updateTitle": "Update app",
     "updateDesc": "Fetches the latest code, backs up the database, migrates, and rebuilds.",
-    "updateHelp": "Takes a few minutes. If the app runs under PM2, it restarts on its own afterwards.",
+    "updateHelp": "Takes a few minutes. Under PM2 or with PM2_PROCESS in .env, the app restarts on its own afterwards.",
     "updateButton": "Update now",
     "updateConfirmTitle": "Update the app?",
     "updateConfirmDesc": "Git pull with rebase, npm install, database backup and migration, then a production build. Uncommitted git changes will block the update.",

@@ -5,7 +5,7 @@
  * 2. npm install
  * 3. db backup + migrate
  * 4. npm run build
- * 5. optional pm2 restart (only if pm_id or name is set)
+ * 5. optional pm2 restart (pm_id, name, or PM2_PROCESS)
  *
  * Usage: node scripts/self-update.mjs
  */
@@ -25,6 +25,30 @@ const dataDir = join(root, "data");
 const statusPath = join(dataDir, "update-status.json");
 const logPath = join(dataDir, "update.log");
 const LOCK_MS = 30 * 60 * 1000;
+
+function loadDotEnv(filePath) {
+  if (!existsSync(filePath)) return;
+  const text = readFileSync(filePath, "utf8");
+  for (const line of text.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq < 1) continue;
+    const key = trimmed.slice(0, eq).trim();
+    let value = trimmed.slice(eq + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    if (process.env[key] === undefined) {
+      process.env[key] = value;
+    }
+  }
+}
+
+loadDotEnv(join(root, ".env"));
 const childEnv = { ...process.env, GIT_TERMINAL_PROMPT: "0" };
 
 function nowIso() {
@@ -108,11 +132,19 @@ function fail(message) {
 }
 
 function detectPm2Target() {
-  const pmId = process.env.pm_id?.trim();
-  if (pmId) return pmId;
-  const name = process.env.name?.trim();
-  if (name) return name;
+  for (const key of ["pm_id", "name", "PM2_PROCESS"]) {
+    const value = process.env[key]?.trim();
+    if (value) return value;
+  }
   return null;
+}
+
+function isForeignLock(status) {
+  if (!status || status.status !== "running") return false;
+  if (isStaleLock(status)) return false;
+  // UI pre-lock: running with no pid yet — this process is the intended runner
+  if (status.pid == null) return false;
+  return status.pid !== process.pid;
 }
 
 try {
@@ -120,11 +152,7 @@ try {
   writeFileSync(logPath, "");
 
   const existing = readStatus();
-  if (
-    existing?.status === "running" &&
-    !isStaleLock(existing) &&
-    existing.pid !== process.pid
-  ) {
+  if (isForeignLock(existing)) {
     fail("An update is already running.");
   }
 
