@@ -309,25 +309,6 @@ export default function ReviewPage() {
     }
   };
 
-  const handleQuickStart = (lang: string) => {
-    setMode("single");
-    setFocusLang(lang as typeof focusLang);
-    setSelectedDomains([]);
-    setReviewState("active");
-    setCurrentIndex(0);
-    setResult(null);
-    setMultiResults(null);
-  };
-
-  const handleQuickStartAll = () => {
-    setMode("multi");
-    setSelectedDomains([]);
-    setReviewState("active");
-    setCurrentIndex(0);
-    setResult(null);
-    setMultiResults(null);
-  };
-
   const handleStartReview = () => {
     if (!selectedLang) {
       toast({
@@ -421,60 +402,8 @@ export default function ReviewPage() {
           <p className="text-sm text-slate-600">{t("setupSubtitle")}</p>
         </header>
 
-        <div className="space-y-8">
-          <section className="cahier-card p-6 sm:p-8">
-            <h2
-              className={cn(
-                "text-2xl font-bold text-[#1e3a5f]",
-                libreBaskerville.className,
-              )}
-            >
-              {t("quickStart")}
-            </h2>
-            <p className="mt-1 text-sm text-slate-600">{t("quickStartDesc")}</p>
-
-            <div className="mt-6 space-y-4">
-              <button
-                type="button"
-                className="flex h-auto w-full flex-col items-center gap-2 rounded-xl bg-[#1e3a5f] px-4 py-6 text-white shadow-sm transition hover:bg-[#16304d]"
-                onClick={handleQuickStartAll}
-              >
-                <Globe className="h-8 w-8" />
-                <span className="font-semibold">
-                  {t("quickStartAllLanguages")}
-                </span>
-                <span className="text-sm font-normal text-white/80">
-                  {t("quickStartAllLanguagesDesc")}
-                </span>
-              </button>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {TARGET_LANGS.map((lang) => (
-                  <button
-                    key={lang.code}
-                    type="button"
-                    className="flex h-auto flex-col items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-6 text-[#1e3a5f] shadow-sm transition hover:border-[#1e3a5f]/40"
-                    onClick={() => handleQuickStart(lang.code)}
-                  >
-                    <span className="text-4xl">{lang.flag}</span>
-                    <span className="font-semibold">{tLang(lang.code)}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          <section className="cahier-card p-6 sm:p-8">
-            <h2
-              className={cn(
-                "text-2xl font-bold text-[#1e3a5f]",
-                libreBaskerville.className,
-              )}
-            >
-              {t("customSetup")}
-            </h2>
-            <p className="mt-1 text-sm text-slate-600">{t("customSetupDesc")}</p>
-
-            <div className="mt-6 space-y-6">
+        <section className="cahier-card p-6 sm:p-8">
+            <div className="space-y-6">
               <div>
                 <h3 className="mb-3 font-semibold text-[#1e3a5f]">
                   {t("selectLanguage")}
@@ -560,8 +489,7 @@ export default function ReviewPage() {
                 </Button>
               </div>
             </div>
-          </section>
-        </div>
+        </section>
       </>
     );
   }
