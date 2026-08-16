@@ -14,6 +14,7 @@ import {
 } from "~/lib/leitner";
 import { TARGET_LANG_CODES } from "~/lib/languages";
 import { db } from "~/server/db";
+import { leechRecovered, recordActivity } from "~/server/gamification";
 
 type DbClient = typeof db;
 
@@ -185,6 +186,13 @@ async function gradeAndUpdateProgress(
     },
   });
 
+  const recovered = leechRecovered({
+    wrongCount: progress.wrongCount,
+    correctCount: progress.correctCount,
+    boxBefore,
+    boxAfter,
+  });
+
   return {
     targetLang,
     isCorrect: matchResult.isCorrect,
@@ -200,6 +208,7 @@ async function gradeAndUpdateProgress(
     boxBefore,
     boxAfter,
     expectedAnswers: answers,
+    leechRecovered: recovered,
   };
 }
 
@@ -638,13 +647,24 @@ export const reviewRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      return gradeAndUpdateProgress(
+      const result = await gradeAndUpdateProgress(
         ctx.db,
         ctx.userId,
         input.entryId,
         input.targetLang,
         input.userAnswer
       );
+      const gamification = await recordActivity(ctx.db, ctx.userId, {
+        items: [
+          {
+            targetLang: input.targetLang,
+            isCorrect: result.isCorrect,
+            isTypo: result.typo,
+          },
+        ],
+        flags: { leechRecovered: result.leechRecovered },
+      });
+      return { ...result, gamification };
     }),
 
   submitMultiAnswers: publicProcedure
@@ -673,7 +693,17 @@ export const reviewRouter = createTRPCRouter({
         );
         results.push(result);
       }
-      return { results };
+      const gamification = await recordActivity(ctx.db, ctx.userId, {
+        items: results.map((result) => ({
+          targetLang: result.targetLang,
+          isCorrect: result.isCorrect,
+          isTypo: result.typo,
+        })),
+        flags: {
+          leechRecovered: results.some((result) => result.leechRecovered),
+        },
+      });
+      return { results, gamification };
     }),
 
   /** Override a just-accepted correct answer as wrong (no second review log from empty submit). */

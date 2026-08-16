@@ -14,6 +14,7 @@ import {
 } from "~/components/ui/card";
 import { StatsWidget } from "~/components/stats-widget";
 import { LanguageProgressChart } from "~/components/language-progress-chart";
+import { GamificationOverview } from "~/components/gamification-overview";
 import {
   BookOpen,
   FileText,
@@ -57,12 +58,18 @@ export function Dashboard() {
   const { data: stats, isLoading } = api.stats.dashboard.useQuery({
     targetLang: showAll ? undefined : focusLang,
   });
+  const { data: game } = api.gamification.getStatus.useQuery();
 
   const languageProgress =
-    stats?.languageProgress.map((lang) => ({
-      ...lang,
-      languageName: tLang(lang.language),
-    })) ?? [];
+    stats?.languageProgress.map((lang) => {
+      const extra = game?.languages.find((row) => row.language === lang.language);
+      return {
+        ...lang,
+        languageName: tLang(lang.language),
+        masteryPercent: extra?.masteryPercent,
+        levelKey: extra?.levelKey,
+      };
+    }) ?? [];
 
   return (
     <>
@@ -159,6 +166,7 @@ export function Dashboard() {
         <p className="text-muted-foreground">{tCommon("loading")}</p>
       ) : (
         <>
+          <GamificationOverview focusLang={focusLang} showAll={showAll} />
           <div className="mb-8 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             <StatsWidget
               title={t("dueToday")}

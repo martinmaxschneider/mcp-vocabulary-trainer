@@ -19,7 +19,8 @@
     "add": "Adicionar",
     "settings": "Definições",
     "settingsAriaLabel": "Definições",
-    "focusLangAria": "Definir o idioma de aprendizagem atual"
+    "focusLangAria": "Definir o idioma de aprendizagem atual",
+    "achievements": "Conquistas"
   },
   "common": {
     "back": "Voltar",
@@ -222,6 +223,10 @@
     "themeTitle": "Aspeto",
     "themeDesc": "Claro, escuro ou conforme o sistema",
     "themeHelp": "“Sistema” segue a definição do seu dispositivo.",
+    "dailyGoalTitle": "Meta diária",
+    "dailyGoalDesc": "XP necessários num dia para manter a sequência",
+    "dailyGoalLabel": "XP por dia",
+    "dailyGoalSaved": "Meta diária guardada",
     "updateTitle": "Atualizar a aplicação",
     "updateDesc": "Obtém o código mais recente, faz cópia da base, migra e reconstrói.",
     "updateHelp": "Demora alguns minutos. Se a app correr sob PM2, reinicia sozinha a seguir.",
@@ -258,7 +263,7 @@
     "dangerZone": "Zona de perigo",
     "dangerZoneDesc": "Cuidado! Estas ações não podem ser anuladas.",
     "resetProgressTitle": "Repor progresso de aprendizagem",
-    "resetProgressDesc": "Repor todos os dados de UserProgress (caixas, estatísticas, registos de revisão)",
+    "resetProgressDesc": "Repor todos os dados de UserProgress (caixas, estatísticas, registos de revisão, sequência e conquistas)",
     "resetEntriesTitle": "Eliminar todo o vocabulário",
     "resetEntriesDesc": "Elimina todas as entradas e respetivas traduções (os temas são mantidos)",
     "resetDomainsTitle": "Eliminar todos os temas",
@@ -279,6 +284,118 @@
     "pronunciationTitle": "Ajudas de pronúncia",
     "pronunciationDesc": "Guias por idioma-alvo, explicados a partir da sua língua materna",
     "pronunciationHelp": "Língua materna: {native}. Uma lista de sons por idioma-alvo — editável aqui ou via MCP."
+  },
+  "gamification": {
+    "streakAria": "Sequência: {count, plural, one {1 dia} other {# dias}}",
+    "streakDays": "{count, plural, one {1 dia de sequência} other {# dias de sequência}}",
+    "streakLabel": "Sequência",
+    "longestStreak": "Recorde: {count, plural, one {1 dia} other {# dias}}",
+    "dailyGoal": "Meta diária",
+    "xpToday": "{xp} / {goal} XP hoje",
+    "xpEarned": "XP ganhos",
+    "answersLabel": "Respostas",
+    "thisWeek": "Esta semana",
+    "viewAchievements": "Todas as conquistas",
+    "achievementsTitle": "Conquistas",
+    "achievementsSubtitle": "Objetivos que desbloqueias ao praticar com regularidade",
+    "loadingAchievements": "A carregar conquistas…",
+    "achievementUnlocked": "Nova conquista!",
+    "nextAchievement": "Seguinte ({remaining})",
+    "nice": "Boa!",
+    "goalReachedTitle": "Meta diária alcançada!",
+    "goalReachedDesc": "A tua sequência está segura por hoje.",
+    "streakMilestoneTitle": "Sequência de {days} dias!",
+    "streakMilestoneDesc": "Continua — a consistência conta.",
+    "perfectSessionTitle": "Sessão perfeita!",
+    "perfectSessionDesc": "Todas as respostas desta sessão estavam certas.",
+    "sessionDoneTitle": "Sessão concluída",
+    "sessionDoneDesc": "Bom trabalho — cada dia conta.",
+    "masteryBadge": "{percent}% do caminho para falar bem",
+    "unlockedOn": "Desbloqueado em {date}",
+    "achievementProgress": "{current} / {target}",
+    "weekday": {
+      "sun": "Do",
+      "mon": "Se",
+      "tue": "Te",
+      "wed": "Qu",
+      "thu": "Qu",
+      "fri": "Se",
+      "sat": "Sá"
+    },
+    "levels": {
+      "beginner": "Iniciante",
+      "learner": "Aprendiz",
+      "intermediate": "Intermédio",
+      "advanced": "Avançado",
+      "fluent": "Fluente",
+      "master": "Mestre"
+    },
+    "achievements": {
+      "streak_3": {
+        "title": "Começar",
+        "description": "Atingir a meta diária 3 dias seguidos"
+      },
+      "streak_7": {
+        "title": "Semana em fogo",
+        "description": "Manter uma sequência de 7 dias"
+      },
+      "streak_30": {
+        "title": "Chama do mês",
+        "description": "Praticar 30 dias seguidos"
+      },
+      "streak_100": {
+        "title": "Fogo de cem",
+        "description": "Sequência de 100 dias"
+      },
+      "answers_100": {
+        "title": "Primeiras 100",
+        "description": "Responder a 100 cartões"
+      },
+      "answers_500": {
+        "title": "Aplicado",
+        "description": "Responder a 500 cartões"
+      },
+      "answers_2500": {
+        "title": "Resistência",
+        "description": "Responder a 2500 cartões"
+      },
+      "box6_10": {
+        "title": "Primeiros mestres",
+        "description": "10 cartões na caixa 6"
+      },
+      "box6_50": {
+        "title": "Base sólida",
+        "description": "50 cartões na caixa 6"
+      },
+      "box6_150": {
+        "title": "Mestre do vocabulário",
+        "description": "150 cartões na caixa 6"
+      },
+      "perfect_session": {
+        "title": "Impecável",
+        "description": "Terminar uma sessão de pelo menos 10 cartões sem erros"
+      },
+      "leech_slayer": {
+        "title": "Caçador de sanguessugas",
+        "description": "Levar um cartão problemático até à caixa 4"
+      },
+      "worksheet_1": {
+        "title": "Primeira ficha",
+        "description": "Concluir uma ficha de exercícios"
+      },
+      "worksheet_10": {
+        "title": "Herói das fichas",
+        "description": "Concluir 10 fichas de exercícios"
+      },
+      "conjugation_pro": {
+        "title": "Pro da conjugação",
+        "description": "Colocar todos os tempos de um verbo pelo menos na caixa 4"
+      },
+      "comeback": {
+        "title": "Regresso",
+        "description": "Voltar a praticar depois de pelo menos 7 dias de pausa"
+      }
+    }
   },
   "domains": {
     "title": "Temas",

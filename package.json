@@ -46,6 +46,7 @@
     "@trpc/client": "^11.0.0-rc.650",
     "@trpc/react-query": "^11.0.0-rc.650",
     "@trpc/server": "^11.0.0-rc.650",
+    "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
@@ -66,6 +67,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@types/canvas-confetti": "^1.9.0",
     "@types/eslint": "^9.6.1",
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.1",

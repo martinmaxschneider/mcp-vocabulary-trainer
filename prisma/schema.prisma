@@ -319,3 +319,43 @@ model WorksheetAnswer {
 
   @@index([questionId])
 }
+
+/// One row per calendar day (local YYYY-MM-DD) for streak / daily XP.
+model DailyActivity {
+  id           String   @id @default(cuid())
+  userId       String   @default("anonymous")
+  date         String
+  xp           Int      @default(0)
+  answersCount Int      @default(0)
+  correctCount Int      @default(0)
+  /// { [lang]: { xp, answers, correct } }
+  byLang       Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([userId, date])
+}
+
+model UnlockedAchievement {
+  id         String   @id @default(cuid())
+  userId     String   @default("anonymous")
+  key        String
+  unlockedAt DateTime @default(now())
+  targetLang String?
+  meta       Json?
+
+  @@unique([userId, key])
+  @@index([userId])
+}
+
+model GamificationSettings {
+  id            String   @id @default(cuid())
+  userId        String   @default("anonymous")
+  dailyGoalXp   Int      @default(50)
+  longestStreak Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId])
+}

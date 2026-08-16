@@ -22,6 +22,7 @@ import {
 import { matchAnswer } from "~/lib/matching";
 import { upsertConjugationFormRows } from "~/server/services/conjugation-forms";
 import { db } from "~/server/db";
+import { isConjugationPro, recordActivity } from "~/server/gamification";
 
 type DbClient = typeof db;
 
@@ -626,6 +627,23 @@ export const conjugationRouter = createTRPCRouter({
         ],
       });
 
+      const conjugationPro = await isConjugationPro(
+        ctx.db,
+        ctx.userId,
+        form.translation.entryId,
+        form.translation.lang,
+      );
+      const gamification = await recordActivity(ctx.db, ctx.userId, {
+        items: [
+          {
+            targetLang: form.translation.lang,
+            isCorrect: match.isCorrect,
+            isTypo: match.isTypo,
+          },
+        ],
+        flags: { conjugationPro },
+      });
+
       return {
         isCorrect: match.isCorrect,
         typo: match.isTypo,
@@ -640,6 +658,7 @@ export const conjugationRouter = createTRPCRouter({
         boxBefore: progress.boxBefore,
         boxAfter: progress.boxAfter,
         nextReviewAt: progress.nextReviewAt,
+        gamification,
       };
     }),
 
@@ -753,6 +772,25 @@ export const conjugationRouter = createTRPCRouter({
       }
 
       const correctCount = results.filter((r) => r.isCorrect).length;
+      const firstGroup = [...byTense.values()][0];
+      const conjugationPro = firstGroup
+        ? await isConjugationPro(
+            ctx.db,
+            ctx.userId,
+            firstGroup.entryId,
+            firstGroup.targetLang,
+          )
+        : false;
+      const gamification = await recordActivity(ctx.db, ctx.userId, {
+        items: results
+          .filter((result) => result.lang)
+          .map((result) => ({
+            targetLang: result.lang!,
+            isCorrect: result.isCorrect,
+            isTypo: result.typo,
+          })),
+        flags: { conjugationPro },
+      });
 
       return {
         results: results.map(({ formId, isCorrect, typo, expected, missing }) => ({
@@ -765,6 +803,7 @@ export const conjugationRouter = createTRPCRouter({
         correctCount,
         totalCount: results.length,
         tenseResults,
+        gamification,
       };
     }),
 });

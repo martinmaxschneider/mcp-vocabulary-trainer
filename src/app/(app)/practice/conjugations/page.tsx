@@ -41,6 +41,9 @@ import {
 } from "lucide-react";
 import { useFocusLang } from "~/components/focus-lang-provider";
 import { ReviewBoxBar } from "~/components/review-box-bar";
+import { useCelebrate } from "~/components/gamification-provider";
+import { SessionSummary } from "~/components/session-summary";
+import { CELEBRATIONS } from "~/lib/gamification-config";
 
 const caveat = Caveat({
   subsets: ["latin", "latin-ext"],
@@ -69,6 +72,7 @@ export default function ConjugationDrillPage() {
   const tLang = useTranslations("languages");
   const tErrors = useTranslations("errors.codes");
   const { toast } = useToast();
+  const celebrate = useCelebrate();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [drillState, setDrillState] = useState<DrillState>("setup");
@@ -114,6 +118,13 @@ export default function ConjugationDrillPage() {
       boxAfter: number;
     }>
   >([]);
+  const [session, setSession] = useState({
+    answers: 0,
+    correct: 0,
+    xp: 0,
+    streak: 0,
+  });
+  const [showSummary, setShowSummary] = useState(false);
 
   const { data: domains } = api.domain.list.useQuery();
   const profile = getConjugationProfile(selectedLang);
@@ -131,6 +142,8 @@ export default function ConjugationDrillPage() {
     setParadigmScore(null);
     setParadigmTenseResults([]);
     setAwaitingParadigm(false);
+    setSession({ answers: 0, correct: 0, xp: 0, streak: 0 });
+    setShowSummary(false);
     setCardKey((k) => k + 1);
     setDrillState("active");
     router.replace("/practice/conjugations", { scroll: false });
@@ -169,8 +182,26 @@ export default function ConjugationDrillPage() {
     },
   );
 
+  const reportSession = api.gamification.reportSession.useMutation({
+    onSuccess: (data) => {
+      celebrate(data, {
+        perfectSession:
+          session.answers >= (CELEBRATIONS.perfectSession.minCards ?? 10) &&
+          session.correct === session.answers,
+        sessionAnswers: session.answers,
+      });
+    },
+  });
+
   const submitMutation = api.conjugation.submitDrillAnswer.useMutation({
     onSuccess: (data) => {
+      celebrate(data.gamification);
+      setSession((prev) => ({
+        answers: prev.answers + 1,
+        correct: prev.correct + (data.isCorrect ? 1 : 0),
+        xp: prev.xp + (data.gamification?.xpEarned ?? 0),
+        streak: data.gamification?.streak ?? prev.streak,
+      }));
       setResult({
         isCorrect: data.isCorrect,
         expected: data.expected,
@@ -212,6 +243,13 @@ export default function ConjugationDrillPage() {
             boxAfter: r.boxAfter,
           })),
         );
+        celebrate(data.gamification);
+        setSession((prev) => ({
+          answers: prev.answers + data.totalCount,
+          correct: prev.correct + data.correctCount,
+          xp: prev.xp + (data.gamification?.xpEarned ?? 0),
+          streak: data.gamification?.streak ?? prev.streak,
+        }));
       },
       onError: (error) => {
         toast({
@@ -260,6 +298,30 @@ export default function ConjugationDrillPage() {
     }
   }, [drillState, isFetching, drillData]);
 
+  useEffect(() => {
+    if (
+      drillState === "active" &&
+      !isFetching &&
+      !hasContent &&
+      session.answers > 0 &&
+      !showSummary
+    ) {
+      reportSession.mutate({
+        answers: session.answers,
+        correct: session.correct,
+      });
+      setShowSummary(true);
+    }
+  }, [
+    drillState,
+    isFetching,
+    hasContent,
+    session.answers,
+    session.correct,
+    showSummary,
+    reportSession,
+  ]);
+
   // Reset paradigm inputs when a new verb/paradigm loads
   useEffect(() => {
     if (drillMode !== "paradigm" || !paradigm) return;
@@ -278,6 +340,8 @@ export default function ConjugationDrillPage() {
     setParadigmScore(null);
     setParadigmTenseResults([]);
     setAwaitingParadigm(false);
+    setSession({ answers: 0, correct: 0, xp: 0, streak: 0 });
+    setShowSummary(false);
   };
 
   const startDrill = () => {
@@ -288,6 +352,8 @@ export default function ConjugationDrillPage() {
     setParadigmScore(null);
     setParadigmTenseResults([]);
     setAwaitingParadigm(false);
+    setSession({ answers: 0, correct: 0, xp: 0, streak: 0 });
+    setShowSummary(false);
     setCardKey((k) => k + 1);
     setDrillState("active");
   };
@@ -544,6 +610,18 @@ export default function ConjugationDrillPage() {
         <div className="cahier-card py-16 text-center">
           <Loader2 className="mx-auto h-8 w-8 animate-spin text-[#1e3a5f]" />
         </div>
+      ) : !hasContent && session.answers > 0 ? (
+        <SessionSummary
+          answers={session.answers}
+          correct={session.correct}
+          xp={session.xp}
+          streak={session.streak}
+          perfect={
+            session.answers >= (CELEBRATIONS.perfectSession.minCards ?? 10) &&
+            session.correct === session.answers
+          }
+          onDone={backToSetup}
+        />
       ) : !hasContent ? (
         <div className="cahier-card py-16 text-center">
           <p className="mb-4 text-slate-600">{t("noFormsFound")}</p>

@@ -18,6 +18,9 @@ import { resolveErrorCode } from "~/lib/trpc-error";
 import { PronunciationGuideMenu } from "~/components/clickable-ipa";
 import { cn } from "~/lib/utils";
 import { useFocusLang } from "~/components/focus-lang-provider";
+import { useCelebrate } from "~/components/gamification-provider";
+import { SessionSummary } from "~/components/session-summary";
+import { CELEBRATIONS } from "~/lib/gamification-config";
 import {
   ReviewBoxBar,
   remainingBoxCounts,
@@ -35,7 +38,7 @@ const libreBaskerville = Libre_Baskerville({
   style: ["normal", "italic"],
 });
 
-type ReviewState = "setup" | "active";
+type ReviewState = "setup" | "active" | "summary";
 type ReviewMode = "single" | "multi";
 
 export function ReviewSession() {
@@ -44,6 +47,7 @@ export function ReviewSession() {
   const tLang = useTranslations("languages");
   const tErrors = useTranslations("errors.codes");
   const { toast } = useToast();
+  const celebrate = useCelebrate();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { focusLang, setFocusLang } = useFocusLang();
@@ -60,6 +64,7 @@ export function ReviewSession() {
   const [multiResults, setMultiResults] = useState<MultiLangResult[] | null>(
     null
   );
+  const [session, setSession] = useState({ answers: 0, correct: 0, xp: 0, streak: 0 });
 
   const errorDescription = (message: string) => {
     const code = resolveErrorCode(message);
@@ -76,6 +81,7 @@ export function ReviewSession() {
     setCurrentIndex(0);
     setResult(null);
     setMultiResults(null);
+    setSession({ answers: 0, correct: 0, xp: 0, streak: 0 });
     setReviewState("active");
     router.replace("/review", { scroll: false });
   }, [searchParams, router]);
@@ -129,8 +135,26 @@ export function ReviewSession() {
       ),
   );
 
+  const reportSession = api.gamification.reportSession.useMutation({
+    onSuccess: (data) => {
+      celebrate(data, {
+        perfectSession:
+          session.answers >= (CELEBRATIONS.perfectSession.minCards ?? 10) &&
+          session.correct === session.answers,
+        sessionAnswers: session.answers,
+      });
+    },
+  });
+
   const submitMutation = api.review.submitAnswer.useMutation({
     onSuccess: (data) => {
+      celebrate(data.gamification);
+      setSession((prev) => ({
+        answers: prev.answers + 1,
+        correct: prev.correct + (data.isCorrect ? 1 : 0),
+        xp: prev.xp + (data.gamification?.xpEarned ?? 0),
+        streak: data.gamification?.streak ?? prev.streak,
+      }));
       setResult({
         isCorrect: data.isCorrect,
         expected: data.expected,
@@ -148,6 +172,13 @@ export function ReviewSession() {
 
   const submitMultiMutation = api.review.submitMultiAnswers.useMutation({
     onSuccess: (data) => {
+      celebrate(data.gamification);
+      setSession((prev) => ({
+        answers: prev.answers + data.results.length,
+        correct: prev.correct + data.results.filter((r) => r.isCorrect).length,
+        xp: prev.xp + (data.gamification?.xpEarned ?? 0),
+        streak: data.gamification?.streak ?? prev.streak,
+      }));
       setMultiResults(
         data.results.map((r) => ({
           targetLang: r.targetLang,
@@ -322,6 +353,18 @@ export function ReviewSession() {
     });
   };
 
+  const finishSession = () => {
+    if (session.answers > 0) {
+      reportSession.mutate({
+        answers: session.answers,
+        correct: session.correct,
+      });
+      setReviewState("summary");
+      return;
+    }
+    setReviewState("setup");
+  };
+
   const handleNext = () => {
     if (totalCards === 0) return;
 
@@ -330,13 +373,19 @@ export function ReviewSession() {
       setResult(null);
       setMultiResults(null);
     } else {
-      void refetch();
-      setCurrentIndex(0);
-      setResult(null);
-      setMultiResults(null);
-      toast({
-        title: t("sessionComplete"),
-        description: t("sessionCompleteDesc"),
+      void refetch().then((result) => {
+        const remaining = result.data?.cards.length ?? 0;
+        setCurrentIndex(0);
+        setResult(null);
+        setMultiResults(null);
+        if (remaining === 0) {
+          finishSession();
+          return;
+        }
+        toast({
+          title: t("sessionComplete"),
+          description: t("sessionCompleteDesc"),
+        });
       });
     }
   };
@@ -354,6 +403,7 @@ export function ReviewSession() {
     setCurrentIndex(0);
     setResult(null);
     setMultiResults(null);
+    setSession({ answers: 0, correct: 0, xp: 0, streak: 0 });
   };
 
   const handleBackToSetup = () => {
@@ -363,6 +413,7 @@ export function ReviewSession() {
     setCurrentIndex(0);
     setResult(null);
     setMultiResults(null);
+    setSession({ answers: 0, correct: 0, xp: 0, streak: 0 });
   };
 
   const toggleDomain = (domainId: string) => {
@@ -523,6 +574,24 @@ export function ReviewSession() {
             </div>
         </section>
       </>
+    );
+  }
+
+  if (reviewState === "summary") {
+    return (
+      <div className="mx-auto max-w-3xl">
+        <SessionSummary
+          answers={session.answers}
+          correct={session.correct}
+          xp={session.xp}
+          streak={session.streak}
+          perfect={
+            session.answers >= (CELEBRATIONS.perfectSession.minCards ?? 10) &&
+            session.correct === session.answers
+          }
+          onDone={handleBackToSetup}
+        />
+      </div>
     );
   }
 

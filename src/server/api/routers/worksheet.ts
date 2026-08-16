@@ -20,6 +20,7 @@ import {
   gradeQuestion,
   isAnswerCorrect,
 } from "~/lib/worksheet-grading";
+import { recordActivity } from "~/server/gamification";
 
 const questionInclude = {
   answer: true,
@@ -608,6 +609,12 @@ export const worksheetRouter = createTRPCRouter({
         });
       }
 
+      const alreadyAnswered = Boolean(question.answer);
+      const prior = await ctx.db.worksheet.findUnique({
+        where: { id: question.worksheetId },
+        select: { status: true },
+      });
+      const wasCompleted = prior?.status === WorksheetStatus.COMPLETED;
       const now = new Date();
       await ctx.db.$transaction(async (tx) => {
         await submitOne({
@@ -619,7 +626,27 @@ export const worksheetRouter = createTRPCRouter({
       });
 
       const worksheet = await loadWorksheet(ctx.db, question.worksheetId);
-      return mapWorksheet(worksheet, { hideSolution: true });
+      const mapped = mapWorksheet(worksheet, { hideSolution: true });
+      const answered = worksheet.questions.find((q) => q.id === input.questionId)?.answer;
+      const gamification =
+        alreadyAnswered || !answered
+          ? undefined
+          : await recordActivity(ctx.db, ctx.userId, {
+              items: [
+                {
+                  targetLang: worksheet.targetLang,
+                  isCorrect: isAnswerCorrect({
+                    autoCorrect: answered.autoCorrect,
+                    manualOverride: answered.manualOverride,
+                  }),
+                  isTypo: answered.isTypo,
+                },
+              ],
+              worksheetCompleted:
+                !wasCompleted && worksheet.status === WorksheetStatus.COMPLETED,
+              worksheetTargetLang: worksheet.targetLang,
+            });
+      return { ...mapped, gamification };
     }),
 
   submitAnswers: publicProcedure
@@ -641,6 +668,15 @@ export const worksheetRouter = createTRPCRouter({
       const worksheet = await loadWorksheet(ctx.db, input.worksheetId);
       const byId = new Map(worksheet.questions.map((q) => [q.id, q]));
       const now = new Date();
+      const pendingIds = new Set(
+        input.answers
+          .filter((item) => {
+            const question = byId.get(item.questionId);
+            return question && !question.answer;
+          })
+          .map((item) => item.questionId),
+      );
+      const wasCompleted = worksheet.status === WorksheetStatus.COMPLETED;
 
       await ctx.db.$transaction(async (tx) => {
         for (const item of input.answers) {
@@ -662,7 +698,27 @@ export const worksheetRouter = createTRPCRouter({
       });
 
       const updated = await loadWorksheet(ctx.db, input.worksheetId);
-      return mapWorksheet(updated, { hideSolution: true });
+      const mapped = mapWorksheet(updated, { hideSolution: true });
+      const items = updated.questions
+        .filter((question) => pendingIds.has(question.id) && question.answer)
+        .map((question) => ({
+          targetLang: updated.targetLang,
+          isCorrect: isAnswerCorrect({
+            autoCorrect: question.answer!.autoCorrect,
+            manualOverride: question.answer!.manualOverride,
+          }),
+          isTypo: question.answer!.isTypo,
+        }));
+      const gamification =
+        items.length === 0
+          ? undefined
+          : await recordActivity(ctx.db, ctx.userId, {
+              items,
+              worksheetCompleted:
+                !wasCompleted && updated.status === WorksheetStatus.COMPLETED,
+              worksheetTargetLang: updated.targetLang,
+            });
+      return { ...mapped, gamification };
     }),
 
   overrideGrade: publicProcedure

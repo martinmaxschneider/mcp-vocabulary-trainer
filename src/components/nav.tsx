@@ -21,8 +21,8 @@ import {
   Languages,
   NotebookPen,
 } from "lucide-react";
-import { ThemeToggle } from "~/components/theme-toggle";
 import { FocusLangSelect } from "~/components/focus-lang-select";
+import { StreakIndicator } from "~/components/streak-indicator";
 
 function isActive(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/";
@@ -149,7 +149,7 @@ export function Nav() {
             </DropdownMenuContent>
           </DropdownMenu>
           <FocusLangSelect />
-          <ThemeToggle />
+          <StreakIndicator />
           <Button
             asChild
             variant="ghost"

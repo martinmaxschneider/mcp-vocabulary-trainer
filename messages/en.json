@@ -19,7 +19,8 @@
     "add": "Add",
     "settings": "Settings",
     "settingsAriaLabel": "Settings",
-    "focusLangAria": "Set current learning language"
+    "focusLangAria": "Set current learning language",
+    "achievements": "Achievements"
   },
   "common": {
     "back": "Back",
@@ -222,6 +223,10 @@
     "themeTitle": "Appearance",
     "themeDesc": "Light, dark, or match system",
     "themeHelp": "“System” follows your device setting.",
+    "dailyGoalTitle": "Daily goal",
+    "dailyGoalDesc": "XP you need in a day to keep your streak",
+    "dailyGoalLabel": "XP per day",
+    "dailyGoalSaved": "Daily goal saved",
     "updateTitle": "Update app",
     "updateDesc": "Fetches the latest code, backs up the database, migrates, and rebuilds.",
     "updateHelp": "Takes a few minutes. If the app runs under PM2, it restarts on its own afterwards.",
@@ -258,7 +263,7 @@
     "dangerZone": "Danger zone",
     "dangerZoneDesc": "Caution! These actions cannot be undone.",
     "resetProgressTitle": "Reset learning progress",
-    "resetProgressDesc": "Resets all UserProgress data (boxes, statistics, review logs)",
+    "resetProgressDesc": "Resets all UserProgress data (boxes, statistics, review logs, streak and achievements)",
     "resetEntriesTitle": "Delete all vocabulary",
     "resetEntriesDesc": "Deletes all entries and their translations (topics are preserved)",
     "resetDomainsTitle": "Delete all topics",
@@ -279,6 +284,118 @@
     "pronunciationTitle": "Pronunciation guides",
     "pronunciationDesc": "Cheat sheets per target language, explained from your native language",
     "pronunciationHelp": "Native language: {native}. One sound list per target language — edit here or via MCP."
+  },
+  "gamification": {
+    "streakAria": "Streak: {count, plural, one {1 day} other {# days}}",
+    "streakDays": "{count, plural, one {1 day streak} other {# day streak}}",
+    "streakLabel": "Streak",
+    "longestStreak": "Best: {count, plural, one {1 day} other {# days}}",
+    "dailyGoal": "Daily goal",
+    "xpToday": "{xp} / {goal} XP today",
+    "xpEarned": "XP earned",
+    "answersLabel": "Answers",
+    "thisWeek": "This week",
+    "viewAchievements": "All achievements",
+    "achievementsTitle": "Achievements",
+    "achievementsSubtitle": "Goals you unlock by practising regularly",
+    "loadingAchievements": "Loading achievements…",
+    "achievementUnlocked": "New achievement!",
+    "nextAchievement": "Next ({remaining})",
+    "nice": "Nice!",
+    "goalReachedTitle": "Daily goal reached!",
+    "goalReachedDesc": "Your streak is safe for today.",
+    "streakMilestoneTitle": "{days}-day streak!",
+    "streakMilestoneDesc": "Keep going — consistency counts.",
+    "perfectSessionTitle": "Perfect session!",
+    "perfectSessionDesc": "Every answer in this session was correct.",
+    "sessionDoneTitle": "Session complete",
+    "sessionDoneDesc": "Good work — every day counts.",
+    "masteryBadge": "{percent}% of the way to fluent",
+    "unlockedOn": "Unlocked on {date}",
+    "achievementProgress": "{current} / {target}",
+    "weekday": {
+      "sun": "Su",
+      "mon": "Mo",
+      "tue": "Tu",
+      "wed": "We",
+      "thu": "Th",
+      "fri": "Fr",
+      "sat": "Sa"
+    },
+    "levels": {
+      "beginner": "Beginner",
+      "learner": "Learner",
+      "intermediate": "Intermediate",
+      "advanced": "Advanced",
+      "fluent": "Fluent",
+      "master": "Master"
+    },
+    "achievements": {
+      "streak_3": {
+        "title": "Getting started",
+        "description": "Hit the daily goal 3 days in a row"
+      },
+      "streak_7": {
+        "title": "Week on fire",
+        "description": "Keep a 7-day streak"
+      },
+      "streak_30": {
+        "title": "Monthly flame",
+        "description": "Practise 30 days in a row"
+      },
+      "streak_100": {
+        "title": "Century fire",
+        "description": "100-day streak"
+      },
+      "answers_100": {
+        "title": "First 100",
+        "description": "Answer 100 cards"
+      },
+      "answers_500": {
+        "title": "Hard worker",
+        "description": "Answer 500 cards"
+      },
+      "answers_2500": {
+        "title": "Stamina",
+        "description": "Answer 2500 cards"
+      },
+      "box6_10": {
+        "title": "First masters",
+        "description": "10 cards in box 6"
+      },
+      "box6_50": {
+        "title": "Solid foundation",
+        "description": "50 cards in box 6"
+      },
+      "box6_150": {
+        "title": "Vocabulary master",
+        "description": "150 cards in box 6"
+      },
+      "perfect_session": {
+        "title": "Flawless",
+        "description": "Finish a session of at least 10 cards with no mistakes"
+      },
+      "leech_slayer": {
+        "title": "Leech slayer",
+        "description": "Take a problem card to box 4"
+      },
+      "worksheet_1": {
+        "title": "First worksheet",
+        "description": "Complete one worksheet"
+      },
+      "worksheet_10": {
+        "title": "Worksheet hero",
+        "description": "Complete 10 worksheets"
+      },
+      "conjugation_pro": {
+        "title": "Conjugation pro",
+        "description": "Get every tense of a verb to box 4 or higher"
+      },
+      "comeback": {
+        "title": "Comeback",
+        "description": "Practise again after a break of at least 7 days"
+      }
+    }
   },
   "domains": {
     "title": "Topics",

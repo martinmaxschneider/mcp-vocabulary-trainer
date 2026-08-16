@@ -19,7 +19,8 @@
     "add": "Hinzufügen",
     "settings": "Einstellungen",
     "settingsAriaLabel": "Einstellungen",
-    "focusLangAria": "Aktuelle Lernsprache festlegen"
+    "focusLangAria": "Aktuelle Lernsprache festlegen",
+    "achievements": "Erfolge"
   },
   "common": {
     "back": "Zurück",
@@ -222,6 +223,10 @@
     "themeTitle": "Erscheinungsbild",
     "themeDesc": "Hell, dunkel oder Systemeinstellung",
     "themeHelp": "„System“ folgt der Einstellung deines Geräts.",
+    "dailyGoalTitle": "Tagesziel",
+    "dailyGoalDesc": "XP, die du an einem Tag brauchst, um den Streak zu halten",
+    "dailyGoalLabel": "XP pro Tag",
+    "dailyGoalSaved": "Tagesziel gespeichert",
     "updateTitle": "App aktualisieren",
     "updateDesc": "Holt den neuesten Stand, sichert die Datenbank, migriert und baut neu.",
     "updateHelp": "Dauert einige Minuten. Läuft die App unter PM2, startet sie danach von selbst neu.",
@@ -258,7 +263,7 @@
     "dangerZone": "Gefahrenzone",
     "dangerZoneDesc": "Vorsicht! Diese Aktionen können nicht rückgängig gemacht werden.",
     "resetProgressTitle": "Lernfortschritt zurücksetzen",
-    "resetProgressDesc": "Setzt alle UserProgress-Daten zurück (Boxen, Statistiken, Review-Logs)",
+    "resetProgressDesc": "Setzt alle UserProgress-Daten zurück (Boxen, Statistiken, Review-Logs, Streak und Erfolge)",
     "resetEntriesTitle": "Alle Vokabeln löschen",
     "resetEntriesDesc": "Löscht alle Entries und deren Übersetzungen (Themen bleiben erhalten)",
     "resetDomainsTitle": "Alle Themen löschen",
@@ -279,6 +284,118 @@
     "pronunciationTitle": "Aussprache-Hilfen",
     "pronunciationDesc": "Cheat-Sheets pro Zielsprache, erklärt aus Sicht der Muttersprache",
     "pronunciationHelp": "Muttersprache: {native}. Pro Zielsprache eine Liste typischer Laute — pflegbar hier oder über MCP."
+  },
+  "gamification": {
+    "streakAria": "Streak: {count, plural, one {1 Tag} other {# Tage}}",
+    "streakDays": "{count, plural, one {1 Tag Streak} other {# Tage Streak}}",
+    "streakLabel": "Streak",
+    "longestStreak": "Rekord: {count, plural, one {1 Tag} other {# Tage}}",
+    "dailyGoal": "Tagesziel",
+    "xpToday": "{xp} / {goal} XP heute",
+    "xpEarned": "XP verdient",
+    "answersLabel": "Antworten",
+    "thisWeek": "Diese Woche",
+    "viewAchievements": "Alle Erfolge",
+    "achievementsTitle": "Erfolge",
+    "achievementsSubtitle": "Ziele, die du durch regelmäßiges Lernen freischaltest",
+    "loadingAchievements": "Erfolge werden geladen…",
+    "achievementUnlocked": "Neuer Erfolg!",
+    "nextAchievement": "Weiter ({remaining})",
+    "nice": "Schön!",
+    "goalReachedTitle": "Tagesziel erreicht!",
+    "goalReachedDesc": "Dein Streak ist für heute sicher.",
+    "streakMilestoneTitle": "{days}-Tage-Streak!",
+    "streakMilestoneDesc": "Weiter so — Beständigkeit zählt.",
+    "perfectSessionTitle": "Perfekte Runde!",
+    "perfectSessionDesc": "Alle Antworten in dieser Session waren richtig.",
+    "sessionDoneTitle": "Session beendet",
+    "sessionDoneDesc": "Gute Arbeit — jeder Tag zählt.",
+    "masteryBadge": "{percent}% auf dem Weg zu Perfekt",
+    "unlockedOn": "Freigeschaltet am {date}",
+    "achievementProgress": "{current} / {target}",
+    "weekday": {
+      "sun": "So",
+      "mon": "Mo",
+      "tue": "Di",
+      "wed": "Mi",
+      "thu": "Do",
+      "fri": "Fr",
+      "sat": "Sa"
+    },
+    "levels": {
+      "beginner": "Anfänger",
+      "learner": "Lernende:r",
+      "intermediate": "Fortgeschritten",
+      "advanced": "Sicher",
+      "fluent": "Fließend",
+      "master": "Meister"
+    },
+    "achievements": {
+      "streak_3": {
+        "title": "Dabei bleiben",
+        "description": "3 Tage in Folge das Tagesziel erreichen"
+      },
+      "streak_7": {
+        "title": "Wochenfeuer",
+        "description": "7 Tage Streak halten"
+      },
+      "streak_30": {
+        "title": "Monatsflamme",
+        "description": "30 Tage am Stück lernen"
+      },
+      "streak_100": {
+        "title": "Hundertfeuer",
+        "description": "100 Tage Streak"
+      },
+      "answers_100": {
+        "title": "Erste 100",
+        "description": "100 Karten beantworten"
+      },
+      "answers_500": {
+        "title": "Fleißbiene",
+        "description": "500 Karten beantworten"
+      },
+      "answers_2500": {
+        "title": "Ausdauer",
+        "description": "2500 Karten beantworten"
+      },
+      "box6_10": {
+        "title": "Erste Meisterkarten",
+        "description": "10 Karten in Box 6"
+      },
+      "box6_50": {
+        "title": "Solides Fundament",
+        "description": "50 Karten in Box 6"
+      },
+      "box6_150": {
+        "title": "Wortschatz-Meister",
+        "description": "150 Karten in Box 6"
+      },
+      "perfect_session": {
+        "title": "Fehlerfrei",
+        "description": "Eine Session mit mindestens 10 richtigen Antworten ohne Fehler"
+      },
+      "leech_slayer": {
+        "title": "Leech-Bezwinger",
+        "description": "Eine Problemkarte bis Box 4 bringen"
+      },
+      "worksheet_1": {
+        "title": "Erstes Arbeitsblatt",
+        "description": "Ein Arbeitsblatt abschließen"
+      },
+      "worksheet_10": {
+        "title": "Arbeitsblatt-Held",
+        "description": "10 Arbeitsblätter abschließen"
+      },
+      "conjugation_pro": {
+        "title": "Konjugations-Profi",
+        "description": "Alle Zeiten eines Verbs mindestens in Box 4"
+      },
+      "comeback": {
+        "title": "Comeback",
+        "description": "Nach mindestens 7 Tagen Pause wieder lernen"
+      }
+    }
   },
   "domains": {
     "title": "Themen",

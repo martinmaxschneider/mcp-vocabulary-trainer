@@ -40,6 +40,7 @@ import {
   Loader2,
   Languages,
   Palette,
+  Flame,
 } from "lucide-react";
 import { getLeitnerIntervalsForDisplay } from "~/lib/leitner";
 import { SOURCE_LANG, TARGET_LANGS } from "~/lib/languages";
@@ -51,6 +52,7 @@ import {
 } from "~/i18n/config";
 import { resolveErrorCode } from "~/lib/trpc-error";
 import { ThemeToggle } from "~/components/theme-toggle";
+import { Input } from "~/components/ui/input";
 import { PronunciationGuideSettings } from "~/components/pronunciation-guide-settings";
 import { AppUpdateCard } from "~/components/app-update-card";
 
@@ -65,8 +67,10 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const [resetting, setResetting] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [dailyGoalDraft, setDailyGoalDraft] = useState<string>("");
 
   const utils = api.useUtils();
+  const { data: gameStatus } = api.gamification.getStatus.useQuery();
 
   const learningLanguages = [
     {
@@ -113,6 +117,20 @@ export default function SettingsPage() {
     const code = resolveErrorCode(message);
     return code ? tErrors(code as "NOT_FOUND") : message;
   };
+
+  const setDailyGoal = api.gamification.setDailyGoal.useMutation({
+    onSuccess: async () => {
+      toast({ title: t("dailyGoalSaved") });
+      await utils.gamification.getStatus.invalidate();
+    },
+    onError: (error) => {
+      toast({
+        title: tCommon("error"),
+        description: errorDescription(error.message),
+        variant: "destructive",
+      });
+    },
+  });
 
   const resetProgressMutation = api.settings.resetProgress.useMutation({
     onSuccess: () => {
@@ -252,6 +270,42 @@ export default function SettingsPage() {
           <CardContent className="space-y-3">
             <ThemeToggle variant="buttons" />
             <p className="text-sm text-muted-foreground">{t("themeHelp")}</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Flame className="h-5 w-5" />
+              <CardTitle>{t("dailyGoalTitle")}</CardTitle>
+            </div>
+            <CardDescription>{t("dailyGoalDesc")}</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-end gap-3">
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="daily-goal-xp">
+                {t("dailyGoalLabel")}
+              </label>
+              <Input
+                id="daily-goal-xp"
+                type="number"
+                min={10}
+                max={2000}
+                className="w-32"
+                value={dailyGoalDraft || String(gameStatus?.dailyGoalXp ?? 50)}
+                onChange={(event) => setDailyGoalDraft(event.target.value)}
+              />
+            </div>
+            <Button
+              type="button"
+              disabled={setDailyGoal.isPending}
+              onClick={() => {
+                const value = Number(dailyGoalDraft || gameStatus?.dailyGoalXp || 50);
+                setDailyGoal.mutate({ dailyGoalXp: value });
+              }}
+            >
+              {tCommon("save")}
+            </Button>
           </CardContent>
         </Card>
 

@@ -32,6 +32,8 @@ interface LanguageProgressChartProps {
     languageName: string;
     vocab: LeitnerTrack;
     conjugations: LeitnerTrack;
+    masteryPercent?: number;
+    levelKey?: string;
   }>;
   showLanguageHeader?: boolean;
 }
@@ -115,6 +117,7 @@ export function LanguageProgressChart({
   showLanguageHeader = true,
 }: LanguageProgressChartProps) {
   const t = useTranslations("progressChart");
+  const tGame = useTranslations("gamification");
 
   const segments: Array<{ key: BoxKey; fullLabel: string }> = [
     { key: "new", fullLabel: t("boxNew") },
@@ -135,10 +138,24 @@ export function LanguageProgressChart({
       <CardContent className="space-y-6">
         {data.map((lang) => (
           <div key={lang.language} className="space-y-3">
-            {showLanguageHeader ? (
-              <div className="flex items-center gap-2">
-                <span className="font-medium">{lang.languageName}</span>
-                <Badge variant="outline">{lang.language.toUpperCase()}</Badge>
+            {showLanguageHeader || lang.masteryPercent !== undefined ? (
+              <div className="flex flex-wrap items-center gap-2">
+                {showLanguageHeader ? (
+                  <>
+                    <span className="font-medium">{lang.languageName}</span>
+                    <Badge variant="outline">{lang.language.toUpperCase()}</Badge>
+                  </>
+                ) : null}
+                {lang.masteryPercent !== undefined ? (
+                  <Badge variant="secondary">
+                    {tGame("masteryBadge", { percent: lang.masteryPercent })}
+                  </Badge>
+                ) : null}
+                {lang.levelKey ? (
+                  <Badge variant="outline">
+                    {tGame(`levels.${lang.levelKey}` as "levels.beginner")}
+                  </Badge>
+                ) : null}
               </div>
             ) : null}
 

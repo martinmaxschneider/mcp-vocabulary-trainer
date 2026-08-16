@@ -26,6 +26,7 @@ import { resolveErrorCode } from "~/lib/trpc-error";
 import type { WorksheetUserAnswer } from "~/lib/schemas/worksheet";
 import { emptyDraft, isDraftComplete } from "~/lib/worksheet-display";
 import { cn } from "~/lib/utils";
+import { useCelebrate } from "~/components/gamification-provider";
 
 type Mode = "sequential" | "sheet";
 
@@ -43,6 +44,7 @@ export function WorksheetPlayer({ id, cursiveClassName, serifClassName }: Props)
   const tErrorCodes = useTranslations("errors.codes");
   const router = useRouter();
   const { toast } = useToast();
+  const celebrate = useCelebrate();
   const utils = api.useUtils();
 
   const query = api.worksheet.playerGet.useQuery({ id });
@@ -78,6 +80,7 @@ export function WorksheetPlayer({ id, cursiveClassName, serifClassName }: Props)
 
   const submitMutation = api.worksheet.submitAnswer.useMutation({
     onSuccess: async (data) => {
+      celebrate(data.gamification);
       await utils.worksheet.playerGet.invalidate({ id });
       await utils.worksheet.list.invalidate();
       if (data.status === "COMPLETED") {
@@ -96,6 +99,7 @@ export function WorksheetPlayer({ id, cursiveClassName, serifClassName }: Props)
 
   const submitManyMutation = api.worksheet.submitAnswers.useMutation({
     onSuccess: async (data) => {
+      celebrate(data.gamification);
       await utils.worksheet.playerGet.invalidate({ id });
       await utils.worksheet.list.invalidate();
       if (data.status === "COMPLETED") {
