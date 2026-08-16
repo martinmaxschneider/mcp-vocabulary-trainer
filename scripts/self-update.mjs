@@ -20,7 +20,34 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+function isInsideNextBuild(dir) {
+  return dir.split(/[/\\]/).includes(".next");
+}
+
+function isAppRoot(dir) {
+  return (
+    !isInsideNextBuild(dir) &&
+    existsSync(join(dir, "package.json")) &&
+    existsSync(join(dir, "prisma", "schema.prisma")) &&
+    existsSync(join(dir, "scripts", "self-update.mjs"))
+  );
+}
+
+function findAppRoot() {
+  let dir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  for (let i = 0; i < 10; i++) {
+    if (isAppRoot(dir)) return dir;
+    const parent = resolve(dir, "..");
+    if (parent === dir) break;
+    dir = parent;
+  }
+  console.error(
+    "Could not find application root (need package.json + prisma/schema.prisma outside .next).",
+  );
+  process.exit(1);
+}
+
+const root = findAppRoot();
 const dataDir = join(root, "data");
 const statusPath = join(dataDir, "update-status.json");
 const logPath = join(dataDir, "update.log");
@@ -191,7 +218,7 @@ try {
     error: null,
     pid: process.pid,
   });
-  log("Starting self-update");
+  log(`Starting self-update in ${root}`);
 
   const inside = git(["rev-parse", "--is-inside-work-tree"]);
   if (inside.status !== 0 || inside.stdout.trim() !== "true") {

@@ -16,7 +16,7 @@
     "db:migrate:dev": "node scripts/db-migrate.mjs --dev",
     "update": "node scripts/self-update.mjs",
     "db:studio": "prisma studio",
-    "postinstall": "prisma generate",
+    "postinstall": "node scripts/prisma-generate.mjs",
     "docker:build": "docker compose build",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
@@ -66,6 +66,9 @@
     "tailwindcss-animate": "^1.0.7",
     "zod": "^3.24.1"
   },
+  "prisma": {
+    "schema": "prisma/schema.prisma"
+  },
   "devDependencies": {
     "@types/canvas-confetti": "^1.9.0",
     "@types/eslint": "^9.6.1",
@@ -86,5 +89,8 @@
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^3.2.7"
+  },
+  "prisma": {
+    "schema": "prisma/schema.prisma"
   }
 }

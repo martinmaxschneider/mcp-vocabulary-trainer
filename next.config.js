@@ -13,6 +13,9 @@ const config = {
   outputFileTracingIncludes: {
     "/api/**": ["./node_modules/**"],
   },
+  outputFileTracingExcludes: {
+    "*": ["./scripts/**"],
+  },
   // Skip static generation for pages that use useSearchParams
   generateBuildId: async () => {
     return "build-id";

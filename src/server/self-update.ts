@@ -23,15 +23,23 @@ export type UpdateStatus = {
 const LOCK_MS = 30 * 60 * 1000;
 const LOG_TAIL_CHARS = 12_000;
 
+function isInsideNextBuild(dir: string): boolean {
+  return dir.split(/[/\\]/).includes(".next");
+}
+
+function isAppRoot(dir: string): boolean {
+  return (
+    !isInsideNextBuild(dir) &&
+    existsSync(join(dir, "package.json")) &&
+    existsSync(join(dir, "prisma", "schema.prisma")) &&
+    existsSync(join(dir, "scripts", "self-update.mjs"))
+  );
+}
+
 export function findRepoRoot(): string {
   let dir = process.cwd();
-  for (let i = 0; i < 8; i++) {
-    if (
-      existsSync(join(dir, "scripts", "self-update.mjs")) &&
-      existsSync(join(dir, "package.json"))
-    ) {
-      return dir;
-    }
+  for (let i = 0; i < 10; i++) {
+    if (isAppRoot(dir)) return dir;
     const parent = join(dir, "..");
     if (parent === dir) break;
     dir = parent;
