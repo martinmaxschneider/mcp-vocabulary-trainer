@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -14,8 +14,17 @@ import {
   CardTitle,
 } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
-import { ArrowLeft, ChevronDown, Plus, Trash2, Pencil } from "lucide-react";
+import {
+  ArrowLeft,
+  ChevronDown,
+  LayoutGrid,
+  List,
+  Plus,
+  Trash2,
+  Pencil,
+} from "lucide-react";
 import { useToast } from "~/hooks/use-toast";
+import { useFocusLang } from "~/components/focus-lang-provider";
 import {
   Select,
   SelectContent,
@@ -32,6 +41,16 @@ import {
 import { resolveErrorCode } from "~/lib/trpc-error";
 import { ClickableIpa } from "~/components/clickable-ipa";
 import { SOURCE_LANG, TARGET_LANG_CODES } from "~/lib/languages";
+
+const VIEW_STORAGE_KEY = "sprachen-domain-view";
+type DomainView = "cards" | "list";
+
+function readStoredView(): DomainView {
+  if (typeof window === "undefined") return "cards";
+  return window.localStorage.getItem(VIEW_STORAGE_KEY) === "list"
+    ? "list"
+    : "cards";
+}
 
 export default function DomainDetailPage({
   params,
@@ -61,6 +80,17 @@ export default function DomainDetailPage({
   const [typeFilter, setTypeFilter] = useState<"ALL" | "WORD" | "PROVERB">(
     "ALL"
   );
+  const [view, setView] = useState<DomainView>("cards");
+  const { focusLang } = useFocusLang();
+
+  useEffect(() => {
+    setView(readStoredView());
+  }, []);
+
+  const setDomainView = (next: DomainView) => {
+    setView(next);
+    window.localStorage.setItem(VIEW_STORAGE_KEY, next);
+  };
 
   const errorDescription = (message: string) => {
     const code = resolveErrorCode(message);
@@ -145,7 +175,31 @@ export default function DomainDetailPage({
               {t("entries", { count: entries.length })}
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="inline-flex rounded-md border border-input">
+              <Button
+                type="button"
+                size="icon"
+                variant={view === "cards" ? "secondary" : "ghost"}
+                className="rounded-r-none"
+                aria-label={t("viewCards")}
+                aria-pressed={view === "cards"}
+                onClick={() => setDomainView("cards")}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant={view === "list" ? "secondary" : "ghost"}
+                className="rounded-l-none"
+                aria-label={t("viewList")}
+                aria-pressed={view === "list"}
+                onClick={() => setDomainView("list")}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
             <Select
               value={typeFilter}
               onValueChange={(value) =>
@@ -208,6 +262,75 @@ export default function DomainDetailPage({
           </CardContent>
         </Card>
       ) : (
+        view === "list" ? (
+          <div className="cahier-section space-y-2">
+            <div className="hidden px-3 text-xs font-medium text-muted-foreground sm:grid sm:grid-cols-[7rem_1fr_1fr_auto] sm:gap-3">
+              <span />
+              <span>{tLang(SOURCE_LANG.code)}</span>
+              <span>{tLang(focusLang)}</span>
+              <span className="w-20" />
+            </div>
+            {entries.map((entry) => {
+              const translation = entry.translations.find(
+                (tr) => tr.lang === focusLang
+              );
+              return (
+                <div
+                  key={entry.id}
+                  className="cahier-item grid items-center gap-2 p-3 sm:grid-cols-[7rem_1fr_1fr_auto] sm:gap-3"
+                >
+                  <Badge variant="outline" className="w-fit">
+                    {entryTypeLabel(entry.type)}
+                  </Badge>
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground sm:hidden">
+                      {tLang(SOURCE_LANG.code)}
+                    </p>
+                    <p className="font-medium">{entry.mainText}</p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground sm:hidden">
+                      {tLang(focusLang)}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="font-medium">
+                        {translation?.text ?? (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </span>
+                      {translation?.ipa ? (
+                        <ClickableIpa
+                          ipa={translation.ipa}
+                          items={guideItemsByLang[focusLang] ?? []}
+                          className="m-0 text-sm italic tracking-wide text-foreground/80"
+                          showFullListButton={false}
+                          targetLangName={tLang(focusLang)}
+                        />
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => handleEdit(entry.id)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => handleDelete(entry.id, entry.mainText)}
+                      disabled={deleteMutation.isPending}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {entries.map((entry) => (
             <Card key={entry.id} className="hover:shadow-md transition-shadow">
@@ -284,6 +407,7 @@ export default function DomainDetailPage({
             </Card>
           ))}
         </div>
+        )
       )}
     </>
   );

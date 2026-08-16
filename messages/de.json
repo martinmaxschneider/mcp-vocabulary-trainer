@@ -291,6 +291,8 @@
     "addFirstEntry": "Ersten Eintrag hinzufügen",
     "emptyDomain": "Noch keine Einträge in diesem Thema.",
     "translationsLabel": "Übersetzungen:",
+    "viewCards": "Kartenansicht",
+    "viewList": "Listenansicht",
     "aiSuggestions": "AI-Vorschläge"
   },
   "domainAssignment": {

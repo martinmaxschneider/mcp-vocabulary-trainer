@@ -291,6 +291,8 @@
     "addFirstEntry": "Ajouter la première entrée",
     "emptyDomain": "Pas encore d'entrées dans ce thème.",
     "translationsLabel": "Traductions :",
+    "viewCards": "Vue en cartes",
+    "viewList": "Vue en liste",
     "aiSuggestions": "Suggestions IA"
   },
   "domainAssignment": {

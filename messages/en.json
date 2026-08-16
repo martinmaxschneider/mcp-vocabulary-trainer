@@ -291,6 +291,8 @@
     "addFirstEntry": "Add first entry",
     "emptyDomain": "No entries in this topic yet.",
     "translationsLabel": "Translations:",
+    "viewCards": "Card view",
+    "viewList": "List view",
     "aiSuggestions": "AI suggestions"
   },
   "domainAssignment": {
