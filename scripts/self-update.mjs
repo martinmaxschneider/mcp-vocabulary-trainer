@@ -147,6 +147,34 @@ function isForeignLock(status) {
   return status.pid !== process.pid;
 }
 
+function porcelainPaths(stdout) {
+  return stdout
+    .split("\n")
+    .map((line) => line.trimEnd())
+    .filter(Boolean)
+    .map((line) => line.slice(3).replace(/^"+|"+$/g, ""));
+}
+
+function resetPackageLock() {
+  const status = git(["status", "--porcelain", "--", "package-lock.json"]);
+  if (status.status !== 0 || !status.stdout.trim()) return;
+  log("Resetting local package-lock.json so git pull can proceed");
+  const restore = git([
+    "restore",
+    "--source=HEAD",
+    "--worktree",
+    "--staged",
+    "--",
+    "package-lock.json",
+  ]);
+  if (restore.status !== 0) {
+    const checkout = git(["checkout", "HEAD", "--", "package-lock.json"]);
+    if (checkout.status !== 0) {
+      fail("Could not reset package-lock.json.");
+    }
+  }
+}
+
 try {
   mkdirSync(dataDir, { recursive: true });
   writeFileSync(logPath, "");
@@ -170,13 +198,16 @@ try {
     fail("Not a git repository.");
   }
 
+  resetPackageLock();
+
   const dirty = git(["status", "--porcelain"]);
   if (dirty.status !== 0) {
     fail("Could not read git status.");
   }
-  if (dirty.stdout.trim()) {
+  const leftover = porcelainPaths(dirty.stdout);
+  if (leftover.length > 0) {
     fail(
-      "Working tree is not clean. Commit or stash local changes before updating.",
+      `Working tree is not clean (${leftover.join(", ")}). Commit or stash local changes before updating.`,
     );
   }
 
