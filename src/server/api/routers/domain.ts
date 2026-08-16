@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CardType } from "@prisma/client";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
 
@@ -35,6 +36,7 @@ export const domainRouter = createTRPCRouter({
             where: {
               userId,
               targetLang,
+              cardType: CardType.VOCAB,
               nextReviewAt: { lte: now },
               entry: domainFilter,
             },
@@ -45,7 +47,7 @@ export const domainRouter = createTRPCRouter({
               ...domainFilter,
               translations: { some: { lang: targetLang } },
               progresses: {
-                none: { userId, targetLang },
+                none: { userId, targetLang, cardType: CardType.VOCAB },
               },
             },
           });

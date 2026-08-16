@@ -1,11 +1,13 @@
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
-import { EntryType, WordCategory } from "@prisma/client";
+import { CardType, EntryType, WordCategory } from "@prisma/client";
 import { matchAnswer } from "~/lib/matching";
 import {
   MAX_BOX,
   MIN_BOX,
+  VOCAB_CARD_KEY,
+  applyLeitnerResult,
   nextBoxOnCorrect,
   nextBoxOnWrong,
   scheduleNextReview,
@@ -14,6 +16,23 @@ import { TARGET_LANG_CODES } from "~/lib/languages";
 import { db } from "~/server/db";
 
 type DbClient = typeof db;
+
+const VOCAB_CARD = { cardType: CardType.VOCAB, cardKey: VOCAB_CARD_KEY } as const;
+
+function vocabProgressWhere(
+  userId: string,
+  entryId: string,
+  targetLang: string,
+) {
+  return {
+    userId_entryId_targetLang_cardKey: {
+      userId,
+      entryId,
+      targetLang,
+      cardKey: VOCAB_CARD_KEY,
+    },
+  };
+}
 
 function entryDomainFilter(domainIds?: string[]) {
   if (!domainIds || domainIds.length === 0) return undefined;
@@ -68,13 +87,7 @@ async function gradeAndUpdateProgress(
   userAnswer: string
 ) {
   let progress = await prisma.userProgress.findUnique({
-    where: {
-      userId_entryId_targetLang: {
-        userId,
-        entryId,
-        targetLang,
-      },
-    },
+    where: vocabProgressWhere(userId, entryId, targetLang),
     include: {
       entry: {
         include: {
@@ -92,6 +105,7 @@ async function gradeAndUpdateProgress(
         userId,
         entryId,
         targetLang,
+        ...VOCAB_CARD,
         box: MIN_BOX,
         nextReviewAt: new Date(),
       },
@@ -126,10 +140,10 @@ async function gradeAndUpdateProgress(
   });
 
   const boxBefore = progress.box;
-  const boxAfter = matchResult.isCorrect
-    ? nextBoxOnCorrect(progress.box)
-    : nextBoxOnWrong();
-  const nextReviewAt = scheduleNextReview(boxAfter);
+  const { boxAfter, nextReviewAt } = applyLeitnerResult(
+    progress.box,
+    matchResult.isCorrect,
+  );
   const answers = expectedAnswers(translation.text, variants);
 
   const updatedProgress = await prisma.userProgress.update({
@@ -194,6 +208,7 @@ export const reviewRouter = createTRPCRouter({
         where: {
           userId,
           targetLang: input.targetLang,
+          cardType: CardType.VOCAB,
           nextReviewAt: { lte: now },
           ...(domainFilter ? { entry: domainFilter } : {}),
         },
@@ -223,6 +238,7 @@ export const reviewRouter = createTRPCRouter({
             none: {
               userId,
               targetLang: input.targetLang,
+              cardType: CardType.VOCAB,
             },
           },
         },
@@ -244,6 +260,7 @@ export const reviewRouter = createTRPCRouter({
               userId,
               entryId: entry.id,
               targetLang: input.targetLang,
+              ...VOCAB_CARD,
               box: MIN_BOX,
               nextReviewAt: now,
             },
@@ -270,6 +287,7 @@ export const reviewRouter = createTRPCRouter({
         where: {
           userId,
           targetLang: input.targetLang,
+          cardType: CardType.VOCAB,
           nextReviewAt: { lte: now },
           ...(domainFilter ? { entry: domainFilter } : {}),
         },
@@ -285,6 +303,7 @@ export const reviewRouter = createTRPCRouter({
             none: {
               userId,
               targetLang: input.targetLang,
+              cardType: CardType.VOCAB,
             },
           },
         },
@@ -320,6 +339,7 @@ export const reviewRouter = createTRPCRouter({
         where: {
           userId,
           targetLang: { in: targetLangs },
+          cardType: CardType.VOCAB,
           nextReviewAt: { lte: now },
           ...(domainFilter ? { entry: domainFilter } : {}),
         },
@@ -343,6 +363,7 @@ export const reviewRouter = createTRPCRouter({
               none: {
                 userId,
                 targetLang: lang,
+                cardType: CardType.VOCAB,
               },
             },
           })),
@@ -383,6 +404,7 @@ export const reviewRouter = createTRPCRouter({
             where: {
               userId,
               targetLang: { in: targetLangs },
+              cardType: CardType.VOCAB,
             },
           },
           domains: {
@@ -419,6 +441,7 @@ export const reviewRouter = createTRPCRouter({
                     userId,
                     entryId: entry.id,
                     targetLang: lang,
+                    ...VOCAB_CARD,
                     box: MIN_BOX,
                     nextReviewAt: now,
                   },
@@ -482,6 +505,7 @@ export const reviewRouter = createTRPCRouter({
         where: {
           userId,
           targetLang: input.targetLang,
+          cardType: CardType.VOCAB,
           ...boxFilter,
           ...(input.dueOnly ? { nextReviewAt: { lte: now } } : {}),
           ...(domainFilter ? { entry: domainFilter } : {}),
@@ -518,6 +542,7 @@ export const reviewRouter = createTRPCRouter({
                 none: {
                   userId,
                   targetLang: input.targetLang,
+                  cardType: CardType.VOCAB,
                 },
               },
             },
@@ -613,13 +638,7 @@ export const reviewRouter = createTRPCRouter({
       const userId = ctx.userId;
 
       const progress = await ctx.db.userProgress.findUnique({
-        where: {
-          userId_entryId_targetLang: {
-            userId,
-            entryId: input.entryId,
-            targetLang: input.targetLang,
-          },
-        },
+        where: vocabProgressWhere(userId, input.entryId, input.targetLang),
         include: {
           entry: {
             include: {
@@ -720,13 +739,7 @@ export const reviewRouter = createTRPCRouter({
       const userId = ctx.userId;
 
       const progress = await ctx.db.userProgress.findUnique({
-        where: {
-          userId_entryId_targetLang: {
-            userId,
-            entryId: input.entryId,
-            targetLang: input.targetLang,
-          },
-        },
+        where: vocabProgressWhere(userId, input.entryId, input.targetLang),
         include: {
           entry: {
             include: {
@@ -840,17 +853,12 @@ export const reviewRouter = createTRPCRouter({
         : undefined;
 
       const progress = await ctx.db.userProgress.upsert({
-        where: {
-          userId_entryId_targetLang: {
-            userId,
-            entryId: input.entryId,
-            targetLang: input.targetLang,
-          },
-        },
+        where: vocabProgressWhere(userId, input.entryId, input.targetLang),
         create: {
           userId,
           entryId: input.entryId,
           targetLang: input.targetLang,
+          ...VOCAB_CARD,
           box: input.box,
           nextReviewAt: nextReviewAt ?? new Date(),
         },
@@ -880,13 +888,7 @@ export const reviewRouter = createTRPCRouter({
       const userId = ctx.userId;
 
       const progress = await ctx.db.userProgress.findUnique({
-        where: {
-          userId_entryId_targetLang: {
-            userId,
-            entryId: input.entryId,
-            targetLang: input.targetLang,
-          },
-        },
+        where: vocabProgressWhere(userId, input.entryId, input.targetLang),
         include: {
           entry: {
             select: {
@@ -945,13 +947,7 @@ export const reviewRouter = createTRPCRouter({
       const userId = ctx.userId;
 
       const progress = await ctx.db.userProgress.findUnique({
-        where: {
-          userId_entryId_targetLang: {
-            userId,
-            entryId: input.entryId,
-            targetLang: input.targetLang,
-          },
-        },
+        where: vocabProgressWhere(userId, input.entryId, input.targetLang),
       });
 
       return progress;

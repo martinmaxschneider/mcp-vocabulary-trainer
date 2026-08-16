@@ -454,6 +454,8 @@
     "startDrill": "Commencer l'exercice",
     "formsAvailable": "{count} formes disponibles",
     "verbsAvailable": "{count} verbes disponibles",
+    "dueCount": "{count} à revoir",
+    "boxMoved": "Boîte {from} → {to}",
     "slotProgress": "Forme {current} / {total}",
     "noFormsFound": "Aucune forme de conjugaison trouvée pour cette sélection.",
     "changeSelection": "Modifier la sélection",

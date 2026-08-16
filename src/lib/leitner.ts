@@ -26,6 +26,28 @@ export function scheduleNextReview(box: number, from: Date = new Date()): Date {
   return addDays(from, getBoxIntervalDays(box));
 }
 
+export function applyLeitnerResult(
+  currentBox: number,
+  isCorrect: boolean,
+  from: Date = new Date(),
+): { boxAfter: number; nextReviewAt: Date } {
+  const boxAfter = isCorrect ? nextBoxOnCorrect(currentBox) : nextBoxOnWrong();
+  return { boxAfter, nextReviewAt: scheduleNextReview(boxAfter, from) };
+}
+
+export const VOCAB_CARD_KEY = "vocab";
+export const CONJ_CARD_PREFIX = "conj:";
+
+export function conjugationCardKey(tenseKey: string): string {
+  return `${CONJ_CARD_PREFIX}${tenseKey}`;
+}
+
+export function tenseKeyFromConjugationCardKey(cardKey: string): string | null {
+  if (!cardKey.startsWith(CONJ_CARD_PREFIX)) return null;
+  const tenseKey = cardKey.slice(CONJ_CARD_PREFIX.length);
+  return tenseKey.length > 0 ? tenseKey : null;
+}
+
 /** Display intervals for Settings UI (boxes 1–6). */
 export function getLeitnerIntervalsForDisplay(): Array<{
   box: number;

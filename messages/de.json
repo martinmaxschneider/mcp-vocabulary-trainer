@@ -454,6 +454,8 @@
     "startDrill": "Übung starten",
     "formsAvailable": "{count} Formen verfügbar",
     "verbsAvailable": "{count} Verben verfügbar",
+    "dueCount": "{count} fällig",
+    "boxMoved": "Box {from} → {to}",
     "slotProgress": "Form {current} / {total}",
     "noFormsFound": "Keine Konjugationsformen für diese Auswahl gefunden.",
     "changeSelection": "Auswahl ändern",

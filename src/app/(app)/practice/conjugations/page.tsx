@@ -69,6 +69,8 @@ export default function ConjugationDrillPage() {
     isCorrect: boolean;
     expected: string;
     typo: boolean;
+    boxBefore: number;
+    boxAfter: number;
   } | null>(null);
   const [cardKey, setCardKey] = useState(0);
   const [awaitingParadigm, setAwaitingParadigm] = useState(false);
@@ -82,6 +84,14 @@ export default function ConjugationDrillPage() {
     correctCount: number;
     totalCount: number;
   } | null>(null);
+  const [paradigmTenseResults, setParadigmTenseResults] = useState<
+    Array<{
+      tenseKey: string;
+      tenseLabel: string;
+      boxBefore: number;
+      boxAfter: number;
+    }>
+  >([]);
 
   const { data: domains } = api.domain.list.useQuery();
   const profile = getConjugationProfile(selectedLang);
@@ -125,6 +135,8 @@ export default function ConjugationDrillPage() {
         isCorrect: data.isCorrect,
         expected: data.expected,
         typo: data.typo,
+        boxBefore: data.boxBefore,
+        boxAfter: data.boxAfter,
       });
     },
     onError: (error) => {
@@ -152,6 +164,14 @@ export default function ConjugationDrillPage() {
           correctCount: data.correctCount,
           totalCount: data.totalCount,
         });
+        setParadigmTenseResults(
+          data.tenseResults.map((r) => ({
+            tenseKey: r.tenseKey,
+            tenseLabel: r.tenseLabel,
+            boxBefore: r.boxBefore,
+            boxAfter: r.boxAfter,
+          })),
+        );
       },
       onError: (error) => {
         toast({
@@ -188,6 +208,7 @@ export default function ConjugationDrillPage() {
   }, [slots]);
 
   const totalAvailable = drillData?.totalAvailable ?? 0;
+  const dueCount = drillData?.dueCount ?? 0;
   const hasContent =
     drillMode === "paradigm"
       ? !!paradigm && slots.length > 0
@@ -205,6 +226,7 @@ export default function ConjugationDrillPage() {
     setParadigmAnswers({});
     setParadigmResults(null);
     setParadigmScore(null);
+    setParadigmTenseResults([]);
   }, [drillMode, paradigm?.translationId, cardKey]);
 
   const startDrill = () => {
@@ -213,6 +235,7 @@ export default function ConjugationDrillPage() {
     setParadigmAnswers({});
     setParadigmResults(null);
     setParadigmScore(null);
+    setParadigmTenseResults([]);
     setAwaitingParadigm(false);
     setCardKey((k) => k + 1);
     setDrillState("active");
@@ -229,6 +252,7 @@ export default function ConjugationDrillPage() {
     setParadigmAnswers({});
     setParadigmResults(null);
     setParadigmScore(null);
+    setParadigmTenseResults([]);
     setCardKey((k) => k + 1);
     setAwaitingParadigm(true);
     await refetch();
@@ -434,17 +458,23 @@ export default function ConjugationDrillPage() {
             setParadigmAnswers({});
             setParadigmResults(null);
             setParadigmScore(null);
+            setParadigmTenseResults([]);
             setAwaitingParadigm(false);
           }}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           {tCommon("back")}
         </Button>
-        <Badge variant="outline">
-          {drillMode === "paradigm"
-            ? t("verbsAvailable", { count: totalAvailable })
-            : t("formsAvailable", { count: totalAvailable })}
-        </Badge>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {dueCount > 0 && (
+            <Badge>{t("dueCount", { count: dueCount })}</Badge>
+          )}
+          <Badge variant="outline">
+            {drillMode === "paradigm"
+              ? t("verbsAvailable", { count: totalAvailable })
+              : t("formsAvailable", { count: totalAvailable })}
+          </Badge>
+        </div>
       </div>
 
       {isLoading || awaitingParadigm || (isFetching && !hasContent) ? (
@@ -566,6 +596,19 @@ export default function ConjugationDrillPage() {
                       })}
                     </p>
                   )}
+                  {paradigmTenseResults.length > 0 && (
+                    <div className="space-y-1 text-center text-sm text-muted-foreground">
+                      {paradigmTenseResults.map((tense) => (
+                        <p key={tense.tenseKey}>
+                          {tense.tenseLabel}:{" "}
+                          {t("boxMoved", {
+                            from: tense.boxBefore,
+                            to: tense.boxAfter,
+                          })}
+                        </p>
+                      ))}
+                    </div>
+                  )}
                   <Button
                     type="button"
                     className="w-full"
@@ -651,6 +694,12 @@ export default function ConjugationDrillPage() {
                       <p className="text-sm text-muted-foreground">
                         {t("expectedLabel")}{" "}
                         <span className="font-medium">{result.expected}</span>
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {t("boxMoved", {
+                          from: result.boxBefore,
+                          to: result.boxAfter,
+                        })}
                       </p>
                     </div>
                   </div>

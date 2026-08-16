@@ -454,6 +454,8 @@
     "startDrill": "Start practice",
     "formsAvailable": "{count} forms available",
     "verbsAvailable": "{count} verbs available",
+    "dueCount": "{count} due",
+    "boxMoved": "Box {from} → {to}",
     "slotProgress": "Form {current} / {total}",
     "noFormsFound": "No conjugation forms found for this selection.",
     "changeSelection": "Change selection",

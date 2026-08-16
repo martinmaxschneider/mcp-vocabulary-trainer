@@ -1,3 +1,4 @@
+import { CardType } from "@prisma/client";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { LANGUAGE_NAMES, TARGET_LANG_CODES } from "~/lib/languages";
 
@@ -9,6 +10,7 @@ export const statsRouter = createTRPCRouter({
     const dueCount = await ctx.db.userProgress.count({
       where: {
         userId,
+        cardType: CardType.VOCAB,
         nextReviewAt: { lte: now },
       },
     });
@@ -18,6 +20,7 @@ export const statsRouter = createTRPCRouter({
     const topWrong = await ctx.db.userProgress.findMany({
       where: {
         userId,
+        cardType: CardType.VOCAB,
         wrongCount: { gt: 0 },
       },
       orderBy: [{ wrongCount: "desc" }, { correctCount: "asc" }],
@@ -90,6 +93,7 @@ export const statsRouter = createTRPCRouter({
     const progresses = await ctx.db.userProgress.findMany({
       where: {
         userId,
+        cardType: CardType.VOCAB,
         targetLang: { in: [...TARGET_LANG_CODES] },
       },
       select: {

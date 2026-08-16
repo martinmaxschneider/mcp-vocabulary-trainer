@@ -110,12 +110,21 @@ model ConjugationForm {
   @@index([translationId, tenseKey])
 }
 
+enum CardType {
+  VOCAB
+  CONJUGATION
+}
+
 model UserProgress {
   id             String    @id @default(cuid())
   userId         String    @default("anonymous")
   entryId        String
   entry          Entry     @relation(fields: [entryId], references: [id], onDelete: Cascade)
   targetLang     String    @default("en")
+  /// VOCAB = translation card; CONJUGATION = one tense of a verb
+  cardType       CardType  @default(VOCAB)
+  /// "vocab" | "conj:<tenseKey>"
+  cardKey        String    @default("vocab")
   box            Int       @default(1)
   nextReviewAt   DateTime  @default(now())
   correctCount   Int       @default(0)
@@ -126,10 +135,11 @@ model UserProgress {
 
   reviews ReviewLog[]
 
-  @@unique([userId, entryId, targetLang])
+  @@unique([userId, entryId, targetLang, cardKey])
   @@index([userId, targetLang, box])
   @@index([userId, targetLang, nextReviewAt])
   @@index([userId, nextReviewAt])
+  @@index([userId, targetLang, cardType, nextReviewAt])
 }
 
 model ReviewLog {

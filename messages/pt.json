@@ -454,6 +454,8 @@
     "startDrill": "Iniciar prática",
     "formsAvailable": "{count} formas disponíveis",
     "verbsAvailable": "{count} verbos disponíveis",
+    "dueCount": "{count} pendentes",
+    "boxMoved": "Caixa {from} → {to}",
     "slotProgress": "Forma {current} / {total}",
     "noFormsFound": "Não foram encontradas formas de conjugação para esta seleção.",
     "changeSelection": "Alterar seleção",
