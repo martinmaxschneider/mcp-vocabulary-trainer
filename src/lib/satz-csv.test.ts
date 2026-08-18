@@ -5,7 +5,11 @@ import {
   parseCsvLine,
   parseSatzCsv,
 } from "~/lib/satz-csv";
-import { isDraftReadyToCommit, resolveThemeNames } from "~/lib/satz-import";
+import {
+  isDraftReadyToCommit,
+  parseDraftTranslations,
+  resolveThemeNames,
+} from "~/lib/satz-import";
 
 describe("satz csv", () => {
   it("detects semicolon delimiters from German Excel headers", () => {
@@ -95,5 +99,15 @@ describe("satz import helpers", () => {
         translations: [{ lang: "fr", text: "Bonjour", register: "INFORMAL" }],
       }),
     ).toBe(true);
+  });
+
+  it("keeps target-language drafts and drops unknown lang codes", () => {
+    expect(
+      parseDraftTranslations([
+        { lang: "fr", text: "Bonjour", register: "INFORMAL" },
+        { lang: "it", text: "Ciao", register: "INFORMAL" },
+        { lang: "de", text: "Hallo", register: "INFORMAL" },
+      ]),
+    ).toEqual([{ lang: "fr", text: "Bonjour", register: "INFORMAL" }]);
   });
 });

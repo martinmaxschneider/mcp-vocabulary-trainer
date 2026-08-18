@@ -3,7 +3,7 @@ import {
   SatzRegister,
   SatzSource,
 } from "@prisma/client";
-import { TARGET_LANG_CODES } from "~/lib/languages";
+import { isTargetLang, TARGET_LANG_CODES } from "~/lib/languages";
 import { normalizeSatzText } from "~/lib/satz-csv";
 
 export type DraftTranslation = {
@@ -39,6 +39,7 @@ export function parseDraftTranslations(value: unknown): DraftTranslation[] {
     if (!item || typeof item !== "object") continue;
     const rec = item as Record<string, unknown>;
     if (typeof rec.lang !== "string" || typeof rec.text !== "string") continue;
+    if (!isTargetLang(rec.lang)) continue;
     const text = rec.text.trim();
     if (!text) continue;
     const register =

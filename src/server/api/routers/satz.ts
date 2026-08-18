@@ -455,6 +455,22 @@ export const satzRouter = createTRPCRouter({
       return { success: true };
     }),
 
+  deleteMany: publicProcedure
+    .input(z.object({ ids: z.array(z.string()).min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      const ids = [...new Set(input.ids)];
+      const translations = await ctx.db.satzTranslation.findMany({
+        where: { satzId: { in: ids } },
+        select: { id: true },
+      });
+      await deleteAudioFiles(translations.map((row) => row.id));
+      for (const id of ids) {
+        await deleteSatzEmbedding(id, ctx.db);
+      }
+      const result = await ctx.db.satz.deleteMany({ where: { id: { in: ids } } });
+      return { success: true, deleted: result.count };
+    }),
+
   assignDomains: publicProcedure
     .input(
       z.object({
