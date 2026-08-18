@@ -20,6 +20,7 @@ import {
   Library,
   Languages,
   NotebookPen,
+  Quote,
 } from "lucide-react";
 import { FocusLangSelect } from "~/components/focus-lang-select";
 import { StreakIndicator } from "~/components/streak-indicator";
@@ -36,6 +37,7 @@ export function Nav() {
   const links = [
     { href: "/", label: t("dashboard"), icon: Home },
     { href: "/domains", label: t("domains"), icon: FolderOpen },
+    { href: "/sentences", label: t("sentences"), icon: Quote },
     { href: "/review", label: t("review"), icon: BookOpen },
     {
       href: "/practice/conjugations",
@@ -144,6 +146,11 @@ export function Nav() {
               <DropdownMenuItem asChild>
                 <Link href="/vocabulary/proverbs" className="cursor-pointer">
                   {t("proverbs")}
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/sentences/new" className="cursor-pointer">
+                  {t("sentences")}
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuContent>

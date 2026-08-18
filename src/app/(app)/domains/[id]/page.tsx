@@ -76,6 +76,7 @@ export default function DomainDetailPage({
       label: tNav("adjectives"),
     },
     { href: `/vocabulary/proverbs?domainId=${id}`, label: tNav("proverbs") },
+    { href: `/sentences/new?domainId=${id}`, label: tNav("sentences") },
   ] as const;
   const [typeFilter, setTypeFilter] = useState<"ALL" | "WORD" | "PROVERB">(
     "ALL"

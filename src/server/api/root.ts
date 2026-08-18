@@ -10,6 +10,7 @@ import { pronunciationRouter } from "~/server/api/routers/pronunciation";
 import { grammarRouter } from "~/server/api/routers/grammar";
 import { worksheetRouter } from "~/server/api/routers/worksheet";
 import { gamificationRouter } from "~/server/api/routers/gamification";
+import { satzRouter } from "~/server/api/routers/satz";
 
 /**
  * This is the primary router for your server.
@@ -28,6 +29,7 @@ export const appRouter = createTRPCRouter({
   grammar: grammarRouter,
   worksheet: worksheetRouter,
   gamification: gamificationRouter,
+  satz: satzRouter,
 });
 
 // export type definition of API

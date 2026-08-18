@@ -2,11 +2,21 @@
 // Persistenz only: CRUD, Konjugationen, Review, Leitner, Grammatik, Arbeitsblätter, Stats. Keine KI.
 import { createMcpHandler } from "mcp-handler";
 import { z } from "zod";
-import { EntryType, WordCategory, WorksheetStatus } from "@prisma/client";
+import {
+  AudioStatus,
+  EntryType,
+  SatzPriority,
+  SatzRegister,
+  SatzSource,
+  ShadowingStatus,
+  WordCategory,
+  WorksheetStatus,
+} from "@prisma/client";
 import type { TRPCRequestInfo } from "@trpc/server/http";
 import { createCaller } from "~/server/api/root";
 import { createTRPCContext } from "~/server/api/trpc";
 import { createEntryInputSchema } from "~/server/api/routers/entry";
+import { createSatzInputSchema } from "~/server/api/routers/satz";
 import { pronunciationGuideItemInputSchema } from "~/server/api/routers/pronunciation";
 import { grammarBlockInputSchema } from "~/server/api/routers/grammar";
 import { worksheetQuestionInputSchema } from "~/lib/schemas/worksheet";
@@ -130,6 +140,174 @@ const handler = createMcpHandler(
         const api = await getCaller();
         try {
           return jsonResult(await api.domain.remove({ id }));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    // ── Sätze ────────────────────────────────────────────────
+    const satzTranslationToolSchema = {
+      lang: z.string().min(1),
+      text: z.string().min(1),
+      register: z.nativeEnum(SatzRegister).optional(),
+      audioUrl: z.string().optional(),
+      audioStatus: z.nativeEnum(AudioStatus).optional(),
+    };
+
+    const satzToolSchema = {
+      mainLang: z.string().default(SOURCE_LANG.code),
+      mainText: z.string().min(1),
+      trigger: z.string().optional(),
+      source: z.nativeEnum(SatzSource).optional(),
+      priority: z.nativeEnum(SatzPriority).optional(),
+      shadowingStatus: z.nativeEnum(ShadowingStatus).optional(),
+      answerToId: z.string().optional(),
+      domainId: z.string().optional(),
+      domainIds: z.array(z.string()).optional(),
+      linkedEntryIds: z.array(z.string()).optional(),
+      grammarTopicIds: z.array(z.string()).optional(),
+      translations: z.array(z.object(satzTranslationToolSchema)).min(1),
+    };
+
+    server.tool(
+      "search_saetze",
+      "Sucht Sätze nach Teilstring in mainText, trigger oder Übersetzung.",
+      { query: z.string().min(1), limit: z.number().min(1).max(50).default(20) },
+      async ({ query, limit }) => {
+        const api = await getCaller();
+        return jsonResult(await api.satz.search({ query, limit }));
+      },
+    );
+
+    server.tool(
+      "list_saetze",
+      "Listet Sätze (optional gefiltert nach domainId, source, priority, query).",
+      {
+        domainId: z.string().optional(),
+        source: z.nativeEnum(SatzSource).optional(),
+        priority: z.nativeEnum(SatzPriority).optional(),
+        query: z.string().optional(),
+        limit: z.number().min(1).max(200).default(50),
+        cursor: z.string().optional(),
+      },
+      async (args) => {
+        const api = await getCaller();
+        return jsonResult(await api.satz.list(args));
+      },
+    );
+
+    server.tool(
+      "get_satz",
+      "Lädt einen Satz mit Übersetzungen, Themen, verknüpften Vokabeln und Grammatik-Kapiteln.",
+      { id: z.string() },
+      async ({ id }) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.satz.getById({ id }));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "create_satz",
+      "Legt einen Satz an (deutscher mainText, Übersetzungen nur für aktive Zielsprachen, optional trigger/source/priority). " +
+        "domainIds nur THEME oder SPECIAL (nicht Grammatik-Buckets). " +
+        "linkedEntryIds = Vokabeln im Satz, grammarTopicIds = Grammatik-Kapitel. " +
+        "register pro Übersetzung: INFORMAL (Standard) oder FORMAL.",
+      satzToolSchema,
+      async (args) => {
+        const api = await getCaller();
+        const parsed = createSatzInputSchema.parse(args);
+        try {
+          return jsonResult(await api.satz.create(parsed));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "update_satz",
+      "Aktualisiert einen Satz. translations ersetzt die komplette Übersetzungsliste, wenn gesetzt. " +
+        "domainIds / linkedEntryIds / grammarTopicIds ersetzen die jeweilige Zuordnung, wenn gesetzt.",
+      {
+        id: z.string(),
+        mainText: z.string().min(1).optional(),
+        trigger: z.string().nullable().optional(),
+        source: z.nativeEnum(SatzSource).optional(),
+        priority: z.nativeEnum(SatzPriority).optional(),
+        shadowingStatus: z.nativeEnum(ShadowingStatus).optional(),
+        answerToId: z.string().nullable().optional(),
+        domainIds: z.array(z.string()).optional(),
+        linkedEntryIds: z.array(z.string()).optional(),
+        grammarTopicIds: z.array(z.string()).optional(),
+        translations: z.array(z.object(satzTranslationToolSchema)).optional(),
+      },
+      async (args) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.satz.update(args));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "delete_satz",
+      "Löscht einen Satz inkl. Übersetzungen und Zuordnungen. Verknüpfte Vokabeln bleiben erhalten.",
+      { id: z.string() },
+      async ({ id }) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.satz.delete({ id }));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "assign_satz_domains",
+      "Ersetzt die Themen-Zuordnung eines Satzes (nur THEME/SPECIAL).",
+      { satzId: z.string(), domainIds: z.array(z.string()) },
+      async ({ satzId, domainIds }) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.satz.assignDomains({ satzId, domainIds }));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "assign_satz_entries",
+      "Ersetzt die Vokabel-Verknüpfungen eines Satzes (linkedEntryIds).",
+      { satzId: z.string(), entryIds: z.array(z.string()) },
+      async ({ satzId, entryIds }) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.satz.assignEntries({ satzId, entryIds }));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "assign_satz_grammar_topics",
+      "Ersetzt die Grammatik-Kapitel-Verknüpfungen eines Satzes.",
+      { satzId: z.string(), grammarTopicIds: z.array(z.string()) },
+      async ({ satzId, grammarTopicIds }) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(
+            await api.satz.assignGrammarTopics({ satzId, grammarTopicIds }),
+          );
         } catch (e) {
           return errorResult(e instanceof Error ? e.message : String(e));
         }

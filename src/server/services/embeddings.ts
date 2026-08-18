@@ -179,6 +179,78 @@ export async function deleteEntryEmbedding(
   });
 }
 
+export async function saveSatzEmbedding(
+  satzId: string,
+  vector: number[],
+  textHash: string,
+  client: DbClient = db,
+): Promise<void> {
+  await client.embedding.upsert({
+    where: {
+      ownerType_ownerId: {
+        ownerType: EmbeddingOwnerType.SATZ,
+        ownerId: satzId,
+      },
+    },
+    create: {
+      ownerType: EmbeddingOwnerType.SATZ,
+      ownerId: satzId,
+      model: EMBEDDING_MODEL,
+      dims: vector.length,
+      vector: vector as Prisma.InputJsonValue,
+      textHash,
+    },
+    update: {
+      model: EMBEDDING_MODEL,
+      dims: vector.length,
+      vector: vector as Prisma.InputJsonValue,
+      textHash,
+    },
+  });
+}
+
+export async function upsertSatzEmbedding(
+  satzId: string,
+  mainText: string,
+  client: DbClient = db,
+): Promise<{ skipped: boolean }> {
+  const textHash = hashEmbeddingText(mainText);
+  const existing = await client.embedding.findUnique({
+    where: {
+      ownerType_ownerId: {
+        ownerType: EmbeddingOwnerType.SATZ,
+        ownerId: satzId,
+      },
+    },
+  });
+  if (
+    existing &&
+    existing.textHash === textHash &&
+    existing.model === EMBEDDING_MODEL
+  ) {
+    return { skipped: true };
+  }
+
+  const [vector] = await embedTexts([mainText]);
+  if (!vector) {
+    throw new Error("Failed to embed satz text");
+  }
+  await saveSatzEmbedding(satzId, vector, textHash, client);
+  return { skipped: false };
+}
+
+export async function deleteSatzEmbedding(
+  satzId: string,
+  client: DbClient = db,
+): Promise<void> {
+  await client.embedding.deleteMany({
+    where: {
+      ownerType: EmbeddingOwnerType.SATZ,
+      ownerId: satzId,
+    },
+  });
+}
+
 export async function assessNewEntrySimilarity(params: {
   mainText: string;
   allowSimilar?: boolean;

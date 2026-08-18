@@ -3,6 +3,7 @@
  */
 const EXACT_MESSAGE_TO_CODE: Record<string, string> = {
   "Entry not found": "ENTRY_NOT_FOUND",
+  "Satz not found": "SATZ_NOT_FOUND",
   "Domain not found": "DOMAIN_NOT_FOUND",
   "Domain already exists": "DOMAIN_EXISTS",
   "Not found": "NOT_FOUND",

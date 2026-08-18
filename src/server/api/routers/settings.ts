@@ -78,7 +78,8 @@ export const settingsRouter = createTRPCRouter({
     await resetGamification(ctx.db, ctx.userId);
     await ctx.db.domainEntry.deleteMany({});
     await ctx.db.translation.deleteMany({});
-    await ctx.db.embedding.deleteMany({ where: { ownerType: EmbeddingOwnerType.ENTRY } });
+    await ctx.db.embedding.deleteMany({});
+    await ctx.db.satz.deleteMany({});
     await ctx.db.entry.deleteMany({});
     await ctx.db.domain.deleteMany({});
 

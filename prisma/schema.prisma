@@ -25,6 +25,7 @@ model Domain {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   domainEntries DomainEntry[]
+  domainSaetze  DomainSatz[]
 }
 
 enum EntryType {
@@ -58,6 +59,7 @@ model Entry {
   progresses          UserProgress[]
   domains             DomainEntry[]
   worksheetQuestions  WorksheetQuestion[]
+  satzLinks           SatzEntry[]
 }
 
 model DomainEntry {
@@ -219,6 +221,7 @@ model GrammarTopic {
   sortOrder          Int                 @default(0)
   blocks             GrammarBlock[]
   worksheetQuestions WorksheetQuestion[]
+  satzLinks          SatzGrammarTopic[]
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 
@@ -372,7 +375,7 @@ enum EmbeddingOwnerType {
   SATZ
 }
 
-/// Brute-force similarity index (no FK — polymorphic for Entry now, Satz later).
+/// Brute-force similarity index (no FK — polymorphic for Entry and Satz).
 model Embedding {
   id        String              @id @default(cuid())
   ownerType EmbeddingOwnerType
@@ -386,4 +389,114 @@ model Embedding {
 
   @@unique([ownerType, ownerId])
   @@index([ownerType])
+}
+
+enum SatzSource {
+  PERSONAL
+  GENERIC
+}
+
+enum SatzPriority {
+  DAILY
+  WEEKLY
+  OCCASIONAL
+  RARE
+}
+
+enum ShadowingStatus {
+  NOT_STARTED
+  PRACTICING
+  MASTERED
+}
+
+enum SatzRegister {
+  INFORMAL
+  FORMAL
+}
+
+enum AudioStatus {
+  NONE
+  REQUESTED
+  DONE
+}
+
+/// Language-island sentence (separate from Entry — extra fields would be empty on words).
+model Satz {
+  id              String          @id @default(cuid())
+  mainLang        String          @default("de")
+  mainText        String
+  trigger         String?
+  source          SatzSource      @default(PERSONAL)
+  priority        SatzPriority    @default(OCCASIONAL)
+  shadowingStatus ShadowingStatus @default(NOT_STARTED)
+  answerToId      String?
+  answerTo        Satz?           @relation("SatzAnswerTo", fields: [answerToId], references: [id], onDelete: SetNull)
+  answers         Satz[]          @relation("SatzAnswerTo")
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  translations  SatzTranslation[]
+  domains       DomainSatz[]
+  linkedEntries SatzEntry[]
+  grammarTopics SatzGrammarTopic[]
+
+  @@index([answerToId])
+  @@index([updatedAt])
+  @@index([source, priority])
+}
+
+model SatzTranslation {
+  id          String       @id @default(cuid())
+  satzId      String
+  satz        Satz         @relation(fields: [satzId], references: [id], onDelete: Cascade)
+  lang        String
+  text        String
+  audioUrl    String?
+  audioStatus AudioStatus  @default(NONE)
+  register    SatzRegister @default(INFORMAL)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([satzId, lang, register])
+  @@index([lang])
+  @@index([satzId])
+}
+
+model DomainSatz {
+  id        String   @id @default(cuid())
+  satzId    String
+  domainId  String
+  satz      Satz     @relation(fields: [satzId], references: [id], onDelete: Cascade)
+  domain    Domain   @relation(fields: [domainId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([satzId, domainId])
+  @@index([satzId])
+  @@index([domainId])
+}
+
+model SatzEntry {
+  id        String   @id @default(cuid())
+  satzId    String
+  entryId   String
+  satz      Satz     @relation(fields: [satzId], references: [id], onDelete: Cascade)
+  entry     Entry    @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([satzId, entryId])
+  @@index([satzId])
+  @@index([entryId])
+}
+
+model SatzGrammarTopic {
+  id             String       @id @default(cuid())
+  satzId         String
+  grammarTopicId String
+  satz           Satz         @relation(fields: [satzId], references: [id], onDelete: Cascade)
+  grammarTopic   GrammarTopic @relation(fields: [grammarTopicId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@unique([satzId, grammarTopicId])
+  @@index([satzId])
+  @@index([grammarTopicId])
 }
