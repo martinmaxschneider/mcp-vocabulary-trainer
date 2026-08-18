@@ -26,6 +26,7 @@ import {
   remainingBoxCounts,
 } from "~/components/review-box-bar";
 import { Caveat, Libre_Baskerville } from "next/font/google";
+import { groupDomainsByKind } from "~/lib/domain-catalog";
 
 const caveat = Caveat({
   subsets: ["latin", "latin-ext"],
@@ -43,6 +44,7 @@ type ReviewMode = "single" | "multi";
 
 export function ReviewSession() {
   const t = useTranslations("review");
+  const tDomains = useTranslations("domains");
   const tCommon = useTranslations("common");
   const tLang = useTranslations("languages");
   const tErrors = useTranslations("errors.codes");
@@ -527,31 +529,40 @@ export function ReviewSession() {
                   </button>
                 </div>
                 {domains && domains.length > 0 ? (
-                  <div className="grid max-h-64 grid-cols-1 gap-3 overflow-y-auto p-1 sm:grid-cols-2 lg:grid-cols-3">
-                    {domains.map((domain) => (
-                      <button
-                        key={domain.id}
-                        type="button"
-                        className={cn(
-                          "flex items-center gap-3 rounded-xl border p-3 text-left transition",
-                          selectedDomains.includes(domain.id)
-                            ? "border-[#1e3a5f] bg-[#1e3a5f]/5"
-                            : "border-slate-200 bg-white hover:border-[#1e3a5f]/30",
-                        )}
-                        onClick={() => toggleDomain(domain.id)}
-                      >
-                        <span
-                          className={cn(
-                            "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
-                            selectedDomains.includes(domain.id)
-                              ? "border-[#1e3a5f] bg-[#1e3a5f]"
-                              : "border-slate-300 bg-white",
-                          )}
-                        />
-                        <span className="font-medium text-[#1e3a5f]">
-                          {domain.name}
-                        </span>
-                      </button>
+                  <div className="max-h-72 space-y-4 overflow-y-auto p-1">
+                    {groupDomainsByKind(domains).map((group) => (
+                      <div key={group.kind} className="space-y-2">
+                        <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          {tDomains(`kind${group.kind}`)}
+                        </h4>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                          {group.domains.map((domain) => (
+                            <button
+                              key={domain.id}
+                              type="button"
+                              className={cn(
+                                "flex items-center gap-3 rounded-xl border p-3 text-left transition",
+                                selectedDomains.includes(domain.id)
+                                  ? "border-[#1e3a5f] bg-[#1e3a5f]/5"
+                                  : "border-slate-200 bg-white hover:border-[#1e3a5f]/30",
+                              )}
+                              onClick={() => toggleDomain(domain.id)}
+                            >
+                              <span
+                                className={cn(
+                                  "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
+                                  selectedDomains.includes(domain.id)
+                                    ? "border-[#1e3a5f] bg-[#1e3a5f]"
+                                    : "border-slate-300 bg-white",
+                                )}
+                              />
+                              <span className="font-medium text-[#1e3a5f]">
+                                {domain.name}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     ))}
                   </div>
                 ) : (

@@ -19,10 +19,13 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
+import { groupDomainsByKind } from "~/lib/domain-catalog";
 import { useToast } from "~/hooks/use-toast";
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import { Badge } from "~/components/ui/badge";
@@ -37,6 +40,7 @@ export default function EditEntryPage({
   const router = useRouter();
   const { toast } = useToast();
   const t = useTranslations("entries");
+  const tDomains = useTranslations("domains");
   const tCategories = useTranslations("categories");
   const tLang = useTranslations("languages");
   const tCommon = useTranslations("common");
@@ -222,10 +226,15 @@ export default function EditEntryPage({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">{tCommon("none")}</SelectItem>
-                    {domains?.map((domain) => (
-                      <SelectItem key={domain.id} value={domain.id}>
-                        {domain.name}
-                      </SelectItem>
+                    {groupDomainsByKind(domains ?? []).map((group) => (
+                      <SelectGroup key={group.kind}>
+                        <SelectLabel>{tDomains(`kind${group.kind}`)}</SelectLabel>
+                        {group.domains.map((domain) => (
+                          <SelectItem key={domain.id} value={domain.id}>
+                            {domain.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
                     ))}
                   </SelectContent>
                 </Select>

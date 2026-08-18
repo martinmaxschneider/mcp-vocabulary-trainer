@@ -18,7 +18,9 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
@@ -29,6 +31,7 @@ import { resolveErrorCode } from "~/lib/trpc-error";
 import { SOURCE_LANG, TARGET_LANGS } from "~/lib/languages";
 import { isConjugatableLang } from "~/lib/conjugation-catalog";
 import { isEntryCreated } from "~/lib/entry-create";
+import { groupDomainsByKind } from "~/lib/domain-catalog";
 import type { z } from "zod";
 import type { conjugationsSchema } from "~/lib/schemas/translation";
 import { Plus, Save, Sparkles, Loader2 } from "lucide-react";
@@ -96,6 +99,7 @@ function ManualVocabularyAddCardInner({
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const t = useTranslations("vocabularyAdd");
+  const tDomains = useTranslations("domains");
   const tEntries = useTranslations("entries");
   const tConjugations = useTranslations("conjugations");
   const tCategories = useTranslations("categories");
@@ -306,10 +310,15 @@ function ManualVocabularyAddCardInner({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">{tCommon("none")}</SelectItem>
-                {domains?.map((domain) => (
-                  <SelectItem key={domain.id} value={domain.id}>
-                    {domain.name}
-                  </SelectItem>
+                {groupDomainsByKind(domains ?? []).map((group) => (
+                  <SelectGroup key={group.kind}>
+                    <SelectLabel>{tDomains(`kind${group.kind}`)}</SelectLabel>
+                    {group.domains.map((domain) => (
+                      <SelectItem key={domain.id} value={domain.id}>
+                        {domain.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
                 ))}
               </SelectContent>
             </Select>

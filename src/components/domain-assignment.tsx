@@ -15,6 +15,7 @@ import { Badge } from "~/components/ui/badge";
 import { Plus } from "lucide-react";
 import { useToast } from "~/hooks/use-toast";
 import { resolveErrorCode } from "~/lib/trpc-error";
+import { groupDomainsByKind } from "~/lib/domain-catalog";
 
 interface DomainAssignmentProps {
   entryId: string;
@@ -28,6 +29,7 @@ export function DomainAssignment({
   onUpdate,
 }: DomainAssignmentProps) {
   const t = useTranslations("domainAssignment");
+  const tDomains = useTranslations("domains");
   const tCommon = useTranslations("common");
   const tToasts = useTranslations("toasts");
   const tErrors = useTranslations("errors.codes");
@@ -126,24 +128,33 @@ export function DomainAssignment({
         <CardDescription>{t("editDescription")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="cahier-section grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {allDomains?.map((domain) => (
-            <div
-              key={domain.id}
-              className={`cahier-item flex cursor-pointer items-center gap-3 p-3 ${
-                selectedDomains.includes(domain.id)
-                  ? "cahier-item-selected"
-                  : "cahier-item-hover"
-              }`}
-              onClick={() => handleToggleDomain(domain.id)}
-            >
-              <input
-                type="checkbox"
-                checked={selectedDomains.includes(domain.id)}
-                onChange={() => handleToggleDomain(domain.id)}
-                className="h-4 w-4 cursor-pointer"
-              />
-              <span className="font-medium">{domain.name}</span>
+        <div className="space-y-4">
+          {groupDomainsByKind(allDomains ?? []).map((group) => (
+            <div key={group.kind} className="space-y-2">
+              <h3 className="text-sm font-semibold text-muted-foreground">
+                {tDomains(`kind${group.kind}`)}
+              </h3>
+              <div className="cahier-section grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {group.domains.map((domain) => (
+                  <div
+                    key={domain.id}
+                    className={`cahier-item flex cursor-pointer items-center gap-3 p-3 ${
+                      selectedDomains.includes(domain.id)
+                        ? "cahier-item-selected"
+                        : "cahier-item-hover"
+                    }`}
+                    onClick={() => handleToggleDomain(domain.id)}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedDomains.includes(domain.id)}
+                      onChange={() => handleToggleDomain(domain.id)}
+                      className="h-4 w-4 cursor-pointer"
+                    />
+                    <span className="font-medium">{domain.name}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           ))}
         </div>

@@ -1,7 +1,8 @@
 import { z } from "zod";
-import { CardType } from "@prisma/client";
+import { CardType, DomainKind } from "@prisma/client";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
+import { ensureCanonicalDomainsOnce } from "~/server/services/domains";
 
 export const domainRouter = createTRPCRouter({
   list: publicProcedure
@@ -13,12 +14,13 @@ export const domainRouter = createTRPCRouter({
         .optional()
     )
     .query(async ({ ctx, input }) => {
+      await ensureCanonicalDomainsOnce(ctx.db);
       const targetLang = input?.targetLang ?? "en";
       const userId = ctx.userId;
       const now = new Date();
 
       const domains = await ctx.db.domain.findMany({
-        orderBy: { createdAt: "desc" },
+        orderBy: { name: "asc" },
         include: {
           _count: {
             select: { domainEntries: true },
@@ -55,6 +57,7 @@ export const domainRouter = createTRPCRouter({
           return {
             id: domain.id,
             name: domain.name,
+            kind: domain.kind,
             createdAt: domain.createdAt,
             updatedAt: domain.updatedAt,
             entryCount: domain._count.domainEntries,
@@ -71,6 +74,7 @@ export const domainRouter = createTRPCRouter({
     .input(
       z.object({
         name: z.string().min(1, "Name is required").max(100),
+        kind: z.nativeEnum(DomainKind).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -83,7 +87,10 @@ export const domainRouter = createTRPCRouter({
       }
 
       const domain = await ctx.db.domain.create({
-        data: { name: input.name },
+        data: {
+          name: input.name,
+          kind: input.kind ?? DomainKind.THEME,
+        },
       });
 
       return { created: true as const, domain };

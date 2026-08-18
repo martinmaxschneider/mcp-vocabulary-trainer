@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Domain" ADD COLUMN "kind" TEXT NOT NULL DEFAULT 'THEME';

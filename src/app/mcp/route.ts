@@ -84,7 +84,8 @@ const handler = createMcpHandler(
     // ── Domains ──────────────────────────────────────────────
     server.tool(
       "list_domains",
-      "Listet alle Themen (Domains) mit entryCount, dueCount und newCount. " +
+      "Listet alle Domains mit kind (THEME | GRAMMAR | SPECIAL), entryCount, dueCount und newCount. " +
+        "THEME = Alltagsthemen (Vokabeln und später Sätze), GRAMMAR = Wortart-/Grammatik-Buckets, SPECIAL = Redewendungen. " +
         "dueCount/newCount beziehen sich auf targetLang (default: en).",
       { targetLang: z.string().default("en") },
       async ({ targetLang }) => {
@@ -95,11 +96,15 @@ const handler = createMcpHandler(
 
     server.tool(
       "create_domain",
-      "Legt eine Domain/Thema an. Idempotent: existiert der Name bereits, wird keine zweite erzeugt.",
-      { name: z.string().min(1).max(100) },
-      async ({ name }) => {
+      "Legt eine Domain an. kind: THEME (Standard, Alltagsthema), GRAMMAR (Wortart-Bucket) oder SPECIAL. " +
+        "Idempotent: existiert der Name bereits, wird keine zweite erzeugt.",
+      {
+        name: z.string().min(1).max(100),
+        kind: z.enum(["THEME", "GRAMMAR", "SPECIAL"]).optional(),
+      },
+      async ({ name, kind }) => {
         const api = await getCaller();
-        return jsonResult(await api.domain.create({ name }));
+        return jsonResult(await api.domain.create({ name, kind }));
       },
     );
 
