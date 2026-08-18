@@ -329,6 +329,39 @@ const handler = createMcpHandler(
     );
 
     server.tool(
+      "request_satz_audio",
+      "Markiert Übersetzungen ausgewählter Sätze (optional inkl. verknüpfter Fragen) für TTS. Danach process_satz_audio.",
+      {
+        satzIds: z.array(z.string()).min(1),
+        includeQuestions: z.boolean().optional(),
+        langs: z.array(z.string()).optional(),
+        regenerate: z.boolean().optional(),
+      },
+      async (args) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.satz.requestAudio(args));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "process_satz_audio",
+      "Erzeugt die nächsten angeforderten Satz-Audios (OpenAI TTS) und speichert sie lokal.",
+      { limit: z.number().min(1).max(10).default(2) },
+      async ({ limit }) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.satz.processAudio({ limit }));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
       "import_saetze_csv",
       "Lädt eine CSV (Spalten Nummer + deutscher Satz) als Staging-Batch. " +
         "Noch keine echten Sätze — danach enrich_satz_import und commit_satz_import.",

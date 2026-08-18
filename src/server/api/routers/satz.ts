@@ -17,6 +17,12 @@ import {
   upsertSatzEmbedding,
 } from "~/server/services/embeddings";
 import { suggestAnswerQuestion } from "~/server/services/satz-question";
+import {
+  deleteSatzAudioFiles,
+  getSatzAudioStatus,
+  processRequestedAudio,
+  requestSatzAudio,
+} from "~/server/services/tts";
 
 const SATZ_DOMAIN_KINDS: DomainKind[] = [DomainKind.THEME, DomainKind.SPECIAL];
 
@@ -60,7 +66,13 @@ const satzInclude = {
       },
     },
   },
-  answerTo: { select: { id: true, mainText: true } },
+  answerTo: {
+    select: {
+      id: true,
+      mainText: true,
+      translations: true,
+    },
+  },
   answers: { select: { id: true, mainText: true } },
 } as const;
 
@@ -167,6 +179,7 @@ export const satzRouter = createTRPCRouter({
       z
         .object({
           domainId: z.string().optional(),
+          ids: z.array(z.string()).optional(),
           source: z.nativeEnum(SatzSource).optional(),
           priority: z.nativeEnum(SatzPriority).optional(),
           query: z.string().optional(),
@@ -178,6 +191,7 @@ export const satzRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const query = input?.query?.trim();
       const where: Prisma.SatzWhereInput = {
+        ...(input?.ids && input.ids.length > 0 && { id: { in: input.ids } }),
         ...(input?.domainId && {
           domains: { some: { domainId: input.domainId } },
         }),
@@ -380,6 +394,7 @@ export const satzRouter = createTRPCRouter({
         await syncSatzGrammarTopics(ctx.db, input.id, input.grammarTopicIds);
       }
       if (input.translations) {
+        await deleteSatzAudioFiles(input.id, ctx.db);
         await ctx.db.satzTranslation.deleteMany({ where: { satzId: input.id } });
         if (input.translations.length > 0) {
           await ctx.db.satzTranslation.createMany({
@@ -409,6 +424,7 @@ export const satzRouter = createTRPCRouter({
   delete: publicProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      await deleteSatzAudioFiles(input.id, ctx.db);
       await deleteSatzEmbedding(input.id, ctx.db);
       await ctx.db.satz.delete({ where: { id: input.id } });
       return { success: true };
@@ -459,5 +475,36 @@ export const satzRouter = createTRPCRouter({
     )
     .mutation(async ({ input }) => {
       return suggestAnswerQuestion(input);
+    }),
+
+  requestAudio: publicProcedure
+    .input(
+      z.object({
+        satzIds: z.array(z.string()).min(1),
+        includeQuestions: z.boolean().optional(),
+        langs: z.array(z.string()).optional(),
+        regenerate: z.boolean().optional(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      return requestSatzAudio(input);
+    }),
+
+  processAudio: publicProcedure
+    .input(
+      z
+        .object({
+          limit: z.number().min(1).max(10).default(2),
+        })
+        .optional(),
+    )
+    .mutation(async ({ input }) => {
+      return processRequestedAudio(input?.limit ?? 2);
+    }),
+
+  audioStatus: publicProcedure
+    .input(z.object({ satzIds: z.array(z.string()).optional() }).optional())
+    .query(async ({ input }) => {
+      return getSatzAudioStatus(input?.satzIds);
     }),
 });

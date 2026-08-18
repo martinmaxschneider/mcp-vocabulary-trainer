@@ -64,7 +64,8 @@ export function SatzImportReview({ batchId }: { batchId: string }) {
       void utils.satzImport.getBatch.invalidate({ id: batchId });
       void utils.satz.list.invalidate();
       if (result.status === "COMMITTED") {
-        router.push("/sentences");
+        const ids = result.createdIds.join(",");
+        router.push(ids ? `/sentences/listen?ids=${ids}` : "/sentences");
       }
     },
     onError: (error) => {

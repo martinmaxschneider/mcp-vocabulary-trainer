@@ -21,6 +21,7 @@ import {
   Languages,
   NotebookPen,
   Quote,
+  Headphones,
 } from "lucide-react";
 import { FocusLangSelect } from "~/components/focus-lang-select";
 import { StreakIndicator } from "~/components/streak-indicator";
@@ -38,6 +39,7 @@ export function Nav() {
     { href: "/", label: t("dashboard"), icon: Home },
     { href: "/domains", label: t("domains"), icon: FolderOpen },
     { href: "/sentences", label: t("sentences"), icon: Quote },
+    { href: "/sentences/listen", label: t("sentenceListen"), icon: Headphones },
     { href: "/review", label: t("review"), icon: BookOpen },
     {
       href: "/practice/conjugations",

@@ -8,6 +8,7 @@ import {
   startSelfUpdate,
 } from "~/server/self-update";
 import { resetGamification } from "~/server/gamification";
+import { wipeAllSatzAudio } from "~/server/services/tts";
 
 export const settingsRouter = createTRPCRouter({
   updateStatus: publicProcedure.query(() => {
@@ -81,6 +82,7 @@ export const settingsRouter = createTRPCRouter({
     await ctx.db.embedding.deleteMany({});
     await ctx.db.satzImportBatch.deleteMany({});
     await ctx.db.satz.deleteMany({});
+    await wipeAllSatzAudio();
     await ctx.db.entry.deleteMany({});
     await ctx.db.domain.deleteMany({});
 

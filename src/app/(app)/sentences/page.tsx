@@ -15,7 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "~/components/ui/card";
-import { Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { Headphones, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { useToast } from "~/hooks/use-toast";
 import { resolveErrorCode } from "~/lib/trpc-error";
 import { useFocusLang } from "~/components/focus-lang-provider";
@@ -62,6 +62,12 @@ function SentencesPageInner() {
           <p className="text-muted-foreground">{t("subtitle")}</p>
         </div>
         <div className="flex gap-2">
+          <Button asChild variant="outline">
+            <Link href="/sentences/listen">
+              <Headphones className="mr-2 h-4 w-4" />
+              {t("listen")}
+            </Link>
+          </Button>
           <Button asChild variant="outline">
             <Link href="/sentences/import">
               <Upload className="mr-2 h-4 w-4" />
