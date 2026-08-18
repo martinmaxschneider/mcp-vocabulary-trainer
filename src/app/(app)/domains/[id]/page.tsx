@@ -422,7 +422,7 @@ export default function DomainDetailPage({
             })}
           </div>
         ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2">
           {satze.map((satz) => (
             <Card key={satz.id} className="hover:shadow-md transition-shadow">
               <CardHeader>

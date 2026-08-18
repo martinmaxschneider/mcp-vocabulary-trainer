@@ -182,7 +182,7 @@ export function DomainList() {
               {kindHint(group.kind)}
             </p>
           </div>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2">
             {group.domains.map((domain) => (
               <Card key={domain.id} className="transition-shadow hover:shadow-md">
                 <CardHeader>
