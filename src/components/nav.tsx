@@ -19,8 +19,10 @@ import {
   ChevronDown,
   Library,
   Languages,
+  Layers,
   NotebookPen,
   Quote,
+  Repeat,
 } from "lucide-react";
 import { FocusLangSelect } from "~/components/focus-lang-select";
 import { StreakIndicator } from "~/components/streak-indicator";
@@ -34,21 +36,46 @@ export function Nav() {
   const pathname = usePathname();
   const t = useTranslations("nav");
 
-  const links = [
+  const startLinks = [
     { href: "/", label: t("dashboard"), icon: Home },
-    { href: "/domains", label: t("domains"), icon: FolderOpen },
-    { href: "/review", label: t("review"), icon: BookOpen },
+  ];
+  const practiceLinks = [
+    { href: "/review", label: t("review"), icon: Layers },
     {
       href: "/practice/conjugations",
       label: t("conjugations"),
-      icon: BookOpen,
+      icon: Repeat,
     },
     { href: "/grammar", label: t("grammar"), icon: Languages },
     { href: "/worksheets", label: t("worksheets"), icon: NotebookPen },
   ];
+  const topicLinks = [
+    { href: "/domains", label: t("domains"), icon: FolderOpen },
+  ];
 
   const isVocabularyActive = pathname.startsWith("/vocabulary");
   const isSentencesActive = pathname.startsWith("/sentences");
+
+  const renderLinks = (
+    items: Array<{ href: string; label: string; icon: typeof Home }>,
+  ) =>
+    items.map((link) => {
+      const Icon = link.icon;
+      return (
+        <Button
+          key={link.href}
+          asChild
+          variant={isActive(pathname, link.href) ? "default" : "ghost"}
+          size="sm"
+          className="gap-2"
+        >
+          <Link href={link.href}>
+            <Icon className="h-4 w-4" />
+            {link.label}
+          </Link>
+        </Button>
+      );
+    });
 
   return (
     <nav className="border-b border-border bg-background">
@@ -59,23 +86,7 @@ export function Nav() {
         </Link>
 
         <div className="flex gap-1">
-            {links.map((link) => {
-              const Icon = link.icon;
-              return (
-                <Button
-                  key={link.href}
-                  asChild
-                  variant={isActive(pathname, link.href) ? "default" : "ghost"}
-                  size="sm"
-                  className="gap-2"
-                >
-                  <Link href={link.href}>
-                    <Icon className="h-4 w-4" />
-                    {link.label}
-                  </Link>
-                </Button>
-              );
-            })}
+            {renderLinks(startLinks)}
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -112,6 +123,9 @@ export function Nav() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            {renderLinks(practiceLinks)}
+            {renderLinks(topicLinks)}
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
