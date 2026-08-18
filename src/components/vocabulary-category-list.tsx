@@ -23,12 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
-import {
-  SOURCE_LANG,
-  TARGET_LANGS,
-  isTargetLang,
-  type LearningLangCode,
-} from "~/lib/languages";
+import { SOURCE_LANG } from "~/lib/languages";
 import { Eye, LayoutGrid, List, Loader2, Plus, Volume2 } from "lucide-react";
 import { ClickableIpa } from "~/components/clickable-ipa";
 import { AudioClipsButton } from "~/components/satz-audio-button";
@@ -112,10 +107,7 @@ export function VocabularyCategoryList({
   const utils = api.useUtils();
   const [generating, setGenerating] = useState(false);
 
-  const { focusLang: targetLang, setFocusLang } = useFocusLang();
-  const setTargetLang = (code: string) => {
-    if (isTargetLang(code)) setFocusLang(code as LearningLangCode);
-  };
+  const { focusLang: targetLang } = useFocusLang();
   const [onlyWithTranslation, setOnlyWithTranslation] = useState(false);
   const [sortBy, setSortBy] = useState<SortBy>("mainText");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -261,23 +253,6 @@ export function VocabularyCategoryList({
         </div>
 
         <div className="cahier-section mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-          <div className="space-y-1.5">
-            <Label>{tLang("targetLanguage")}</Label>
-            <Select value={targetLang} onValueChange={setTargetLang}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {TARGET_LANGS.map((lang) => (
-                  <SelectItem key={lang.code} value={lang.code}>
-                    {lang.flag}{" "}
-                    {tLang(lang.code)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
           <div className="space-y-1.5">
             <Label>{tLang("sortLabel")}</Label>
             <Select

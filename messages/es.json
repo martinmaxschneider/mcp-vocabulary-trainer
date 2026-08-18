@@ -30,7 +30,7 @@
     "review": "Repasar",
     "practice": "Practicar",
     "listen": "Escuchar",
-    "reviewHint": "Leitner — solo tarjetas vencidas",
+    "reviewHint": "Siguiente nivel — solo tarjetas vencidas",
     "practiceHint": "Sin efecto en el progreso",
     "listenHint": "Escuchar y repetir",
     "listenPageTitle": "Escuchar {area}",

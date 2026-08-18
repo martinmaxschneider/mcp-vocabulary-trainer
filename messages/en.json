@@ -30,7 +30,7 @@
     "review": "Recall",
     "practice": "Practice",
     "listen": "Listen",
-    "reviewHint": "Leitner — due cards only",
+    "reviewHint": "Next level — due cards only",
     "practiceHint": "No effect on learning progress",
     "listenHint": "Listen and shadow",
     "listenPageTitle": "Listen to {area}",
