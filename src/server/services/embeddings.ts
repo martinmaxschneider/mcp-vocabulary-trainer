@@ -10,6 +10,8 @@ export const EMBEDDING_MODEL = "text-embedding-3-small";
 export const EMBEDDING_DIMS = 1536;
 export const SIMILARITY_THRESHOLD = 0.9;
 export const SIMILARITY_TOP_K = 5;
+export const VOCAB_LINK_TOP_K = 12;
+export const VOCAB_LINK_MIN_SCORE = 0.22;
 
 const openai = new OpenAI({
   apiKey: env.OPENAI_API_KEY,
@@ -105,6 +107,63 @@ export async function findSimilarEntries(
     textHash: hashEmbeddingText(trimmed),
     candidates: rankSimilar(vector, index, options?.k),
   };
+}
+
+export async function loadSatzVectorIndex(
+  excludeId?: string,
+): Promise<EntryVectorRow[]> {
+  const embeddings = await db.embedding.findMany({
+    where: {
+      ownerType: EmbeddingOwnerType.SATZ,
+      ...(excludeId ? { ownerId: { not: excludeId } } : {}),
+    },
+  });
+  if (embeddings.length === 0) return [];
+
+  const saetze = await db.satz.findMany({
+    where: { id: { in: embeddings.map((e) => e.ownerId) } },
+    select: { id: true, mainText: true },
+  });
+  const textById = new Map(saetze.map((s) => [s.id, s.mainText]));
+
+  const rows: EntryVectorRow[] = [];
+  for (const embedding of embeddings) {
+    const mainText = textById.get(embedding.ownerId);
+    const vector = parseVector(embedding.vector);
+    if (!mainText || !vector) continue;
+    rows.push({ id: embedding.ownerId, mainText, vector });
+  }
+  return rows;
+}
+
+export async function findSimilarSaetze(
+  queryText: string,
+  options?: { excludeId?: string; k?: number },
+): Promise<{
+  vector: number[];
+  textHash: string;
+  candidates: SimilarCandidate[];
+}> {
+  const trimmed = queryText.trim();
+  const [vector] = await embedTexts([trimmed]);
+  if (!vector) {
+    throw new Error("Failed to embed query text");
+  }
+  const index = await loadSatzVectorIndex(options?.excludeId);
+  return {
+    vector,
+    textHash: hashEmbeddingText(trimmed),
+    candidates: rankSimilar(vector, index, options?.k),
+  };
+}
+
+export function rankVocabForSentence(
+  queryVector: number[],
+  rows: EntryVectorRow[],
+  k = VOCAB_LINK_TOP_K,
+  minScore = VOCAB_LINK_MIN_SCORE,
+): SimilarCandidate[] {
+  return filterByThreshold(rankSimilar(queryVector, rows, k), minScore);
 }
 
 export async function saveEntryEmbedding(
@@ -310,6 +369,70 @@ export async function assessNewEntrySimilarity(params: {
   }));
 
   return { vector, textHash, blocked: true, candidates };
+}
+
+export async function assessNewSatzSimilarity(params: {
+  mainText: string;
+  allowSimilar?: boolean;
+  queryVector?: number[];
+  extraCandidates?: EntryVectorRow[];
+  excludeId?: string;
+}): Promise<{
+  vector: number[];
+  textHash: string;
+  blocked: boolean;
+  candidates: SimilarCandidate[];
+}> {
+  const trimmed = params.mainText.trim();
+  const textHash = hashEmbeddingText(trimmed);
+  let vector = params.queryVector;
+  if (!vector) {
+    const [embedded] = await embedTexts([trimmed]);
+    vector = embedded;
+  }
+  if (!vector) {
+    throw new Error("Failed to embed satz text");
+  }
+
+  const index = [
+    ...(await loadSatzVectorIndex(params.excludeId)),
+    ...(params.extraCandidates ?? []),
+  ];
+  const ranked = rankSimilar(vector, index);
+  const flagged = filterByThreshold(ranked, SIMILARITY_THRESHOLD);
+
+  if (flagged.length === 0 || params.allowSimilar) {
+    return { vector, textHash, blocked: false, candidates: ranked };
+  }
+
+  let llmMatchId: string | null = null;
+  try {
+    const verdict = await judgeSemanticDuplicates({
+      queryText: trimmed,
+      candidates: flagged,
+      kind: "satz",
+    });
+    if (verdict.isDuplicate) {
+      llmMatchId = verdict.matchId ?? flagged[0]?.id ?? null;
+    }
+  } catch (error) {
+    console.error("Satz duplicate judge failed, treating as similar:", error);
+    llmMatchId = flagged[0]?.id ?? null;
+  }
+
+  if (!llmMatchId) {
+    return { vector, textHash, blocked: false, candidates: ranked };
+  }
+
+  return {
+    vector,
+    textHash,
+    blocked: true,
+    candidates: flagged.map((c) => ({
+      ...c,
+      llmMatch: c.id === llmMatchId,
+    })),
+  };
 }
 
 export async function getEmbeddingStatus(): Promise<{

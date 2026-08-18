@@ -500,3 +500,69 @@ model SatzGrammarTopic {
   @@index([satzId])
   @@index([grammarTopicId])
 }
+
+enum SatzImportBatchStatus {
+  UPLOADED
+  ENRICHING
+  REVIEW
+  COMMITTED
+  FAILED
+}
+
+enum SatzImportItemStatus {
+  PENDING
+  ENRICHED
+  SKIPPED_DUPLICATE
+  ERROR
+  COMMITTED
+}
+
+/// Staging batch: CSV rows stay here until the user reviews and commits.
+model SatzImportBatch {
+  id        String                @id @default(cuid())
+  filename  String?
+  status    SatzImportBatchStatus @default(UPLOADED)
+  error     String?
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+  items     SatzImportDraft[]
+
+  @@index([updatedAt])
+}
+
+model SatzImportDraft {
+  id        String               @id @default(cuid())
+  batchId   String
+  batch     SatzImportBatch      @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  rowNumber Int
+  mainText  String
+  status    SatzImportItemStatus @default(PENDING)
+  skip      Boolean              @default(false)
+
+  trigger  String?
+  source   SatzSource            @default(GENERIC)
+  priority SatzPriority          @default(OCCASIONAL)
+  register SatzRegister          @default(INFORMAL)
+
+  /// [{ lang, text, register }]
+  translations Json?
+  /// string[]
+  domainIds    Json?
+  /// string[]
+  linkedEntryIds Json?
+  /// [{ id, mainText, score, llmMatch? }]
+  duplicateCandidates Json?
+  /// [{ id, mainText, score }]
+  vocabCandidates Json?
+
+  isDuplicate  Boolean @default(false)
+  allowSimilar Boolean @default(false)
+  error        String?
+  committedSatzId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([batchId, status])
+  @@index([batchId, rowNumber])
+}

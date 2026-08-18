@@ -153,6 +153,11 @@ export function Nav() {
                   {t("sentences")}
                 </Link>
               </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/sentences/import" className="cursor-pointer">
+                  {t("sentenceImport")}
+                </Link>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <FocusLangSelect />

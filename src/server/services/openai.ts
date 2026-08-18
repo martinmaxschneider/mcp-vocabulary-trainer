@@ -474,12 +474,25 @@ export type DuplicateJudgeCandidate = {
 
 export type DuplicateJudgeResult = z.infer<typeof duplicateJudgeSchema>;
 
+const entryDuplicatePrompt = `Du prüfst, ob ein neuer Vokabeleintrag ein Duplikat eines bestehenden Eintrags ist.
+Vergleiche nur den neuen Text mit den gelieferten Kandidaten. Es gibt keine weiteren Einträge.
+
+Ein Duplikat ist: dasselbe Lemma, offensichtliches Synonym derselben Bedeutung, oder nur eine Umschreibung desselben Worts.
+Kein Duplikat: verwandte aber verschiedene Wörter, andere Wortarten mit anderer Bedeutung, Ober-/Unterbegriffe.`;
+
+const satzDuplicatePrompt = `Du prüfst, ob ein neuer Alltagssatz ein Duplikat eines bestehenden Satzes ist.
+Vergleiche nur den neuen Text mit den gelieferten Kandidaten. Es gibt keine weiteren Sätze.
+
+Ein Duplikat ist: dieselbe Aussage, eine Paraphrase, oder nur Unterschiede bei Höflichkeit/Interpunktion/Wortstellung.
+Kein Duplikat: andere Situation, anderer Adressat, zusätzliche Information oder andere Absicht.`;
+
 /** Small-context duplicate check: only the flagged neighbors, never the full corpus. */
 export async function judgeSemanticDuplicates(params: {
   queryText: string;
   candidates: DuplicateJudgeCandidate[];
+  kind?: "entry" | "satz";
 }): Promise<DuplicateJudgeResult> {
-  const { queryText, candidates } = params;
+  const { queryText, candidates, kind = "entry" } = params;
   const allowedIds = new Set(candidates.map((c) => c.id));
 
   const candidateLines = candidates
@@ -489,11 +502,7 @@ export async function judgeSemanticDuplicates(params: {
     )
     .join("\n");
 
-  const systemPrompt = `Du prüfst, ob ein neuer Vokabeleintrag ein Duplikat eines bestehenden Eintrags ist.
-Vergleiche nur den neuen Text mit den gelieferten Kandidaten. Es gibt keine weiteren Einträge.
-
-Ein Duplikat ist: dasselbe Lemma, offensichtliches Synonym derselben Bedeutung, oder nur eine Umschreibung desselben Worts.
-Kein Duplikat: verwandte aber verschiedene Wörter, andere Wortarten mit anderer Bedeutung, Ober-/Unterbegriffe.
+  const systemPrompt = `${kind === "satz" ? satzDuplicatePrompt : entryDuplicatePrompt}
 
 Gib nur JSON zurück:
 { "isDuplicate": boolean, "matchId": string | null, "reason": string }
@@ -524,4 +533,110 @@ ${candidateLines}`;
     return { ...parsed, matchId: null };
   }
   return parsed;
+}
+
+const satzImportEnrichSchema = z.object({
+  translations: z.record(z.string(), z.string()),
+  register: z.enum(["INFORMAL", "FORMAL"]).optional(),
+  priority: z.enum(["DAILY", "WEEKLY", "OCCASIONAL", "RARE"]).optional(),
+  trigger: z.string().nullable().optional(),
+  themeNames: z.array(z.string()).optional(),
+  linkedEntryIds: z.array(z.string()).optional(),
+});
+
+export type SatzImportEnrichResult = z.infer<typeof satzImportEnrichSchema>;
+
+export type SatzImportVocabCandidate = {
+  id: string;
+  mainText: string;
+  score: number;
+};
+
+/** One LLM call: translation + theme pick + vocab pick. Never send the full corpus. */
+export async function enrichSatzImport(params: {
+  germanText: string;
+  targetLangs: string[];
+  themeNames: string[];
+  vocabCandidates: SatzImportVocabCandidate[];
+}): Promise<SatzImportEnrichResult> {
+  const allowedThemes = new Set(params.themeNames);
+  const allowedEntryIds = new Set(params.vocabCandidates.map((c) => c.id));
+  const allowedLangs = new Set(params.targetLangs);
+
+  const langLines = params.targetLangs
+    .map((code) => `- ${code}: ${getLanguageName(code)}`)
+    .join("\n");
+  const themeLines = params.themeNames.map((name) => `- ${name}`).join("\n");
+  const vocabLines =
+    params.vocabCandidates.length > 0
+      ? params.vocabCandidates
+          .map(
+            (c) =>
+              `- id=${c.id} score=${c.score.toFixed(3)} text=${JSON.stringify(c.mainText)}`,
+          )
+          .join("\n")
+      : "(keine Kandidaten)";
+
+  const systemPrompt = `Du reichst einen deutschen Alltagssatz für Language Islands an.
+Arbeite nur mit der gelieferten Themenliste und den gelieferten Vokabel-Kandidaten. Es gibt keine weiteren Themen oder Wörter.
+
+Regeln:
+- Übersetze natürlich in jede genannte Zielsprache (Alltagssprache).
+- register INFORMAL (du/tu) oder FORMAL (Sie/vous), passend zur Situation.
+- priority: DAILY / WEEKLY / OCCASIONAL / RARE nach typischer Nutzung.
+- trigger: kurze deutsche Szene, wann der Satz fällt, oder null.
+- themeNames: 1–3 Namen exakt aus der Themenliste, sonst leer.
+- linkedEntryIds: nur ids der gelieferten Vokabeln, die wirklich im Satz vorkommen.
+
+Gib nur JSON zurück:
+{
+  "translations": { "<lang>": "<text>" },
+  "register": "INFORMAL" | "FORMAL",
+  "priority": "DAILY" | "WEEKLY" | "OCCASIONAL" | "RARE",
+  "trigger": string | null,
+  "themeNames": string[],
+  "linkedEntryIds": string[]
+}`;
+
+  const userPrompt = `Deutscher Satz: ${JSON.stringify(params.germanText)}
+
+Zielsprachen:
+${langLines}
+
+Themen:
+${themeLines}
+
+Vokabel-Kandidaten:
+${vocabLines}`;
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ],
+    temperature: 0.2,
+    response_format: { type: "json_object" },
+  });
+
+  const content = completion.choices[0]?.message?.content;
+  if (!content) {
+    throw new Error("No content in OpenAI satz-import response");
+  }
+
+  const parsed = satzImportEnrichSchema.parse(JSON.parse(content) as unknown);
+  const translations = Object.fromEntries(
+    Object.entries(parsed.translations)
+      .filter(([lang, text]) => allowedLangs.has(lang) && text.trim().length > 0)
+      .map(([lang, text]) => [lang, text.trim()]),
+  );
+
+  return {
+    ...parsed,
+    translations,
+    themeNames: (parsed.themeNames ?? []).filter((name) => allowedThemes.has(name)),
+    linkedEntryIds: (parsed.linkedEntryIds ?? []).filter((id) =>
+      allowedEntryIds.has(id),
+    ),
+  };
 }

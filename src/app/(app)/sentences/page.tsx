@@ -15,7 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "~/components/ui/card";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { useToast } from "~/hooks/use-toast";
 import { resolveErrorCode } from "~/lib/trpc-error";
 import { useFocusLang } from "~/components/focus-lang-provider";
@@ -61,12 +61,20 @@ function SentencesPageInner() {
           <h1 className="mb-2 text-4xl font-bold">{t("title")}</h1>
           <p className="text-muted-foreground">{t("subtitle")}</p>
         </div>
-        <Button asChild>
-          <Link href={domainId ? `/sentences/new?domainId=${domainId}` : "/sentences/new"}>
-            <Plus className="mr-2 h-4 w-4" />
-            {t("add")}
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button asChild variant="outline">
+            <Link href="/sentences/import">
+              <Upload className="mr-2 h-4 w-4" />
+              {t("import")}
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href={domainId ? `/sentences/new?domainId=${domainId}` : "/sentences/new"}>
+              <Plus className="mr-2 h-4 w-4" />
+              {t("add")}
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <div className="mb-6 max-w-md">

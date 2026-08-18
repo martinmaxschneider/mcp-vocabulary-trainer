@@ -314,6 +314,69 @@ const handler = createMcpHandler(
       },
     );
 
+    server.tool(
+      "import_saetze_csv",
+      "Lädt eine CSV (Spalten Nummer + deutscher Satz) als Staging-Batch. " +
+        "Noch keine echten Sätze — danach enrich_satz_import und commit_satz_import.",
+      { csvText: z.string().min(1), filename: z.string().optional() },
+      async (args) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.satzImport.uploadCsv(args));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "enrich_satz_import",
+      "Reichert die nächsten Drafts eines Satz-Imports an (Duplikat-Check, Übersetzung, Themen, Vokabeln).",
+      {
+        batchId: z.string(),
+        limit: z.number().min(1).max(10).default(2),
+      },
+      async (args) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.satzImport.enrichNext(args));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "get_satz_import",
+      "Status und Drafts eines Satz-Import-Batches (Review vor dem Commit).",
+      { id: z.string() },
+      async ({ id }) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.satzImport.getBatch({ id }));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "commit_satz_import",
+      "Schreibt geprüfte Drafts als echte Sätze. Nur ready-Zeilen (Übersetzung vorhanden, Duplikate nur mit allowSimilar).",
+      {
+        batchId: z.string(),
+        draftIds: z.array(z.string()).optional(),
+      },
+      async (args) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.satzImport.commit(args));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
     // ── Entries ──────────────────────────────────────────────
     server.tool(
       "search_entries",

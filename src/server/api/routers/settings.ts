@@ -79,6 +79,7 @@ export const settingsRouter = createTRPCRouter({
     await ctx.db.domainEntry.deleteMany({});
     await ctx.db.translation.deleteMany({});
     await ctx.db.embedding.deleteMany({});
+    await ctx.db.satzImportBatch.deleteMany({});
     await ctx.db.satz.deleteMany({});
     await ctx.db.entry.deleteMany({});
     await ctx.db.domain.deleteMany({});
