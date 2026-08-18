@@ -7,8 +7,6 @@ import { useTranslations } from "next-intl";
 import {
   TARGET_LANGS,
   getTargetLang,
-  isTargetLang,
-  type LearningLangCode,
 } from "~/lib/languages";
 import { cn } from "~/lib/utils";
 import { groupDomainsByKind } from "~/lib/domain-catalog";
@@ -74,13 +72,10 @@ export function ConjugationDrill() {
   const conjugatableLangs = TARGET_LANGS.filter((l) =>
     (CONJUGATABLE_LANGS as readonly string[]).includes(l.code),
   );
-  const { focusLang, setFocusLang } = useFocusLang();
+  const { focusLang } = useFocusLang();
   const selectedLang = conjugatableLangs.some((l) => l.code === focusLang)
     ? focusLang
     : (conjugatableLangs[0]?.code ?? "es");
-  const setSelectedLang = (code: string) => {
-    if (isTargetLang(code)) setFocusLang(code as LearningLangCode);
-  };
   const [selectedDomains, setSelectedDomains] = useState<string[]>([]);
   const [selectedTenses, setSelectedTenses] = useState<string[]>([]);
   const [onlyIrregular, setOnlyIrregular] = useState(false);
@@ -437,33 +432,6 @@ export function ConjugationDrill() {
 
         <section className="cahier-card p-6 sm:p-8">
           <div className="space-y-8">
-            <div>
-              <h3 className="mb-3 font-semibold text-[#1e3a5f]">
-                {t("languageTitle")}
-              </h3>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {conjugatableLangs.map((lang) => (
-                  <button
-                    key={lang.code}
-                    type="button"
-                    className={cn(
-                      "flex h-auto flex-col items-center gap-1 rounded-xl border px-3 py-4 transition",
-                      selectedLang === lang.code
-                        ? "border-[#1e3a5f] bg-[#1e3a5f] text-white"
-                        : "border-slate-200 bg-white text-[#1e3a5f] hover:border-[#1e3a5f]/40",
-                    )}
-                    onClick={() => {
-                      setSelectedLang(lang.code);
-                      setSelectedTenses([]);
-                    }}
-                  >
-                    <span className="text-2xl">{lang.flag}</span>
-                    <span className="text-sm">{tLang(lang.code)}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
             <div>
               <h3 className="mb-3 font-semibold text-[#1e3a5f]">
                 {t("modeTitle")}
