@@ -12,7 +12,7 @@ import {
   type TtsLangProfile,
   type TtsProfiles,
 } from "~/lib/ai-settings";
-import { TARGET_LANGS, type LearningLangCode } from "~/lib/languages";
+import { SOURCE_LANG, TTS_LANGS, type LearningLangCode } from "~/lib/languages";
 import { voicesForLang } from "~/lib/tts-voices";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
@@ -117,7 +117,7 @@ export function SettingsAiPanel() {
   const { data: models } = api.settings.listModels.useQuery();
   const { data: budget } = api.settings.getBudget.useQuery();
 
-  const defaultLang = TARGET_LANGS[0]?.code ?? "en";
+  const defaultLang = SOURCE_LANG.code;
   const [chatModel, setChatModel] = useState("");
   const [embeddingModel, setEmbeddingModel] = useState("");
   const [ttsProfiles, setTtsProfiles] = useState<TtsProfiles>(DEFAULT_TTS_PROFILES);
@@ -389,13 +389,13 @@ export function SettingsAiPanel() {
             onValueChange={(value) => setTtsLang(value as LearningLangCode)}
           >
             <TabsList className="flex h-auto flex-wrap justify-start gap-1">
-              {TARGET_LANGS.map((lang) => (
+              {TTS_LANGS.map((lang) => (
                 <TabsTrigger key={lang.code} value={lang.code}>
                   {lang.flag} {tLang(lang.code)}
                 </TabsTrigger>
               ))}
             </TabsList>
-            {TARGET_LANGS.map((lang) => {
+            {TTS_LANGS.map((lang) => {
               const row = ttsProfiles[lang.code] ?? defaultTtsProfile(lang.code);
               const voices = voicesFor(row.model, lang.code, [
                 row.voiceQuestion,
@@ -483,7 +483,7 @@ export function SettingsAiPanel() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {TARGET_LANGS.map((lang) => (
+                {TTS_LANGS.map((lang) => (
                   <SelectItem key={lang.code} value={lang.code}>
                     {lang.flag} {tLang(lang.code)}
                   </SelectItem>

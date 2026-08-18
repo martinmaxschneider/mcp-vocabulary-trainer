@@ -474,6 +474,8 @@ model Satz {
   answerToId      String?
   answerTo        Satz?           @relation("SatzAnswerTo", fields: [answerToId], references: [id], onDelete: SetNull)
   answers         Satz[]          @relation("SatzAnswerTo")
+  mainAudioStatus AudioStatus     @default(NONE)
+  mainAudioUrl    String?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 

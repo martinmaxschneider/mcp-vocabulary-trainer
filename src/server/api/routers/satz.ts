@@ -19,6 +19,7 @@ import {
 import { suggestAnswerQuestion } from "~/server/services/satz-question";
 import {
   deleteAudioFiles,
+  deleteMainAudioFiles,
   deleteSatzAudioFiles,
   getSatzAudioStatus,
   processRequestedAudio,
@@ -71,6 +72,9 @@ const satzInclude = {
     select: {
       id: true,
       mainText: true,
+      mainAudioStatus: true,
+      mainAudioUrl: true,
+      updatedAt: true,
       translations: true,
     },
   },
@@ -464,6 +468,7 @@ export const satzRouter = createTRPCRouter({
         select: { id: true },
       });
       await deleteAudioFiles(translations.map((row) => row.id));
+      await deleteMainAudioFiles(ids);
       for (const id of ids) {
         await deleteSatzEmbedding(id, ctx.db);
       }

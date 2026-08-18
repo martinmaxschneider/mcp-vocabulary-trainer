@@ -65,6 +65,9 @@ export type TargetLangCode = LearningLangCode;
 
 export const TARGET_LANG_CODES = TARGET_LANGS.map((l) => l.code);
 
+/** Native language first, then learning targets — used for TTS profiles. */
+export const TTS_LANGS: LangMeta[] = [SOURCE_LANG, ...TARGET_LANGS];
+
 export function getLanguageName(code: string): string {
   return LANGUAGE_NAMES[code] ?? code;
 }

@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Satz" ADD COLUMN "mainAudioStatus" TEXT NOT NULL DEFAULT 'NONE';
+ALTER TABLE "Satz" ADD COLUMN "mainAudioUrl" TEXT;

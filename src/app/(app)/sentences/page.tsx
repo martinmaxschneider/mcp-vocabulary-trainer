@@ -18,9 +18,9 @@ import {
 import { Headphones, Loader2, Pencil, Plus, Trash2, Upload, Volume2 } from "lucide-react";
 import { SatzAudioButton } from "~/components/satz-audio-button";
 import { Checkbox } from "~/components/ui/checkbox";
-import { AudioStatus } from "@prisma/client";
 import { useToast } from "~/hooks/use-toast";
 import { resolveErrorCode } from "~/lib/trpc-error";
+import { playbackUrls } from "~/lib/satz-tts";
 import { useFocusLang } from "~/components/focus-lang-provider";
 
 function SentencesPageInner() {
@@ -253,6 +253,14 @@ function SentencesPageInner() {
             const translation = satz.translations.find(
               (tr) => tr.lang === focusLang,
             );
+            const clips = playbackUrls({
+              mainUrl: satz.mainAudioUrl,
+              mainStatus: satz.mainAudioStatus,
+              mainUpdatedAt: satz.updatedAt,
+              translationUrl: translation?.audioUrl,
+              translationStatus: translation?.audioStatus,
+              translationUpdatedAt: translation?.updatedAt,
+            });
             return (
               <Card key={satz.id}>
                 <CardHeader className="flex flex-row items-start justify-between space-y-0">
@@ -293,10 +301,9 @@ function SentencesPageInner() {
                     </div>
                   </div>
                   <div className="flex gap-1">
-                    {translation?.audioUrl &&
-                    translation.audioStatus === AudioStatus.DONE ? (
+                    {clips.length > 0 ? (
                       <SatzAudioButton
-                        url={translation.audioUrl}
+                        urls={clips}
                         label={t("playAudio")}
                       />
                     ) : (

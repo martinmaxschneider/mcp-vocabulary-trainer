@@ -5,6 +5,8 @@ import { TARGET_LANG_CODES } from "~/lib/languages";
 import {
   audioFileName,
   audioPublicPath,
+  mainAudioFileName,
+  mainAudioPublicPath,
   voiceForSatz,
 } from "~/lib/satz-tts";
 import { db } from "~/server/db";
@@ -19,6 +21,10 @@ export function audioDir(): string {
 
 export function audioFilePath(translationId: string): string {
   return path.join(audioDir(), audioFileName(translationId));
+}
+
+export function mainAudioFilePath(satzId: string): string {
+  return path.join(audioDir(), mainAudioFileName(satzId));
 }
 
 async function ensureAudioDir() {
@@ -36,6 +42,19 @@ export async function deleteAudioFile(translationId: string): Promise<void> {
 
 export async function deleteAudioFiles(translationIds: string[]): Promise<void> {
   await Promise.all(translationIds.map((id) => deleteAudioFile(id)));
+}
+
+export async function deleteMainAudioFile(satzId: string): Promise<void> {
+  try {
+    await unlink(mainAudioFilePath(satzId));
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== "ENOENT") throw error;
+  }
+}
+
+export async function deleteMainAudioFiles(satzIds: string[]): Promise<void> {
+  await Promise.all(satzIds.map((id) => deleteMainAudioFile(id)));
 }
 
 export async function wipeAllSatzAudio(): Promise<void> {
@@ -74,21 +93,33 @@ export async function requestSatzAudio(params: {
     }
   }
 
-  const translations = await db.satzTranslation.findMany({
-    where: {
-      satzId: { in: [...ids] },
-      lang: { in: langs },
-    },
-    select: { id: true, audioStatus: true },
-  });
+  const idList = [...ids];
+  const [translations, mainRows] = await Promise.all([
+    db.satzTranslation.findMany({
+      where: {
+        satzId: { in: idList },
+        lang: { in: langs },
+      },
+      select: { id: true, audioStatus: true },
+    }),
+    db.satz.findMany({
+      where: { id: { in: idList } },
+      select: { id: true, mainAudioStatus: true },
+    }),
+  ]);
 
   const toRequest = translations.filter((t) => {
     if (params.regenerate) return true;
     return t.audioStatus !== AudioStatus.DONE;
   });
+  const mainToRequest = mainRows.filter((row) => {
+    if (params.regenerate) return true;
+    return row.mainAudioStatus !== AudioStatus.DONE;
+  });
 
   if (params.regenerate) {
     await deleteAudioFiles(toRequest.map((t) => t.id));
+    await deleteMainAudioFiles(mainToRequest.map((row) => row.id));
   }
 
   if (toRequest.length > 0) {
@@ -101,7 +132,20 @@ export async function requestSatzAudio(params: {
     });
   }
 
-  return { requested: toRequest.length, satzIds: [...ids] };
+  if (mainToRequest.length > 0) {
+    await db.satz.updateMany({
+      where: { id: { in: mainToRequest.map((row) => row.id) } },
+      data: {
+        mainAudioStatus: AudioStatus.REQUESTED,
+        ...(params.regenerate ? { mainAudioUrl: null } : {}),
+      },
+    });
+  }
+
+  return {
+    requested: toRequest.length + mainToRequest.length,
+    satzIds: idList,
+  };
 }
 
 export async function processRequestedAudio(limit: number): Promise<{
@@ -109,18 +153,61 @@ export async function processRequestedAudio(limit: number): Promise<{
   failed: number;
   remaining: number;
 }> {
-  const pending = await db.satzTranslation.findMany({
-    where: { audioStatus: AudioStatus.REQUESTED },
+  const pendingMain = await db.satz.findMany({
+    where: { mainAudioStatus: AudioStatus.REQUESTED },
     take: limit,
     orderBy: { updatedAt: "asc" },
-    include: {
-      satz: { select: { id: true, mainText: true } },
-    },
+    select: { id: true, mainText: true, mainLang: true },
   });
 
   let processed = 0;
   let failed = 0;
   await ensureAudioDir();
+
+  for (const satz of pendingMain) {
+    try {
+      const tts = await getTtsSettings(satz.mainLang);
+      const voice = voiceForSatz(satz.mainText, {
+        question: tts.voiceQuestion,
+        answer: tts.voiceAnswer,
+      });
+      const audio = await synthesizeMp3(
+        satz.mainText,
+        voice,
+        tts.model,
+        satz.mainLang,
+      );
+      await writeFile(mainAudioFilePath(satz.id), audio.buffer);
+      await db.satz.update({
+        where: { id: satz.id },
+        data: {
+          mainAudioStatus: AudioStatus.DONE,
+          mainAudioUrl: mainAudioPublicPath(satz.id),
+        },
+      });
+      processed += 1;
+    } catch (error) {
+      console.error("Satz main TTS failed:", error);
+      await db.satz.update({
+        where: { id: satz.id },
+        data: { mainAudioStatus: AudioStatus.NONE, mainAudioUrl: null },
+      });
+      failed += 1;
+    }
+  }
+
+  const translationLimit = Math.max(0, limit - pendingMain.length);
+  const pending =
+    translationLimit > 0
+      ? await db.satzTranslation.findMany({
+          where: { audioStatus: AudioStatus.REQUESTED },
+          take: translationLimit,
+          orderBy: { updatedAt: "asc" },
+          include: {
+            satz: { select: { id: true, mainText: true } },
+          },
+        })
+      : [];
 
   for (const translation of pending) {
     try {
@@ -154,11 +241,16 @@ export async function processRequestedAudio(limit: number): Promise<{
     }
   }
 
-  const remaining = await db.satzTranslation.count({
-    where: { audioStatus: AudioStatus.REQUESTED },
-  });
+  const [remainingTranslations, remainingMain] = await Promise.all([
+    db.satzTranslation.count({
+      where: { audioStatus: AudioStatus.REQUESTED },
+    }),
+    db.satz.count({
+      where: { mainAudioStatus: AudioStatus.REQUESTED },
+    }),
+  ]);
 
-  return { processed, failed, remaining };
+  return { processed, failed, remaining: remainingTranslations + remainingMain };
 }
 
 export async function getSatzAudioStatus(satzIds?: string[]) {
@@ -190,4 +282,5 @@ export async function deleteSatzAudioFiles(
     select: { id: true },
   });
   await deleteAudioFiles(translations.map((t) => t.id));
+  await deleteMainAudioFile(satzId);
 }

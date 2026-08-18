@@ -18,7 +18,7 @@ import {
 } from "~/components/ui/card";
 import { useToast } from "~/hooks/use-toast";
 import { resolveErrorCode } from "~/lib/trpc-error";
-import { LISTEN_PAUSE_MS } from "~/lib/satz-tts";
+import { LISTEN_PAUSE_MS, playbackUrls } from "~/lib/satz-tts";
 import { useFocusLang } from "~/components/focus-lang-provider";
 import { Headphones, Loader2, Pause, Play, Square, Volume2 } from "lucide-react";
 
@@ -118,23 +118,35 @@ export function SatzListen() {
         const question = satz.answerTo?.translations.find(
           (tr) => tr.lang === focusLang,
         );
+        const questionClips = satz.answerTo
+          ? playbackUrls({
+              mainUrl: satz.answerTo.mainAudioUrl,
+              mainStatus: satz.answerTo.mainAudioStatus,
+              mainUpdatedAt: satz.answerTo.updatedAt,
+              translationUrl: question?.audioUrl,
+              translationStatus: question?.audioStatus,
+              translationUpdatedAt: question?.updatedAt,
+            })
+          : [];
+        const answerClips = playbackUrls({
+          mainUrl: satz.mainAudioUrl,
+          mainStatus: satz.mainAudioStatus,
+          mainUpdatedAt: satz.updatedAt,
+          translationUrl: answer?.audioUrl,
+          translationStatus: answer?.audioStatus,
+          translationUpdatedAt: answer?.updatedAt,
+        });
         setPlayingId(satzId);
-        if (
-          question?.audioStatus === AudioStatus.DONE &&
-          question.audioUrl &&
-          !stopRef.current
-        ) {
-          await playUrl(question.audioUrl);
+        const sequence = [...questionClips, ...answerClips];
+        for (let i = 0; i < sequence.length; i++) {
           if (stopRef.current) break;
-          await sleep(LISTEN_PAUSE_MS);
+          await playUrl(sequence[i]!);
+          if (stopRef.current) break;
+          if (i < sequence.length - 1) {
+            await sleep(LISTEN_PAUSE_MS);
+          }
         }
-        if (
-          answer?.audioStatus === AudioStatus.DONE &&
-          answer.audioUrl &&
-          !stopRef.current
-        ) {
-          await playUrl(answer.audioUrl);
-          if (stopRef.current) break;
+        if (!stopRef.current) {
           await sleep(400);
         }
       }
@@ -298,7 +310,14 @@ export function SatzListen() {
                   </label>
                   <div className="flex items-center gap-2">
                     <Badge variant="outline">{t(`audioStatus${status}`)}</Badge>
-                    {translation?.audioUrl && status === AudioStatus.DONE ? (
+                    {playbackUrls({
+                      mainUrl: satz.mainAudioUrl,
+                      mainStatus: satz.mainAudioStatus,
+                      mainUpdatedAt: satz.updatedAt,
+                      translationUrl: translation?.audioUrl,
+                      translationStatus: status,
+                      translationUpdatedAt: translation?.updatedAt,
+                    }).length > 0 ? (
                       <Button
                         type="button"
                         size="icon"

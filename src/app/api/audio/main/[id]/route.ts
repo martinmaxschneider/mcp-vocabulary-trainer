@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { NextResponse } from "next/server";
 import { isAudioTranslationId } from "~/lib/satz-tts";
-import { audioFilePath } from "~/server/services/tts";
+import { mainAudioFilePath } from "~/server/services/tts";
 
 export async function GET(
   _request: Request,
@@ -13,7 +13,7 @@ export async function GET(
   }
 
   try {
-    const data = await readFile(audioFilePath(id));
+    const data = await readFile(mainAudioFilePath(id));
     const isWav =
       data.length >= 12 &&
       data.subarray(0, 4).toString("ascii") === "RIFF" &&
