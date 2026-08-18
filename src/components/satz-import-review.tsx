@@ -25,7 +25,7 @@ import {
 } from "~/components/ui/select";
 import { useToast } from "~/hooks/use-toast";
 import { resolveErrorCode } from "~/lib/trpc-error";
-import { TARGET_LANGS } from "~/lib/languages";
+import { getTargetLang, resolveImportTargetLang } from "~/lib/languages";
 import { groupDomainsByKind } from "~/lib/domain-catalog";
 import { Loader2, Pencil, Search, X } from "lucide-react";
 
@@ -43,12 +43,15 @@ function errorDescription(
 export function SatzImportReview({ batchId }: { batchId: string }) {
   const router = useRouter();
   const t = useTranslations("sentences");
+  const tLang = useTranslations("languages");
   const tCommon = useTranslations("common");
   const tToasts = useTranslations("toasts");
   const tErrors = useTranslations("errors.codes");
   const { toast } = useToast();
   const utils = api.useUtils();
   const enrichingRef = useRef(false);
+  const [committing, setCommitting] = useState(false);
+  const [commitProgress, setCommitProgress] = useState({ done: 0, total: 0 });
 
   const { data: batch, isLoading } = api.satzImport.getBatch.useQuery(
     { id: batchId },
@@ -56,26 +59,46 @@ export function SatzImportReview({ batchId }: { batchId: string }) {
   );
 
   const enrichMutation = api.satzImport.enrichNext.useMutation();
-  const commitMutation = api.satzImport.commit.useMutation({
-    onSuccess: (result) => {
-      toast({
-        title: tToasts("satzImportCommitted", { count: result.createdCount }),
-      });
-      void utils.satzImport.getBatch.invalidate({ id: batchId });
-      void utils.satz.list.invalidate();
-      if (result.status === "COMMITTED") {
-        const ids = result.createdIds.join(",");
-        router.push(ids ? `/sentences/listen?ids=${ids}` : "/sentences");
+  const commitMutation = api.satzImport.commit.useMutation();
+
+  const handleCommit = async () => {
+    if (!batch || batch.counts.ready === 0 || committing) return;
+    setCommitting(true);
+    const createdIds: string[] = [];
+    let remaining = batch.counts.ready;
+    const total = remaining;
+    setCommitProgress({ done: 0, total });
+    try {
+      while (remaining > 0) {
+        const result = await commitMutation.mutateAsync({
+          batchId,
+          limit: 2,
+        });
+        createdIds.push(...result.createdIds);
+        remaining = result.remaining;
+        setCommitProgress({ done: total - remaining, total });
+        await utils.satzImport.getBatch.invalidate({ id: batchId });
+        if (result.createdCount === 0) break;
       }
-    },
-    onError: (error) => {
+      toast({
+        title: tToasts("satzImportCommitted", { count: createdIds.length }),
+      });
+      void utils.satz.list.invalidate();
+      const ids = createdIds.join(",");
+      router.push(ids ? `/sentences/listen?ids=${ids}` : "/sentences");
+    } catch (error) {
       toast({
         title: tToasts("satzImportCommitError"),
-        description: errorDescription(error.message, tErrors),
+        description:
+          error instanceof Error
+            ? errorDescription(error.message, tErrors)
+            : undefined,
         variant: "destructive",
       });
-    },
-  });
+    } finally {
+      setCommitting(false);
+    }
+  };
 
   useEffect(() => {
     if (!batch) return;
@@ -126,10 +149,17 @@ export function SatzImportReview({ batchId }: { batchId: string }) {
     return <p className="text-sm text-muted-foreground">{tCommon("loading")}</p>;
   }
 
+  const targetLang = resolveImportTargetLang(batch.targetLang);
+  const targetMeta = getTargetLang(targetLang);
   const total = batch.counts.total || 1;
   const done = batch.counts.total - batch.counts.pending;
-  const percent = Math.round((done / total) * 100);
+  const enrichPercent = Math.round((done / total) * 100);
+  const commitPercent =
+    commitProgress.total > 0
+      ? Math.round((commitProgress.done / commitProgress.total) * 100)
+      : 0;
   const enriching = batch.counts.pending > 0 && batch.status !== "COMMITTED";
+  const busy = enriching || committing;
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -151,14 +181,10 @@ export function SatzImportReview({ batchId }: { batchId: string }) {
             <Link href="/sentences">{t("importBack")}</Link>
           </Button>
           <Button
-            disabled={
-              batch.counts.ready === 0 ||
-              commitMutation.isPending ||
-              enriching
-            }
-            onClick={() => commitMutation.mutate({ batchId })}
+            disabled={batch.counts.ready === 0 || busy}
+            onClick={() => void handleCommit()}
           >
-            {commitMutation.isPending ? (
+            {committing ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : null}
             {batch.counts.ready === 0
@@ -168,13 +194,13 @@ export function SatzImportReview({ batchId }: { batchId: string }) {
         </div>
       </div>
 
-      {enriching ? (
+      {enriching || committing ? (
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
-            {t("importEnriching")}
+            {committing ? t("importCommitting") : t("importEnriching")}
           </div>
-          <Progress value={percent} />
+          <Progress value={committing ? commitPercent : enrichPercent} />
         </div>
       ) : null}
 
@@ -184,6 +210,8 @@ export function SatzImportReview({ batchId }: { batchId: string }) {
             key={`${item.id}-${item.status}`}
             batchId={batchId}
             item={item}
+            targetLang={targetLang}
+            targetLabel={targetMeta ? tLang(targetMeta.code) : targetLang}
           />
         ))}
       </div>
@@ -194,14 +222,17 @@ export function SatzImportReview({ batchId }: { batchId: string }) {
 function DraftCard({
   batchId,
   item,
+  targetLang,
+  targetLabel,
 }: {
   batchId: string;
   item: DraftItem;
+  targetLang: string;
+  targetLabel: string;
 }) {
   const t = useTranslations("sentences");
   const tDomains = useTranslations("domains");
   const tCommon = useTranslations("common");
-  const tLang = useTranslations("languages");
   const utils = api.useUtils();
   const updateMutation = api.satzImport.updateDraft.useMutation({
     onSuccess: () => {
@@ -233,20 +264,15 @@ function DraftCard({
   );
   const [translations, setTranslations] = useState<
     Record<string, { text: string; register: SatzRegister }>
-  >(() =>
-    Object.fromEntries(
-      TARGET_LANGS.map((lang) => {
-        const match = item.translations.find((tr) => tr.lang === lang.code);
-        return [
-          lang.code,
-          {
-            text: match?.text ?? "",
-            register: match?.register ?? item.register,
-          },
-        ];
-      }),
-    ),
-  );
+  >(() => {
+    const match = item.translations.find((tr) => tr.lang === targetLang);
+    return {
+      [targetLang]: {
+        text: match?.text ?? "",
+        register: match?.register ?? item.register,
+      },
+    };
+  });
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const persist = (payload: Parameters<typeof updateMutation.mutate>[0]) => {
@@ -383,13 +409,13 @@ function DraftCard({
         <>
           <div className="space-y-3">
             <h3 className="font-medium">{t("translationsTitle")}</h3>
-            {TARGET_LANGS.map((lang) => {
-              const draft = translations[lang.code];
+            {(() => {
+              const draft = translations[targetLang];
               return (
-                <div key={lang.code} className="space-y-2">
+                <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <Badge variant="secondary">{lang.code.toUpperCase()}</Badge>
-                    <span className="text-sm">{tLang(lang.code)}</span>
+                    <Badge variant="secondary">{targetLang.toUpperCase()}</Badge>
+                    <span className="text-sm">{targetLabel}</span>
                   </div>
                   <Input
                     value={draft?.text ?? ""}
@@ -398,7 +424,7 @@ function DraftCard({
                       const text = e.target.value;
                       const next = {
                         ...translations,
-                        [lang.code]: {
+                        [targetLang]: {
                           text,
                           register: draft?.register ?? register,
                         },
@@ -406,20 +432,22 @@ function DraftCard({
                       setTranslations(next);
                       persist({
                         id: item.id,
-                        translations: TARGET_LANGS.map((l) => ({
-                          lang: l.code,
-                          text: next[l.code]?.text ?? "",
-                          register: next[l.code]?.register ?? register,
-                        })).filter((tr) => tr.text.trim().length > 0),
+                        translations: [
+                          {
+                            lang: targetLang,
+                            text: next[targetLang]?.text ?? "",
+                            register: next[targetLang]?.register ?? register,
+                          },
+                        ].filter((tr) => tr.text.trim().length > 0),
                       });
                     }}
                     placeholder={t("translationPlaceholder", {
-                      language: tLang(lang.code),
+                      language: targetLabel,
                     })}
                   />
                 </div>
               );
-            })}
+            })()}
           </div>
 
           <div className="space-y-3">
@@ -574,11 +602,13 @@ function DraftCard({
                   persist({
                     id: item.id,
                     register: next,
-                    translations: TARGET_LANGS.map((l) => ({
-                      lang: l.code,
-                      text: nextTranslations[l.code]?.text ?? "",
-                      register: next,
-                    })).filter((tr) => tr.text.trim().length > 0),
+                    translations: [
+                      {
+                        lang: targetLang,
+                        text: nextTranslations[targetLang]?.text ?? "",
+                        register: next,
+                      },
+                    ].filter((tr) => tr.text.trim().length > 0),
                   });
                 }}
               >

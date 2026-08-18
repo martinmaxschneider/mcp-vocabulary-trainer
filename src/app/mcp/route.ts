@@ -364,8 +364,12 @@ const handler = createMcpHandler(
     server.tool(
       "import_saetze_csv",
       "Lädt eine CSV (Spalten Nummer + deutscher Satz) als Staging-Batch. " +
-        "Noch keine echten Sätze — danach enrich_satz_import und commit_satz_import.",
-      { csvText: z.string().min(1), filename: z.string().optional() },
+        "Nur targetLang wird übersetzt. Noch keine echten Sätze — danach enrich_satz_import und commit_satz_import.",
+      {
+        csvText: z.string().min(1),
+        filename: z.string().optional(),
+        targetLang: z.string().optional(),
+      },
       async (args) => {
         const api = await getCaller();
         try {
@@ -413,11 +417,27 @@ const handler = createMcpHandler(
       {
         batchId: z.string(),
         draftIds: z.array(z.string()).optional(),
+        limit: z.number().min(1).max(20).default(2),
       },
       async (args) => {
         const api = await getCaller();
         try {
-          return jsonResult(await api.satzImport.commit(args));
+          const createdIds: string[] = [];
+          let remaining = 1;
+          let status = "REVIEW";
+          while (remaining > 0) {
+            const result = await api.satzImport.commit(args);
+            createdIds.push(...result.createdIds);
+            remaining = result.remaining;
+            status = result.status;
+            if (result.createdCount === 0) break;
+          }
+          return jsonResult({
+            createdCount: createdIds.length,
+            createdIds,
+            remaining,
+            status,
+          });
         } catch (e) {
           return errorResult(e instanceof Error ? e.message : String(e));
         }

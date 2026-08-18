@@ -563,13 +563,14 @@ enum SatzImportItemStatus {
 
 /// Staging batch: CSV rows stay here until the user reviews and commits.
 model SatzImportBatch {
-  id        String                @id @default(cuid())
-  filename  String?
-  status    SatzImportBatchStatus @default(UPLOADED)
-  error     String?
-  createdAt DateTime              @default(now())
-  updatedAt DateTime              @updatedAt
-  items     SatzImportDraft[]
+  id         String                @id @default(cuid())
+  filename   String?
+  targetLang String?
+  status     SatzImportBatchStatus @default(UPLOADED)
+  error      String?
+  createdAt  DateTime              @default(now())
+  updatedAt  DateTime              @updatedAt
+  items      SatzImportDraft[]
 
   @@index([updatedAt])
 }

@@ -32,6 +32,13 @@ export function parseStringIds(value: unknown): string[] {
   ];
 }
 
+export function translationsForLang(
+  value: unknown,
+  lang: string,
+): DraftTranslation[] {
+  return parseDraftTranslations(value).filter((item) => item.lang === lang);
+}
+
 export function parseDraftTranslations(value: unknown): DraftTranslation[] {
   if (!Array.isArray(value)) return [];
   const out: DraftTranslation[] = [];

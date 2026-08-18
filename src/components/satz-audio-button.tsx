@@ -9,10 +9,12 @@ export function SatzAudioButton({
   url,
   urls,
   label,
+  langCode,
 }: {
   url?: string;
   urls?: string[];
   label: string;
+  langCode?: string;
 }) {
   const queue = (urls ?? (url ? [url] : [])).filter(Boolean);
   const [playing, setPlaying] = useState(false);
@@ -67,13 +69,17 @@ export function SatzAudioButton({
   return (
     <Button
       type="button"
-      size="icon"
+      size={langCode ? "sm" : "icon"}
       variant="ghost"
       onClick={toggle}
       aria-label={label}
+      title={label}
       disabled={queue.length === 0}
     >
       {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+      {langCode ? (
+        <span className="text-xs font-medium uppercase">{langCode}</span>
+      ) : null}
     </Button>
   );
 }

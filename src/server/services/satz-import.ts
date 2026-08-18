@@ -9,12 +9,13 @@ import {
   SatzSource,
   ShadowingStatus,
 } from "@prisma/client";
-import { SOURCE_LANG, TARGET_LANGS } from "~/lib/languages";
+import { resolveImportTargetLang, SOURCE_LANG } from "~/lib/languages";
 import { normalizeSatzText, parseSatzCsv } from "~/lib/satz-csv";
 import {
   isDraftReadyToCommit,
   parseDraftCandidates,
   parseDraftTranslations,
+  translationsForLang,
   parsePriority,
   parseRegister,
   parseSource,
@@ -42,6 +43,7 @@ const SATZ_DOMAIN_KINDS: DomainKind[] = [DomainKind.THEME, DomainKind.SPECIAL];
 export async function createBatchFromCsv(params: {
   csvText: string;
   filename?: string;
+  targetLang?: string;
 }) {
   const parsed = parseSatzCsv(params.csvText);
   if (parsed.rows.length === 0) {
@@ -94,6 +96,7 @@ export async function createBatchFromCsv(params: {
   return db.satzImportBatch.create({
     data: {
       filename: params.filename?.trim() || null,
+      targetLang: resolveImportTargetLang(params.targetLang),
       status:
         pendingCount === 0
           ? SatzImportBatchStatus.REVIEW
@@ -116,6 +119,7 @@ async function enrichOneDraft(
   draft: { id: string; mainText: string },
   entryIndex: Awaited<ReturnType<typeof loadEntryVectorIndex>>,
   themes: Array<{ id: string; name: string }>,
+  targetLangs: string[],
 ) {
   const [vector] = await embedTexts([draft.mainText]);
   if (!vector) {
@@ -146,7 +150,7 @@ async function enrichOneDraft(
   const vocabCandidates = rankVocabForSentence(vector, entryIndex);
   const enriched = await enrichSatzImport({
     germanText: draft.mainText,
-    targetLangs: TARGET_LANGS.map((l) => l.code),
+    targetLangs,
     themeNames: themes.map((t) => t.name),
     vocabCandidates,
   });
@@ -193,7 +197,7 @@ async function enrichOneDraft(
 export async function enrichNextDrafts(batchId: string, limit: number) {
   const batch = await db.satzImportBatch.findUnique({
     where: { id: batchId },
-    select: { id: true, status: true },
+    select: { id: true, status: true, targetLang: true },
   });
   if (!batch) {
     throw new Error("Satz import batch not found");
@@ -230,7 +234,9 @@ export async function enrichNextDrafts(batchId: string, limit: number) {
   let processed = 0;
   for (const draft of pending) {
     try {
-      await enrichOneDraft(draft, entryIndex, themes);
+      await enrichOneDraft(draft, entryIndex, themes, [
+        resolveImportTargetLang(batch.targetLang),
+      ]);
       processed += 1;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -414,7 +420,10 @@ async function persistSatzEmbeddingSafe(satzId: string, mainText: string) {
   }
 }
 
-export async function commitImportBatch(batchId: string, draftIds?: string[]) {
+export async function commitImportBatch(
+  batchId: string,
+  options?: { draftIds?: string[]; limit?: number },
+) {
   const batch = await db.satzImportBatch.findUnique({
     where: { id: batchId },
     include: { items: { orderBy: { rowNumber: "asc" } } },
@@ -426,7 +435,8 @@ export async function commitImportBatch(batchId: string, draftIds?: string[]) {
     throw new Error("Satz import batch already committed");
   }
 
-  const wanted = draftIds ? new Set(draftIds) : null;
+  const targetLang = resolveImportTargetLang(batch.targetLang);
+  const wanted = options?.draftIds ? new Set(options.draftIds) : null;
   const ready = batch.items.filter(
     (item) =>
       (!wanted || wanted.has(item.id)) && isDraftReadyToCommit(item),
@@ -435,11 +445,20 @@ export async function commitImportBatch(batchId: string, draftIds?: string[]) {
     throw new Error("SATZ_IMPORT_NOTHING_TO_COMMIT");
   }
 
+  const chunk = options?.limit ? ready.slice(0, options.limit) : ready;
   const created: string[] = [];
   const createdQuestions = new Map<string, string>();
+  for (const item of batch.items) {
+    if (item.status !== SatzImportItemStatus.COMMITTED) continue;
+    const question = item.suggestedQuestionText?.trim();
+    if (item.answerToId && question) {
+      createdQuestions.set(normalizeSatzText(question), item.answerToId);
+    }
+  }
 
-  for (const draft of ready) {
-    const translations = parseDraftTranslations(draft.translations);
+  for (const draft of chunk) {
+    const translations = translationsForLang(draft.translations, targetLang);
+    if (translations.length === 0) continue;
     const domainIds = parseStringIds(draft.domainIds);
     const linkedEntryIds = parseStringIds(draft.linkedEntryIds);
     await assertAssignableDomainIds(db, domainIds);
@@ -453,8 +472,9 @@ export async function commitImportBatch(batchId: string, draftIds?: string[]) {
       if (existingInBatch) {
         answerToId = existingInBatch;
       } else {
-        const questionTranslations = parseDraftTranslations(
+        const questionTranslations = translationsForLang(
           draft.questionTranslations,
+          targetLang,
         );
         if (questionTranslations.length > 0) {
           const question = await db.satz.create({
@@ -522,21 +542,30 @@ export async function commitImportBatch(batchId: string, draftIds?: string[]) {
       data: {
         status: SatzImportItemStatus.COMMITTED,
         committedSatzId: satz.id,
+        answerToId,
         skip: false,
       },
     });
     created.push(satz.id);
   }
 
-  const remainingOpen = await db.satzImportDraft.count({
-    where: {
-      batchId,
-      status: {
-        notIn: [SatzImportItemStatus.COMMITTED],
-      },
-      skip: false,
+  const remainingItems = await db.satzImportDraft.findMany({
+    where: { batchId },
+    select: {
+      id: true,
+      status: true,
+      skip: true,
+      isDuplicate: true,
+      allowSimilar: true,
+      translations: true,
     },
   });
+  const remainingReady = remainingItems.filter((item) =>
+    isDraftReadyToCommit(item),
+  ).length;
+  const remainingOpen = remainingItems.filter(
+    (item) => item.status !== SatzImportItemStatus.COMMITTED && !item.skip,
+  ).length;
 
   const nextStatus =
     remainingOpen === 0
@@ -551,6 +580,7 @@ export async function commitImportBatch(batchId: string, draftIds?: string[]) {
   return {
     createdCount: created.length,
     createdIds: created,
+    remaining: remainingReady,
     status: nextStatus,
   };
 }
@@ -666,6 +696,7 @@ export async function getBatchView(batchId: string) {
   return {
     id: batch.id,
     filename: batch.filename,
+    targetLang: resolveImportTargetLang(batch.targetLang),
     status: batch.status,
     error: batch.error,
     createdAt: batch.createdAt,

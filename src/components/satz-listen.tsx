@@ -9,6 +9,7 @@ import { api } from "~/trpc/client";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import { Checkbox } from "~/components/ui/checkbox";
+import { Progress } from "~/components/ui/progress";
 import {
   Card,
   CardContent,
@@ -55,6 +56,8 @@ export function SatzListen() {
   const didInitSelection = useRef(false);
   const [includeQuestions, setIncludeQuestions] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [generateProgress, setGenerateProgress] = useState({ done: 0, total: 0 });
+  const [playProgress, setPlayProgress] = useState({ done: 0, total: 0 });
   const [playingId, setPlayingId] = useState<string | null>(null);
   const stopRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -109,40 +112,48 @@ export function SatzListen() {
 
   const playQueue = async (satzIds: string[]) => {
     stopRef.current = false;
+    const jobs = satzIds.flatMap((satzId) => {
+      const satz = items.find((item) => item.id === satzId);
+      if (!satz) return [];
+      const answer = satz.translations.find((tr) => tr.lang === focusLang);
+      const question = satz.answerTo?.translations.find(
+        (tr) => tr.lang === focusLang,
+      );
+      const questionClips = satz.answerTo
+        ? playbackUrls({
+            mainUrl: satz.answerTo.mainAudioUrl,
+            mainStatus: satz.answerTo.mainAudioStatus,
+            mainUpdatedAt: satz.answerTo.updatedAt,
+            translationUrl: question?.audioUrl,
+            translationStatus: question?.audioStatus,
+            translationUpdatedAt: question?.updatedAt,
+          })
+        : [];
+      const answerClips = playbackUrls({
+        mainUrl: satz.mainAudioUrl,
+        mainStatus: satz.mainAudioStatus,
+        mainUpdatedAt: satz.updatedAt,
+        translationUrl: answer?.audioUrl,
+        translationStatus: answer?.audioStatus,
+        translationUpdatedAt: answer?.updatedAt,
+      });
+      const clips = [...questionClips, ...answerClips];
+      return clips.length > 0 ? [{ satzId, clips }] : [];
+    });
+    const total = jobs.reduce((sum, job) => sum + job.clips.length, 0);
+    setPlayProgress({ done: 0, total });
+    let done = 0;
     try {
-      for (const satzId of satzIds) {
+      for (const job of jobs) {
         if (stopRef.current) break;
-        const satz = items.find((item) => item.id === satzId);
-        if (!satz) continue;
-        const answer = satz.translations.find((tr) => tr.lang === focusLang);
-        const question = satz.answerTo?.translations.find(
-          (tr) => tr.lang === focusLang,
-        );
-        const questionClips = satz.answerTo
-          ? playbackUrls({
-              mainUrl: satz.answerTo.mainAudioUrl,
-              mainStatus: satz.answerTo.mainAudioStatus,
-              mainUpdatedAt: satz.answerTo.updatedAt,
-              translationUrl: question?.audioUrl,
-              translationStatus: question?.audioStatus,
-              translationUpdatedAt: question?.updatedAt,
-            })
-          : [];
-        const answerClips = playbackUrls({
-          mainUrl: satz.mainAudioUrl,
-          mainStatus: satz.mainAudioStatus,
-          mainUpdatedAt: satz.updatedAt,
-          translationUrl: answer?.audioUrl,
-          translationStatus: answer?.audioStatus,
-          translationUpdatedAt: answer?.updatedAt,
-        });
-        setPlayingId(satzId);
-        const sequence = [...questionClips, ...answerClips];
-        for (let i = 0; i < sequence.length; i++) {
+        setPlayingId(job.satzId);
+        for (let i = 0; i < job.clips.length; i++) {
           if (stopRef.current) break;
-          await playUrl(sequence[i]!);
+          done += 1;
+          setPlayProgress({ done, total });
+          await playUrl(job.clips[i]!);
           if (stopRef.current) break;
-          if (i < sequence.length - 1) {
+          if (i < job.clips.length - 1) {
             await sleep(LISTEN_PAUSE_MS);
           }
         }
@@ -160,6 +171,7 @@ export function SatzListen() {
     } finally {
       setPlayingId(null);
       audioRef.current = null;
+      setPlayProgress({ done: 0, total: 0 });
     }
   };
 
@@ -167,19 +179,29 @@ export function SatzListen() {
     const satzIds = selected.size > 0 ? [...selected] : items.map((s) => s.id);
     if (satzIds.length === 0) return;
     setGenerating(true);
+    setGenerateProgress({ done: 0, total: 0 });
     try {
       const requested = await requestMutation.mutateAsync({
         satzIds,
         includeQuestions,
         langs: [focusLang],
       });
-      let remaining = requested.requested;
+      const total = requested.requested;
+      setGenerateProgress({ done: 0, total });
+      let remaining = total;
+      let done = 0;
       while (remaining > 0) {
         const result = await processMutation.mutateAsync({ limit: 2 });
+        done += result.processed + result.failed;
         remaining = result.remaining;
+        setGenerateProgress({
+          done: Math.min(done, total || done),
+          total: total || done + remaining,
+        });
         await utils.satz.list.invalidate();
         if (result.processed === 0 && result.failed === 0) break;
       }
+      if (total > 0) setGenerateProgress({ done: total, total });
       toast({ title: tToasts("satzAudioDone") });
     } catch (error) {
       toast({
@@ -190,8 +212,15 @@ export function SatzListen() {
       });
     } finally {
       setGenerating(false);
+      setGenerateProgress({ done: 0, total: 0 });
     }
   };
+
+  const actionProgress = generating ? generateProgress : playProgress;
+  const actionPercent =
+    actionProgress.total > 0
+      ? Math.round((actionProgress.done / actionProgress.total) * 100)
+      : 0;
 
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">{tCommon("loading")}</p>;
@@ -219,60 +248,82 @@ export function SatzListen() {
             {t("listenReadyCount", { ready: readyCount, total: items.length })}
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox
-              checked={includeQuestions}
-              onCheckedChange={(checked) => setIncludeQuestions(checked === true)}
-            />
-            {t("listenIncludeQuestions")}
-          </label>
-          <Button
-            type="button"
-            disabled={generating || items.length === 0}
-            onClick={() => void handleGenerate()}
-          >
-            {generating ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Volume2 className="mr-2 h-4 w-4" />
-            )}
-            {t("listenGenerate")}
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={readyCount === 0 || generating}
-            onClick={() => {
-              const linkedQuestionIds = new Set(
-                items
-                  .map((satz) => satz.answerTo?.id)
-                  .filter((id): id is string => Boolean(id)),
-              );
-              void playQueue(
-                items
-                  .filter((satz) => {
-                    if (linkedQuestionIds.has(satz.id)) return false;
-                    const translation = satz.translations.find(
-                      (tr) => tr.lang === focusLang,
-                    );
-                    return (
-                      translation?.audioStatus === AudioStatus.DONE &&
-                      Boolean(translation.audioUrl)
-                    );
-                  })
-                  .map((satz) => satz.id),
-              );
-            }}
-          >
-            <Play className="mr-2 h-4 w-4" />
-            {t("listenStart")}
-          </Button>
-          {playingId ? (
-            <Button type="button" variant="ghost" onClick={stopPlayback}>
-              <Square className="mr-2 h-4 w-4" />
-              {tCommon("cancel")}
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={includeQuestions}
+                onCheckedChange={(checked) => setIncludeQuestions(checked === true)}
+              />
+              {t("listenIncludeQuestions")}
+            </label>
+            <Button
+              type="button"
+              disabled={generating || items.length === 0}
+              onClick={() => void handleGenerate()}
+            >
+              {generating ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Volume2 className="mr-2 h-4 w-4" />
+              )}
+              {t("listenGenerate")}
             </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={readyCount === 0 || generating}
+              onClick={() => {
+                const linkedQuestionIds = new Set(
+                  items
+                    .map((satz) => satz.answerTo?.id)
+                    .filter((id): id is string => Boolean(id)),
+                );
+                void playQueue(
+                  items
+                    .filter((satz) => {
+                      if (linkedQuestionIds.has(satz.id)) return false;
+                      const translation = satz.translations.find(
+                        (tr) => tr.lang === focusLang,
+                      );
+                      return (
+                        translation?.audioStatus === AudioStatus.DONE &&
+                        Boolean(translation.audioUrl)
+                      );
+                    })
+                    .map((satz) => satz.id),
+                );
+              }}
+            >
+              <Play className="mr-2 h-4 w-4" />
+              {t("listenStart")}
+            </Button>
+            {playingId ? (
+              <Button type="button" variant="ghost" onClick={stopPlayback}>
+                <Square className="mr-2 h-4 w-4" />
+                {tCommon("cancel")}
+              </Button>
+            ) : null}
+          </div>
+          {generating || playingId ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
+                <span className="flex items-center gap-2">
+                  {generating ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Volume2 className="h-4 w-4" />
+                  )}
+                  {generating ? t("listenGenerating") : t("listenPlaying")}
+                </span>
+                {actionProgress.total > 0 ? (
+                  <span>
+                    {actionProgress.done} / {actionProgress.total}
+                  </span>
+                ) : null}
+              </div>
+              <Progress value={actionPercent} />
+            </div>
           ) : null}
         </CardContent>
       </Card>

@@ -81,6 +81,7 @@ export const satzImportRouter = createTRPCRouter({
       z.object({
         csvText: z.string().min(1),
         filename: z.string().optional(),
+        targetLang: z.string().min(1).optional(),
       }),
     )
     .mutation(async ({ input }) => {
@@ -156,11 +157,15 @@ export const satzImportRouter = createTRPCRouter({
       z.object({
         batchId: z.string(),
         draftIds: z.array(z.string()).optional(),
+        limit: z.number().min(1).max(20).default(2),
       }),
     )
     .mutation(async ({ input }) => {
       try {
-        const result = await commitImportBatch(input.batchId, input.draftIds);
+        const result = await commitImportBatch(input.batchId, {
+          draftIds: input.draftIds,
+          limit: input.limit,
+        });
         const batch = await getBatchView(input.batchId);
         return { ...result, batch };
       } catch (error) {

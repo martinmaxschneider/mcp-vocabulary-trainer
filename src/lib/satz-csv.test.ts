@@ -9,6 +9,7 @@ import {
   isDraftReadyToCommit,
   parseDraftTranslations,
   resolveThemeNames,
+  translationsForLang,
 } from "~/lib/satz-import";
 
 describe("satz csv", () => {
@@ -108,6 +109,15 @@ describe("satz import helpers", () => {
         { lang: "it", text: "Ciao", register: "INFORMAL" },
         { lang: "de", text: "Hallo", register: "INFORMAL" },
       ]),
+    ).toEqual([{ lang: "fr", text: "Bonjour", register: "INFORMAL" }]);
+    expect(
+      translationsForLang(
+        [
+          { lang: "fr", text: "Bonjour", register: "INFORMAL" },
+          { lang: "es", text: "Hola", register: "INFORMAL" },
+        ],
+        "fr",
+      ),
     ).toEqual([{ lang: "fr", text: "Bonjour", register: "INFORMAL" }]);
   });
 });

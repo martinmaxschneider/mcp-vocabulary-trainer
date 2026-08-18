@@ -87,3 +87,8 @@ export function isLearningLang(code: string): code is LearningLangCode {
 export function isTargetLang(code: string): boolean {
   return TARGET_LANG_CODES.includes(code as LearningLangCode);
 }
+
+export function resolveImportTargetLang(code?: string | null): LearningLangCode {
+  if (code && isTargetLang(code)) return code as LearningLangCode;
+  return TARGET_LANGS[0]?.code ?? "en";
+}

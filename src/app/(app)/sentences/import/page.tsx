@@ -16,6 +16,7 @@ import {
 } from "~/components/ui/card";
 import { useToast } from "~/hooks/use-toast";
 import { resolveErrorCode } from "~/lib/trpc-error";
+import { useFocusLang } from "~/components/focus-lang-provider";
 import { Loader2, Upload } from "lucide-react";
 
 export default function SentenceImportPage() {
@@ -24,6 +25,8 @@ export default function SentenceImportPage() {
   const tToasts = useTranslations("toasts");
   const tErrors = useTranslations("errors.codes");
   const { toast } = useToast();
+  const { focusLang } = useFocusLang();
+  const tLang = useTranslations("languages");
   const fileRef = useRef<HTMLInputElement>(null);
   const [filename, setFilename] = useState<string | null>(null);
   const [csvText, setCsvText] = useState<string | null>(null);
@@ -63,7 +66,9 @@ export default function SentenceImportPage() {
       <Card>
         <CardHeader>
           <CardTitle>{t("importDrop")}</CardTitle>
-          <CardDescription>{t("importHint")}</CardDescription>
+          <CardDescription>
+            {t("importHint", { language: tLang(focusLang) })}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <input
@@ -98,7 +103,11 @@ export default function SentenceImportPage() {
                 });
                 return;
               }
-              uploadMutation.mutate({ csvText, filename: filename ?? undefined });
+              uploadMutation.mutate({
+                csvText,
+                filename: filename ?? undefined,
+                targetLang: focusLang,
+              });
             }}
           >
             {uploadMutation.isPending ? (

@@ -21,12 +21,14 @@ import { Checkbox } from "~/components/ui/checkbox";
 import { useToast } from "~/hooks/use-toast";
 import { resolveErrorCode } from "~/lib/trpc-error";
 import { playbackUrls } from "~/lib/satz-tts";
+import { SOURCE_LANG } from "~/lib/languages";
 import { useFocusLang } from "~/components/focus-lang-provider";
 
 function SentencesPageInner() {
   const searchParams = useSearchParams();
   const domainId = searchParams.get("domainId") ?? undefined;
   const t = useTranslations("sentences");
+  const tLang = useTranslations("languages");
   const tCommon = useTranslations("common");
   const tToasts = useTranslations("toasts");
   const tErrors = useTranslations("errors.codes");
@@ -253,10 +255,12 @@ function SentencesPageInner() {
             const translation = satz.translations.find(
               (tr) => tr.lang === focusLang,
             );
-            const clips = playbackUrls({
+            const mainClips = playbackUrls({
               mainUrl: satz.mainAudioUrl,
               mainStatus: satz.mainAudioStatus,
               mainUpdatedAt: satz.updatedAt,
+            });
+            const translationClips = playbackUrls({
               translationUrl: translation?.audioUrl,
               translationStatus: translation?.audioStatus,
               translationUpdatedAt: translation?.updatedAt,
@@ -301,12 +305,21 @@ function SentencesPageInner() {
                     </div>
                   </div>
                   <div className="flex gap-1">
-                    {clips.length > 0 ? (
-                      <SatzAudioButton
-                        urls={clips}
-                        label={t("playAudio")}
-                      />
-                    ) : (
+                    <SatzAudioButton
+                      urls={mainClips}
+                      langCode={SOURCE_LANG.code}
+                      label={t("playAudioLang", {
+                        language: tLang(SOURCE_LANG.code),
+                      })}
+                    />
+                    <SatzAudioButton
+                      urls={translationClips}
+                      langCode={focusLang}
+                      label={t("playAudioLang", {
+                        language: tLang(focusLang),
+                      })}
+                    />
+                    {mainClips.length === 0 || translationClips.length === 0 ? (
                       <Button
                         type="button"
                         size="icon"
@@ -327,7 +340,7 @@ function SentencesPageInner() {
                           <Volume2 className="h-4 w-4" />
                         )}
                       </Button>
-                    )}
+                    ) : null}
                     <Button asChild size="icon" variant="ghost">
                       <Link href={`/sentences/${satz.id}/edit`}>
                         <Pencil className="h-4 w-4" />
