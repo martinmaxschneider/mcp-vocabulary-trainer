@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   audioPublicPath,
   audioUrlWithVersion,
+  clipsForListenPass,
   isAudioTranslationId,
   mainAudioPublicPath,
   playbackUrls,
@@ -33,5 +34,22 @@ describe("satz tts helpers", () => {
         translationUpdatedAt: 2,
       }),
     ).toEqual(["/api/audio/main/a?v=1", "/api/audio/b?v=2"]);
+  });
+
+  it("keeps main audio only on the first listen pass", () => {
+    const clips = [
+      { kind: "main" as const, url: "de" },
+      { kind: "translation" as const, url: "fr" },
+    ];
+    expect(clipsForListenPass(clips, true).map((clip) => clip.url)).toEqual([
+      "de",
+      "fr",
+    ]);
+    expect(clipsForListenPass(clips, false).map((clip) => clip.url)).toEqual([
+      "fr",
+    ]);
+    expect(
+      clipsForListenPass([{ kind: "main" as const, url: "de" }], false),
+    ).toEqual([{ kind: "main", url: "de" }]);
   });
 });

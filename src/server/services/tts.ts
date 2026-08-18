@@ -1,6 +1,7 @@
-import { mkdir, rm, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { AudioStatus, Prisma } from "@prisma/client";
+import { audioDurationMs } from "~/lib/audio-duration";
 import { TARGET_LANG_CODES } from "~/lib/languages";
 import {
   audioFileName,
@@ -127,7 +128,9 @@ export async function requestSatzAudio(params: {
       where: { id: { in: toRequest.map((t) => t.id) } },
       data: {
         audioStatus: AudioStatus.REQUESTED,
-        ...(params.regenerate ? { audioUrl: null } : {}),
+        ...(params.regenerate
+          ? { audioUrl: null, audioDurationMs: null }
+          : {}),
       },
     });
   }
@@ -137,7 +140,9 @@ export async function requestSatzAudio(params: {
       where: { id: { in: mainToRequest.map((row) => row.id) } },
       data: {
         mainAudioStatus: AudioStatus.REQUESTED,
-        ...(params.regenerate ? { mainAudioUrl: null } : {}),
+        ...(params.regenerate
+          ? { mainAudioUrl: null, mainAudioDurationMs: null }
+          : {}),
       },
     });
   }
@@ -183,6 +188,7 @@ export async function processRequestedAudio(limit: number): Promise<{
         data: {
           mainAudioStatus: AudioStatus.DONE,
           mainAudioUrl: mainAudioPublicPath(satz.id),
+          mainAudioDurationMs: audioDurationMs(audio.buffer),
         },
       });
       processed += 1;
@@ -190,7 +196,11 @@ export async function processRequestedAudio(limit: number): Promise<{
       console.error("Satz main TTS failed:", error);
       await db.satz.update({
         where: { id: satz.id },
-        data: { mainAudioStatus: AudioStatus.NONE, mainAudioUrl: null },
+        data: {
+          mainAudioStatus: AudioStatus.NONE,
+          mainAudioUrl: null,
+          mainAudioDurationMs: null,
+        },
       });
       failed += 1;
     }
@@ -228,6 +238,7 @@ export async function processRequestedAudio(limit: number): Promise<{
         data: {
           audioStatus: AudioStatus.DONE,
           audioUrl: audioPublicPath(translation.id),
+          audioDurationMs: audioDurationMs(audio.buffer),
         },
       });
       processed += 1;
@@ -235,7 +246,11 @@ export async function processRequestedAudio(limit: number): Promise<{
       console.error("Satz TTS failed:", error);
       await db.satzTranslation.update({
         where: { id: translation.id },
-        data: { audioStatus: AudioStatus.NONE, audioUrl: null },
+        data: {
+          audioStatus: AudioStatus.NONE,
+          audioUrl: null,
+          audioDurationMs: null,
+        },
       });
       failed += 1;
     }
@@ -283,4 +298,86 @@ export async function deleteSatzAudioFiles(
   });
   await deleteAudioFiles(translations.map((t) => t.id));
   await deleteMainAudioFile(satzId);
+}
+
+async function durationFromFile(filePath: string): Promise<number | null> {
+  try {
+    const buffer = await readFile(filePath);
+    return audioDurationMs(buffer);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") return null;
+    throw error;
+  }
+}
+
+export async function backfillAudioDurations(limit = 200): Promise<{
+  processed: number;
+  skipped: number;
+  remaining: number;
+}> {
+  const [mains, translations] = await Promise.all([
+    db.satz.findMany({
+      where: {
+        mainAudioStatus: AudioStatus.DONE,
+        mainAudioDurationMs: null,
+      },
+      select: { id: true },
+      take: limit,
+      orderBy: { updatedAt: "asc" },
+    }),
+    db.satzTranslation.findMany({
+      where: {
+        audioStatus: AudioStatus.DONE,
+        audioDurationMs: null,
+      },
+      select: { id: true },
+      take: limit,
+      orderBy: { updatedAt: "asc" },
+    }),
+  ]);
+
+  let processed = 0;
+  let skipped = 0;
+
+  for (const satz of mains) {
+    const durationMs = await durationFromFile(mainAudioFilePath(satz.id));
+    if (durationMs == null) {
+      skipped += 1;
+      continue;
+    }
+    await db.satz.update({
+      where: { id: satz.id },
+      data: { mainAudioDurationMs: durationMs },
+    });
+    processed += 1;
+  }
+
+  for (const translation of translations) {
+    const durationMs = await durationFromFile(audioFilePath(translation.id));
+    if (durationMs == null) {
+      skipped += 1;
+      continue;
+    }
+    await db.satzTranslation.update({
+      where: { id: translation.id },
+      data: { audioDurationMs: durationMs },
+    });
+    processed += 1;
+  }
+
+  const [remainingMain, remainingTranslations] = await Promise.all([
+    db.satz.count({
+      where: { mainAudioStatus: AudioStatus.DONE, mainAudioDurationMs: null },
+    }),
+    db.satzTranslation.count({
+      where: { audioStatus: AudioStatus.DONE, audioDurationMs: null },
+    }),
+  ]);
+
+  return {
+    processed,
+    skipped,
+    remaining: remainingMain + remainingTranslations,
+  };
 }

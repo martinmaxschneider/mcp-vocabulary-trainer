@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Bot, KeyRound, Volume2, Wallet } from "lucide-react";
+import { Bot, Check, ChevronDown, KeyRound, Volume2, Wallet } from "lucide-react";
+import { cn } from "~/lib/utils";
 import { api } from "~/trpc/client";
 import { useToast } from "~/hooks/use-toast";
 import { resolveErrorCode } from "~/lib/trpc-error";
@@ -31,6 +32,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
 import { Progress } from "~/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 
@@ -46,6 +53,10 @@ function formatUsd(value: number | null | undefined): string {
   }).format(value);
 }
 
+function modelLabel(option: { id: string; name: string }) {
+  return option.name === option.id ? option.id : `${option.name} (${option.id})`;
+}
+
 function ModelSelect({
   value,
   options,
@@ -57,25 +68,96 @@ function ModelSelect({
   onValueChange: (value: string) => void;
   disabled?: boolean;
 }) {
-  const items = options.some((option) => option.id === value)
-    ? options
-    : value
-      ? [{ id: value, name: value }, ...options]
-      : options;
+  const t = useTranslations("settings");
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+
+  const items = useMemo(() => {
+    const list = options.some((option) => option.id === value)
+      ? options
+      : value
+        ? [{ id: value, name: value }, ...options]
+        : options;
+    return [...list].sort((a, b) =>
+      modelLabel(a).localeCompare(modelLabel(b), undefined, { sensitivity: "base" }),
+    );
+  }, [options, value]);
+
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return items;
+    return items.filter((option) => {
+      const label = modelLabel(option).toLowerCase();
+      return (
+        label.includes(needle) ||
+        option.id.toLowerCase().includes(needle) ||
+        option.name.toLowerCase().includes(needle)
+      );
+    });
+  }, [items, query]);
+
+  const selected = items.find((option) => option.id === value);
 
   return (
-    <Select value={value} onValueChange={onValueChange} disabled={disabled}>
-      <SelectTrigger>
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent className="max-h-72">
-        {items.map((option) => (
-          <SelectItem key={option.id} value={option.id}>
-            {option.name === option.id ? option.id : `${option.name} (${option.id})`}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <DropdownMenu
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setQuery("");
+      }}
+    >
+      <DropdownMenuTrigger asChild disabled={disabled}>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="h-10 w-full justify-between font-normal"
+          disabled={disabled}
+        >
+          <span className="truncate">
+            {selected ? modelLabel(selected) : value}
+          </span>
+          <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        className="w-[var(--radix-dropdown-menu-trigger-width)] overflow-hidden p-0"
+      >
+        <div className="border-b p-2" onKeyDown={(event) => event.stopPropagation()}>
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={t("aiModelSearch")}
+            autoFocus
+          />
+        </div>
+        <div className="max-h-64 overflow-y-auto p-1">
+          {filtered.length === 0 ? (
+            <p className="px-2 py-3 text-sm text-muted-foreground">
+              {t("aiModelSearchEmpty")}
+            </p>
+          ) : (
+            filtered.map((option) => (
+              <DropdownMenuItem
+                key={option.id}
+                className="gap-2"
+                onSelect={() => onValueChange(option.id)}
+              >
+                <Check
+                  className={cn(
+                    "h-4 w-4 shrink-0",
+                    option.id === value ? "opacity-100" : "opacity-0",
+                  )}
+                />
+                <span className="truncate">{modelLabel(option)}</span>
+              </DropdownMenuItem>
+            ))
+          )}
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

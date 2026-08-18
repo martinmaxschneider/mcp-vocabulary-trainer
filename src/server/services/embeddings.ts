@@ -493,6 +493,85 @@ export async function getEmbeddingStatus(): Promise<{
   };
 }
 
+export async function getSatzEmbeddingStatus(): Promise<{
+  total: number;
+  withEmbedding: number;
+  missing: number;
+  model: string;
+  dims: number;
+  threshold: number;
+}> {
+  const model = await getEmbeddingModel();
+  const total = await db.satz.count();
+  const withEmbedding = await db.embedding.count({
+    where: {
+      ownerType: EmbeddingOwnerType.SATZ,
+      model: { in: embeddingModelAliases(model) },
+    },
+  });
+  return {
+    total,
+    withEmbedding,
+    missing: Math.max(0, total - withEmbedding),
+    model,
+    dims: EMBEDDING_DIMS,
+    threshold: SIMILARITY_THRESHOLD,
+  };
+}
+
+export async function backfillSatzEmbeddings(limit: number): Promise<{
+  processed: number;
+  skipped: number;
+  remaining: number;
+  total: number;
+  withEmbedding: number;
+}> {
+  const model = await getEmbeddingModel();
+  const existing = await db.embedding.findMany({
+    where: {
+      ownerType: EmbeddingOwnerType.SATZ,
+      model: { in: embeddingModelAliases(model) },
+    },
+    select: { ownerId: true, textHash: true },
+  });
+  const hashById = new Map(existing.map((e) => [e.ownerId, e.textHash]));
+
+  const saetze = await db.satz.findMany({
+    select: { id: true, mainText: true },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const stale = saetze.filter((satz) => {
+    const hash = hashById.get(satz.id);
+    return !hash || hash !== hashEmbeddingText(satz.mainText);
+  });
+
+  const batch = stale.slice(0, limit);
+  let skipped = 0;
+
+  if (batch.length > 0) {
+    const vectors = await embedTexts(batch.map((s) => s.mainText));
+    for (let i = 0; i < batch.length; i++) {
+      const satz = batch[i]!;
+      const vector = vectors[i];
+      if (!vector) {
+        skipped += 1;
+        continue;
+      }
+      await saveSatzEmbedding(satz.id, vector, hashEmbeddingText(satz.mainText));
+    }
+  }
+
+  const status = await getSatzEmbeddingStatus();
+  return {
+    processed: batch.length - skipped,
+    skipped,
+    remaining: Math.max(0, stale.length - batch.length),
+    total: status.total,
+    withEmbedding: status.withEmbedding,
+  };
+}
+
 export async function backfillEntryEmbeddings(limit: number): Promise<{
   processed: number;
   skipped: number;

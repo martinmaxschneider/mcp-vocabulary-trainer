@@ -44,9 +44,15 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
     api.createClient({
       links: [
         loggerLink({
-          enabled: (op) =>
-            process.env.NODE_ENV === "development" ||
-            (op.direction === "down" && op.result instanceof Error),
+          enabled: (op) => {
+            if (op.direction === "down" && isAbortResult(op.result)) {
+              return false;
+            }
+            return (
+              process.env.NODE_ENV === "development" ||
+              (op.direction === "down" && op.result instanceof Error)
+            );
+          },
         }),
         unstable_httpBatchStreamLink({
           transformer: SuperJSON,
@@ -67,6 +73,21 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
         {props.children}
       </api.Provider>
     </QueryClientProvider>
+  );
+}
+
+function isAbortResult(result: unknown): boolean {
+  if (!result || typeof result !== "object") return false;
+  const err = result as {
+    name?: string;
+    message?: string;
+    cause?: { name?: string; message?: string };
+  };
+  const parts = [err.name, err.message, err.cause?.name, err.cause?.message];
+  return parts.some(
+    (part) =>
+      typeof part === "string" &&
+      (part === "AbortError" || part.toLowerCase().includes("aborted")),
   );
 }
 

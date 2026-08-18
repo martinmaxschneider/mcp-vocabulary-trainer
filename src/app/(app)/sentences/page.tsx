@@ -15,7 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "~/components/ui/card";
-import { Headphones, Loader2, Pencil, Plus, Trash2, Upload, Volume2 } from "lucide-react";
+import { BookOpen, Dumbbell, Headphones, Loader2, Pencil, Plus, Trash2, Upload, Volume2 } from "lucide-react";
 import { SatzAudioButton } from "~/components/satz-audio-button";
 import { Checkbox } from "~/components/ui/checkbox";
 import { useToast } from "~/hooks/use-toast";
@@ -41,8 +41,8 @@ function SentencesPageInner() {
   const utils = api.useUtils();
 
   const { data, isLoading } = api.satz.list.useQuery({
-    query: query.trim() || undefined,
-    domainId,
+    ...(query.trim() ? { query: query.trim() } : {}),
+    ...(domainId ? { domainId } : {}),
     limit: 100,
   });
 
@@ -152,6 +152,12 @@ function SentencesPageInner() {
           <p className="text-muted-foreground">{t("subtitle")}</p>
         </div>
         <div className="flex gap-2">
+          <Button asChild variant="outline">
+            <Link href="/sentences/review">
+              <BookOpen className="mr-2 h-4 w-4" />
+              {t("review")}
+            </Link>
+          </Button>
           <Button asChild variant="outline">
             <Link href="/sentences/listen">
               <Headphones className="mr-2 h-4 w-4" />
@@ -341,6 +347,11 @@ function SentencesPageInner() {
                         )}
                       </Button>
                     ) : null}
+                    <Button asChild size="icon" variant="ghost">
+                      <Link href={`/sentences/${satz.id}/train`} aria-label={t("train")}>
+                        <Dumbbell className="h-4 w-4" />
+                      </Link>
+                    </Button>
                     <Button asChild size="icon" variant="ghost">
                       <Link href={`/sentences/${satz.id}/edit`}>
                         <Pencil className="h-4 w-4" />

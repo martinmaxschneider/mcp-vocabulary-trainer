@@ -13,14 +13,21 @@ import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { SOURCE_LANG } from "~/lib/languages";
 import { db } from "~/server/db";
 import {
+  assessNewSatzSimilarity,
+  backfillSatzEmbeddings,
   deleteSatzEmbedding,
+  findSimilarSaetze,
+  getSatzEmbeddingStatus,
+  saveSatzEmbedding,
   upsertSatzEmbedding,
 } from "~/server/services/embeddings";
+import { MIN_BOX, MAX_BOX } from "~/lib/leitner";
 import { suggestAnswerQuestion } from "~/server/services/satz-question";
 import {
   deleteAudioFiles,
   deleteMainAudioFiles,
   deleteSatzAudioFiles,
+  backfillAudioDurations,
   getSatzAudioStatus,
   processRequestedAudio,
   requestSatzAudio,
@@ -49,6 +56,7 @@ export const createSatzInputSchema = z.object({
   linkedEntryIds: z.array(z.string()).optional(),
   grammarTopicIds: z.array(z.string()).optional(),
   translations: z.array(satzTranslationInputSchema).min(1),
+  allowSimilar: z.boolean().optional(),
 });
 
 const satzInclude = {
@@ -69,16 +77,12 @@ const satzInclude = {
     },
   },
   answerTo: {
-    select: {
-      id: true,
-      mainText: true,
-      mainAudioStatus: true,
-      mainAudioUrl: true,
-      updatedAt: true,
+    include: {
       translations: true,
     },
   },
   answers: { select: { id: true, mainText: true } },
+  progresses: true,
 } as const;
 
 type DbClient = typeof db | Prisma.TransactionClient;
@@ -178,6 +182,42 @@ async function persistSatzEmbedding(satzId: string, mainText: string) {
   }
 }
 
+async function satzBoxWhere(
+  userId: string,
+  input?: {
+    box?: number;
+    targetLang?: string;
+  },
+): Promise<Prisma.SatzWhereInput> {
+  if (input?.box === undefined) return {};
+  const targetLang = input.targetLang;
+  if (!targetLang) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "targetLang is required when filtering by box",
+    });
+  }
+  const includeUnseen = input.box === MIN_BOX;
+  return {
+    OR: [
+      {
+        progresses: {
+          some: { userId, targetLang, box: input.box },
+        },
+      },
+      ...(includeUnseen
+        ? [
+            {
+              progresses: {
+                none: { userId, targetLang },
+              },
+            },
+          ]
+        : []),
+    ],
+  };
+}
+
 export const satzRouter = createTRPCRouter({
   list: publicProcedure
     .input(
@@ -187,6 +227,9 @@ export const satzRouter = createTRPCRouter({
           ids: z.array(z.string()).optional(),
           source: z.nativeEnum(SatzSource).optional(),
           priority: z.nativeEnum(SatzPriority).optional(),
+          shadowingStatus: z.nativeEnum(ShadowingStatus).optional(),
+          box: z.number().int().min(MIN_BOX).max(MAX_BOX).optional(),
+          targetLang: z.string().optional(),
           query: z.string().optional(),
           limit: z.number().min(1).max(200).default(50),
           cursor: z.string().optional(),
@@ -195,6 +238,7 @@ export const satzRouter = createTRPCRouter({
     )
     .query(async ({ ctx, input }) => {
       const query = input?.query?.trim();
+      const boxFilter = await satzBoxWhere(ctx.userId, input);
       const where: Prisma.SatzWhereInput = {
         ...(input?.ids && input.ids.length > 0 && { id: { in: input.ids } }),
         ...(input?.domainId && {
@@ -202,6 +246,10 @@ export const satzRouter = createTRPCRouter({
         }),
         ...(input?.source && { source: input.source }),
         ...(input?.priority && { priority: input.priority }),
+        ...(input?.shadowingStatus && {
+          shadowingStatus: input.shadowingStatus,
+        }),
+        ...boxFilter,
         ...(query && {
           OR: [
             { mainText: { contains: query } },
@@ -268,11 +316,24 @@ export const satzRouter = createTRPCRouter({
   create: publicProcedure
     .input(createSatzInputSchema)
     .mutation(async ({ ctx, input }) => {
-      const domainIds = resolveIds(input.domainId, input.domainIds);
+      const { allowSimilar, ...fields } = input;
+      const assessment = await assessNewSatzSimilarity({
+        mainText: fields.mainText,
+        allowSimilar,
+      });
+      if (assessment.blocked) {
+        return {
+          created: false as const,
+          reason: "similar" as const,
+          candidates: assessment.candidates,
+        };
+      }
+
+      const domainIds = resolveIds(fields.domainId, fields.domainIds);
       await assertSatzDomainIds(ctx.db, domainIds);
-      if (input.answerToId) {
+      if (fields.answerToId) {
         const question = await ctx.db.satz.findUnique({
-          where: { id: input.answerToId },
+          where: { id: fields.answerToId },
           select: { id: true },
         });
         if (!question) {
@@ -285,15 +346,15 @@ export const satzRouter = createTRPCRouter({
 
       const satz = await ctx.db.satz.create({
         data: {
-          mainLang: input.mainLang ?? SOURCE_LANG.code,
-          mainText: input.mainText.trim(),
-          trigger: input.trigger?.trim() || null,
-          source: input.source ?? SatzSource.PERSONAL,
-          priority: input.priority ?? SatzPriority.OCCASIONAL,
-          shadowingStatus: input.shadowingStatus ?? ShadowingStatus.NOT_STARTED,
-          answerToId: input.answerToId,
+          mainLang: fields.mainLang ?? SOURCE_LANG.code,
+          mainText: fields.mainText.trim(),
+          trigger: fields.trigger?.trim() || null,
+          source: fields.source ?? SatzSource.PERSONAL,
+          priority: fields.priority ?? SatzPriority.OCCASIONAL,
+          shadowingStatus: fields.shadowingStatus ?? ShadowingStatus.NOT_STARTED,
+          answerToId: fields.answerToId,
           translations: {
-            create: input.translations.map((t) => ({
+            create: fields.translations.map((t) => ({
               lang: t.lang,
               text: t.text.trim(),
               register: t.register ?? SatzRegister.INFORMAL,
@@ -304,18 +365,18 @@ export const satzRouter = createTRPCRouter({
           ...(domainIds.length > 0 && {
             domains: { create: domainIds.map((domainId) => ({ domainId })) },
           }),
-          ...(input.linkedEntryIds &&
-            input.linkedEntryIds.length > 0 && {
+          ...(fields.linkedEntryIds &&
+            fields.linkedEntryIds.length > 0 && {
               linkedEntries: {
-                create: [...new Set(input.linkedEntryIds)].map((entryId) => ({
+                create: [...new Set(fields.linkedEntryIds)].map((entryId) => ({
                   entryId,
                 })),
               },
             }),
-          ...(input.grammarTopicIds &&
-            input.grammarTopicIds.length > 0 && {
+          ...(fields.grammarTopicIds &&
+            fields.grammarTopicIds.length > 0 && {
               grammarTopics: {
-                create: [...new Set(input.grammarTopicIds)].map(
+                create: [...new Set(fields.grammarTopicIds)].map(
                   (grammarTopicId) => ({ grammarTopicId }),
                 ),
               },
@@ -324,8 +385,13 @@ export const satzRouter = createTRPCRouter({
         include: satzInclude,
       });
 
-      await persistSatzEmbedding(satz.id, satz.mainText);
-      return satz;
+      try {
+        await saveSatzEmbedding(satz.id, assessment.vector, assessment.textHash);
+      } catch (error) {
+        console.error("Satz embedding failed:", error);
+        await persistSatzEmbedding(satz.id, satz.mainText);
+      }
+      return { created: true as const, satz };
     }),
 
   update: publicProcedure
@@ -552,5 +618,75 @@ export const satzRouter = createTRPCRouter({
     .input(z.object({ satzIds: z.array(z.string()).optional() }).optional())
     .query(async ({ input }) => {
       return getSatzAudioStatus(input?.satzIds);
+    }),
+
+  markPracticed: publicProcedure
+    .input(z.object({ satzIds: z.array(z.string()).min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      const result = await ctx.db.satz.updateMany({
+        where: {
+          id: { in: [...new Set(input.satzIds)] },
+          shadowingStatus: ShadowingStatus.NOT_STARTED,
+        },
+        data: { shadowingStatus: ShadowingStatus.PRACTICING },
+      });
+      return { updated: result.count };
+    }),
+
+  setShadowingStatus: publicProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        shadowingStatus: z.nativeEnum(ShadowingStatus),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const satz = await ctx.db.satz.update({
+        where: { id: input.id },
+        data: { shadowingStatus: input.shadowingStatus },
+        include: satzInclude,
+      });
+      return satz;
+    }),
+
+  embeddingStatus: publicProcedure.query(async () => {
+    return getSatzEmbeddingStatus();
+  }),
+
+  findSimilar: publicProcedure
+    .input(
+      z.object({
+        query: z.string().min(1),
+        limit: z.number().min(1).max(20).default(5),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const result = await findSimilarSaetze(input.query, { k: input.limit });
+      return {
+        query: input.query.trim(),
+        candidates: result.candidates,
+      };
+    }),
+
+  backfillEmbeddings: publicProcedure
+    .input(
+      z.object({
+        limit: z.number().min(1).max(100).default(50),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      return backfillSatzEmbeddings(input.limit);
+    }),
+
+  backfillAudioDuration: publicProcedure
+    .input(
+      z
+        .object({
+          limit: z.number().min(1).max(500).default(200),
+        })
+        .optional(),
+    )
+    .mutation(async ({ input }) => {
+      return backfillAudioDurations(input?.limit ?? 200);
     }),
 });

@@ -30,6 +30,11 @@ import { groupDomainsByKind } from "~/lib/domain-catalog";
 import { looksLikeQuestion } from "~/lib/satz-question";
 import { useFocusLang } from "~/components/focus-lang-provider";
 import { SatzAudioButton } from "~/components/satz-audio-button";
+import {
+  SimilarEntriesDialog,
+  type SimilarEntryCandidate,
+} from "~/components/similar-entries-dialog";
+import { isEntryCreated } from "~/lib/entry-create";
 import { Loader2, Save, Search, Sparkles, X } from "lucide-react";
 
 type TranslationDraft = {
@@ -97,6 +102,11 @@ export function SatzForm({
   const [values, setValues] = useState<SatzFormValues>(initial);
   const [entryQuery, setEntryQuery] = useState("");
   const [questionQuery, setQuestionQuery] = useState("");
+  const [similarOpen, setSimilarOpen] = useState(false);
+  const [similarCandidates, setSimilarCandidates] = useState<
+    SimilarEntryCandidate[]
+  >([]);
+  const [pendingAllowSimilar, setPendingAllowSimilar] = useState(false);
 
   const errorDescription = (message: string) => {
     const code = resolveErrorCode(message);
@@ -147,7 +157,14 @@ export function SatzForm({
   });
 
   const createMutation = api.satz.create.useMutation({
-    onSuccess: () => {
+    onSuccess: (result) => {
+      if (!isEntryCreated(result)) {
+        setSimilarCandidates(result.candidates);
+        setSimilarOpen(true);
+        return;
+      }
+      setSimilarOpen(false);
+      setPendingAllowSimilar(false);
       toast({ title: tToasts("satzCreated") });
       router.push("/sentences");
     },
@@ -237,7 +254,10 @@ export function SatzForm({
     };
 
     if (mode === "create") {
-      createMutation.mutate(payload);
+      createMutation.mutate({
+        ...payload,
+        allowSimilar: pendingAllowSimilar || undefined,
+      });
     } else if (values.id) {
       updateMutation.mutate({
         id: values.id,
@@ -630,6 +650,39 @@ export function SatzForm({
           </>
         )}
       </Button>
+
+      <SimilarEntriesDialog
+        open={similarOpen}
+        onOpenChange={setSimilarOpen}
+        candidates={similarCandidates}
+        confirming={createMutation.isPending}
+        namespace="similarSaetze"
+        onConfirm={() => {
+          setPendingAllowSimilar(true);
+          createMutation.mutate({
+            mainLang: SOURCE_LANG.code,
+            mainText: values.mainText.trim(),
+            trigger: values.trigger.trim() || undefined,
+            source: values.source,
+            priority: values.priority,
+            shadowingStatus: values.shadowingStatus,
+            domainIds: values.domainIds,
+            linkedEntryIds: values.linkedEntries.map((e) => e.id),
+            grammarTopicIds: values.grammarTopicIds,
+            translations: Object.entries(values.translations)
+              .filter(([, draft]) => draft.text.trim())
+              .map(([lang, draft]) => ({
+                lang,
+                text: draft.text.trim(),
+                register: draft.register,
+                audioUrl: draft.audioUrl ?? undefined,
+                audioStatus: draft.audioStatus,
+              })),
+            answerToId: values.answerTo?.id,
+            allowSimilar: true,
+          });
+        }}
+      />
     </div>
   );
 }

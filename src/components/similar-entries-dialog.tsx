@@ -27,14 +27,16 @@ export function SimilarEntriesDialog({
   candidates,
   confirming,
   onConfirm,
+  namespace = "similarEntries",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   candidates: SimilarEntryCandidate[];
   confirming?: boolean;
   onConfirm: () => void;
+  namespace?: "similarEntries" | "similarSaetze";
 }) {
-  const t = useTranslations("similarEntries");
+  const t = useTranslations(namespace);
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>

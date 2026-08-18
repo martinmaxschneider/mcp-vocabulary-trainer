@@ -14,6 +14,7 @@
     "db:backup": "node scripts/db-backup.mjs",
     "db:migrate": "node scripts/db-migrate.mjs",
     "db:migrate:dev": "node scripts/db-migrate.mjs --dev",
+    "db:backfill-audio": "node scripts/backfill-audio-duration.mjs",
     "update": "node scripts/self-update.mjs",
     "db:studio": "prisma studio",
     "postinstall": "node scripts/prisma-generate.mjs",

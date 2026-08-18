@@ -54,6 +54,55 @@ export function isAudioTranslationId(id: string): boolean {
   return /^[a-z0-9]{16,40}$/i.test(id);
 }
 
+export type PlaybackClipKind = "main" | "translation";
+
+export type PlaybackClip = {
+  url: string;
+  durationMs: number | null;
+  kind: PlaybackClipKind;
+};
+
+export function playbackClips(params: {
+  mainUrl?: string | null;
+  mainStatus?: string | null;
+  mainUpdatedAt?: Date | string | number;
+  mainDurationMs?: number | null;
+  translationUrl?: string | null;
+  translationStatus?: string | null;
+  translationUpdatedAt?: Date | string | number;
+  translationDurationMs?: number | null;
+}): PlaybackClip[] {
+  const clips: PlaybackClip[] = [];
+  if (params.mainStatus === "DONE" && params.mainUrl) {
+    clips.push({
+      url: params.mainUpdatedAt
+        ? audioUrlWithVersion(params.mainUrl, params.mainUpdatedAt)
+        : params.mainUrl,
+      durationMs: params.mainDurationMs ?? null,
+      kind: "main",
+    });
+  }
+  if (params.translationStatus === "DONE" && params.translationUrl) {
+    clips.push({
+      url: params.translationUpdatedAt
+        ? audioUrlWithVersion(params.translationUrl, params.translationUpdatedAt)
+        : params.translationUrl,
+      durationMs: params.translationDurationMs ?? null,
+      kind: "translation",
+    });
+  }
+  return clips;
+}
+
+export function clipsForListenPass<T extends { kind: PlaybackClipKind }>(
+  clips: T[],
+  playMain: boolean,
+): T[] {
+  if (playMain) return clips;
+  const withoutMain = clips.filter((clip) => clip.kind !== "main");
+  return withoutMain.length > 0 ? withoutMain : clips;
+}
+
 export function playbackUrls(params: {
   mainUrl?: string | null;
   mainStatus?: string | null;
@@ -62,20 +111,5 @@ export function playbackUrls(params: {
   translationStatus?: string | null;
   translationUpdatedAt?: Date | string | number;
 }): string[] {
-  const urls: string[] = [];
-  if (params.mainStatus === "DONE" && params.mainUrl) {
-    urls.push(
-      params.mainUpdatedAt
-        ? audioUrlWithVersion(params.mainUrl, params.mainUpdatedAt)
-        : params.mainUrl,
-    );
-  }
-  if (params.translationStatus === "DONE" && params.translationUrl) {
-    urls.push(
-      params.translationUpdatedAt
-        ? audioUrlWithVersion(params.translationUrl, params.translationUpdatedAt)
-        : params.translationUrl,
-    );
-  }
-  return urls;
+  return playbackClips(params).map((clip) => clip.url);
 }

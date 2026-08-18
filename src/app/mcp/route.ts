@@ -168,6 +168,7 @@ const handler = createMcpHandler(
       linkedEntryIds: z.array(z.string()).optional(),
       grammarTopicIds: z.array(z.string()).optional(),
       translations: z.array(z.object(satzTranslationToolSchema)).min(1),
+      allowSimilar: z.boolean().optional(),
     };
 
     server.tool(
@@ -182,11 +183,14 @@ const handler = createMcpHandler(
 
     server.tool(
       "list_saetze",
-      "Listet Sätze (optional gefiltert nach domainId, source, priority, query).",
+      "Listet Sätze (optional gefiltert nach domainId, source, priority, shadowingStatus, box+targetLang, query).",
       {
         domainId: z.string().optional(),
         source: z.nativeEnum(SatzSource).optional(),
         priority: z.nativeEnum(SatzPriority).optional(),
+        shadowingStatus: z.nativeEnum(ShadowingStatus).optional(),
+        box: z.number().int().min(MIN_BOX).max(MAX_BOX).optional(),
+        targetLang: z.string().optional(),
         query: z.string().optional(),
         limit: z.number().min(1).max(200).default(50),
         cursor: z.string().optional(),
@@ -216,7 +220,8 @@ const handler = createMcpHandler(
       "Legt einen Satz an (deutscher mainText, Übersetzungen nur für aktive Zielsprachen, optional trigger/source/priority). " +
         "domainIds nur THEME oder SPECIAL (nicht Grammatik-Buckets). " +
         "linkedEntryIds = Vokabeln im Satz, grammarTopicIds = Grammatik-Kapitel. " +
-        "register pro Übersetzung: INFORMAL (Standard) oder FORMAL.",
+        "register pro Übersetzung: INFORMAL (Standard) oder FORMAL. " +
+        "Vor dem Speichern: Embedding-Ähnlichkeit gegen bestehende Sätze. Bei vermutetem Duplikat kommt created:false mit candidates — dann allowSimilar:true setzen.",
       satzToolSchema,
       async (args) => {
         const api = await getCaller();
@@ -355,6 +360,54 @@ const handler = createMcpHandler(
         const api = await getCaller();
         try {
           return jsonResult(await api.satz.processAudio({ limit }));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "get_satz_review_queue",
+      "Liefert fällige Satz-Karten für Active Recall (Selbstbewertung). Filter: targetLang, optional domainId, priority, box.",
+      {
+        targetLang: z.string(),
+        domainId: z.string().optional(),
+        priority: z.nativeEnum(SatzPriority).optional(),
+        box: z.number().int().min(MIN_BOX).max(MAX_BOX).optional(),
+        limit: z.number().min(1).max(100).default(20),
+      },
+      async (args) => {
+        const api = await getCaller();
+        const result = await api.satzReview.queue(args);
+        return jsonResult({
+          totalAvailable: result.totalAvailable,
+          boxCounts: result.boxCounts,
+          cards: result.cards.map(({ translation: _t, ...card }) => card),
+        });
+      },
+    );
+
+    server.tool(
+      "grade_satz_review",
+      "Selbstbewertung einer Satz-Karte: isCorrect bewegt die Leitner-Box (kein Tipp-Abgleich).",
+      {
+        satzId: z.string(),
+        targetLang: z.string(),
+        isCorrect: z.boolean(),
+      },
+      async (args) => {
+        const api = await getCaller();
+        try {
+          const result = await api.satzReview.grade(args);
+          return jsonResult({
+            correct: result.isCorrect,
+            boxBefore: result.boxBefore,
+            boxAfter: result.boxAfter,
+            nextReviewAt: result.nextReviewAt,
+            expected: result.expected,
+            correctCount: result.correctCount,
+            wrongCount: result.wrongCount,
+          });
         } catch (e) {
           return errorResult(e instanceof Error ? e.message : String(e));
         }

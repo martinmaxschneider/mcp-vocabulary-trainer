@@ -474,8 +474,9 @@ model Satz {
   answerToId      String?
   answerTo        Satz?           @relation("SatzAnswerTo", fields: [answerToId], references: [id], onDelete: SetNull)
   answers         Satz[]          @relation("SatzAnswerTo")
-  mainAudioStatus AudioStatus     @default(NONE)
-  mainAudioUrl    String?
+  mainAudioStatus     AudioStatus @default(NONE)
+  mainAudioUrl        String?
+  mainAudioDurationMs Int?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
@@ -483,10 +484,43 @@ model Satz {
   domains       DomainSatz[]
   linkedEntries SatzEntry[]
   grammarTopics SatzGrammarTopic[]
+  progresses    SatzProgress[]
 
   @@index([answerToId])
   @@index([updatedAt])
   @@index([source, priority])
+}
+
+model SatzProgress {
+  id             String    @id @default(cuid())
+  userId         String    @default("anonymous")
+  satzId         String
+  satz           Satz      @relation(fields: [satzId], references: [id], onDelete: Cascade)
+  targetLang     String
+  box            Int       @default(1)
+  nextReviewAt   DateTime  @default(now())
+  correctCount   Int       @default(0)
+  wrongCount     Int       @default(0)
+  lastReviewedAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  reviews SatzReviewLog[]
+
+  @@unique([userId, satzId, targetLang])
+  @@index([userId, targetLang, nextReviewAt])
+  @@index([userId, targetLang, box])
+}
+
+model SatzReviewLog {
+  id             String       @id @default(cuid())
+  satzProgressId String
+  satzProgress   SatzProgress @relation(fields: [satzProgressId], references: [id], onDelete: Cascade)
+  isCorrect      Boolean
+  createdAt      DateTime     @default(now())
+
+  @@index([satzProgressId])
+  @@index([createdAt])
 }
 
 model SatzTranslation {
@@ -495,8 +529,9 @@ model SatzTranslation {
   satz        Satz         @relation(fields: [satzId], references: [id], onDelete: Cascade)
   lang        String
   text        String
-  audioUrl    String?
-  audioStatus AudioStatus  @default(NONE)
+  audioUrl        String?
+  audioStatus     AudioStatus  @default(NONE)
+  audioDurationMs Int?
   register    SatzRegister @default(INFORMAL)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt

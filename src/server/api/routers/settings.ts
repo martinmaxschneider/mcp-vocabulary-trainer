@@ -68,6 +68,8 @@ export const settingsRouter = createTRPCRouter({
     // Delete all UserProgress and ReviewLog entries
     await ctx.db.reviewLog.deleteMany({});
     await ctx.db.userProgress.deleteMany({});
+    await ctx.db.satzReviewLog.deleteMany({});
+    await ctx.db.satzProgress.deleteMany({});
     await resetGamification(ctx.db, ctx.userId);
 
     return { success: true };
@@ -92,6 +94,8 @@ export const settingsRouter = createTRPCRouter({
     await ctx.db.worksheet.deleteMany({});
     await ctx.db.reviewLog.deleteMany({});
     await ctx.db.userProgress.deleteMany({});
+    await ctx.db.satzReviewLog.deleteMany({});
+    await ctx.db.satzProgress.deleteMany({});
     await resetGamification(ctx.db, ctx.userId);
     await ctx.db.domainEntry.deleteMany({});
     await ctx.db.translation.deleteMany({});

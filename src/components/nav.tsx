@@ -37,7 +37,6 @@ export function Nav() {
   const links = [
     { href: "/", label: t("dashboard"), icon: Home },
     { href: "/domains", label: t("domains"), icon: FolderOpen },
-    { href: "/sentences", label: t("sentences"), icon: Quote },
     { href: "/review", label: t("review"), icon: BookOpen },
     {
       href: "/practice/conjugations",
@@ -49,6 +48,7 @@ export function Nav() {
   ];
 
   const isVocabularyActive = pathname.startsWith("/vocabulary");
+  const isSentencesActive = pathname.startsWith("/sentences");
 
   return (
     <nav className="border-b border-border bg-background">
@@ -76,6 +76,42 @@ export function Nav() {
                 </Button>
               );
             })}
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant={isSentencesActive ? "default" : "ghost"}
+                  size="sm"
+                  className="gap-2"
+                >
+                  <Quote className="h-4 w-4" />
+                  {t("sentences")}
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem asChild>
+                  <Link href="/sentences" className="cursor-pointer">
+                    {t("sentences")}
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/sentences/review" className="cursor-pointer">
+                    {t("sentenceReview")}
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/sentences/listen" className="cursor-pointer">
+                    {t("sentenceListen")}
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/sentences/import" className="cursor-pointer">
+                    {t("sentenceImport")}
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
