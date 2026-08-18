@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { SatzPriority } from "@prisma/client";
 import { api } from "~/trpc/client";
@@ -45,6 +46,8 @@ export function SatzReview() {
   const tLang = useTranslations("languages");
   const { focusLang } = useFocusLang();
   const celebrate = useCelebrate();
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [state, setState] = useState<ReviewState>("setup");
   const [domainId, setDomainId] = useState<string>("all");
@@ -121,6 +124,12 @@ export function SatzReview() {
     setSession({ answers: 0, correct: 0, xp: 0, streak: 0 });
     setState("active");
   };
+
+  useEffect(() => {
+    if (searchParams.get("start") !== "1") return;
+    start();
+    router.replace("/sentences/review", { scroll: false });
+  }, [searchParams, router]);
 
   if (state === "summary") {
     return (

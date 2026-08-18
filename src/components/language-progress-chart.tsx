@@ -32,6 +32,7 @@ interface LanguageProgressChartProps {
     languageName: string;
     vocab: LeitnerTrack;
     conjugations: LeitnerTrack;
+    satze: LeitnerTrack;
     masteryPercent?: number;
     levelKey?: string;
   }>;
@@ -178,6 +179,19 @@ export function LanguageProgressChart({
                   percent: lang.conjugations.masteryPercentage,
                   mastered: lang.conjugations.mastered,
                   total: lang.conjugations.total,
+                })}
+                segments={segments}
+              />
+            ) : null}
+
+            {lang.satze.total > 0 ? (
+              <TrackRow
+                label={t("trackSatze")}
+                track={lang.satze}
+                masteryLabel={t("mastery", {
+                  percent: lang.satze.masteryPercentage,
+                  mastered: lang.satze.mastered,
+                  total: lang.satze.total,
                 })}
                 segments={segments}
               />

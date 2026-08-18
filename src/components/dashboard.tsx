@@ -24,6 +24,7 @@ import {
   BookA,
   BookText,
   Play,
+  Quote,
 } from "lucide-react";
 import { Badge } from "~/components/ui/badge";
 import { useFocusLang } from "~/components/focus-lang-provider";
@@ -103,7 +104,7 @@ export function Dashboard() {
         </div>
       </div>
 
-      <div className="mb-8 grid gap-3 sm:grid-cols-2">
+      <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <Button asChild size="lg" className="h-auto justify-start gap-3 py-4">
           <Link
             href={
@@ -160,6 +161,17 @@ export function Dashboard() {
             </span>
           </Button>
         )}
+        <Button asChild size="lg" variant="outline" className="h-auto justify-start gap-3 py-4">
+          <Link href="/sentences/review?start=1">
+            <Quote className="h-5 w-5" />
+            <span className="flex flex-col items-start text-left">
+              <span>{t("startSatzReview")}</span>
+              <span className="text-xs font-normal text-muted-foreground">
+                {t("startSatzReviewDesc", { language: tLang(focusLang) })}
+              </span>
+            </span>
+          </Link>
+        </Button>
       </div>
 
       {isLoading || !stats ? (
@@ -187,10 +199,10 @@ export function Dashboard() {
               icon={<MessageSquare className="h-4 w-4 text-muted-foreground" />}
             />
             <StatsWidget
-              title={tNav("domains")}
-              value={stats.domainStats.length}
-              description={t("domainsDesc")}
-              icon={<FileText className="h-4 w-4 text-muted-foreground" />}
+              title={tNav("sentences")}
+              value={stats.satzCount}
+              description={t("sentencesDesc")}
+              icon={<Quote className="h-4 w-4 text-muted-foreground" />}
             />
           </div>
 

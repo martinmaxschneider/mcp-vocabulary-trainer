@@ -79,7 +79,7 @@ export const statsRouter = createTRPCRouter({
       ? { translations: { some: { lang: targetLang } } }
       : {};
 
-    const dueCount = await ctx.db.userProgress.count({
+    const dueVocabCount = await ctx.db.userProgress.count({
       where: {
         userId,
         cardType: CardType.VOCAB,
@@ -87,10 +87,27 @@ export const statsRouter = createTRPCRouter({
         ...(targetLang ? { targetLang } : {}),
       },
     });
+    const dueSatzCount = await ctx.db.satzProgress.count({
+      where: {
+        userId,
+        nextReviewAt: { lte: now },
+        ...(targetLang ? { targetLang } : {}),
+        ...(targetLang
+          ? { satz: { translations: { some: { lang: targetLang } } } }
+          : {}),
+      },
+    });
+    const dueCount = dueVocabCount + dueSatzCount;
 
-    const totalEntries = await ctx.db.entry.count({
+    const totalVocab = await ctx.db.entry.count({
       where: hasTranslation,
     });
+    const satzCount = await ctx.db.satz.count({
+      where: targetLang
+        ? { translations: { some: { lang: targetLang } } }
+        : {},
+    });
+    const totalEntries = totalVocab + satzCount;
 
     const topWrong = await ctx.db.userProgress.findMany({
       where: {
@@ -200,6 +217,27 @@ export const statsRouter = createTRPCRouter({
       },
     });
 
+    const satzTranslations = await ctx.db.satzTranslation.findMany({
+      where: {
+        lang: { in: langs },
+      },
+      select: {
+        satzId: true,
+        lang: true,
+      },
+    });
+    const satzProgresses = await ctx.db.satzProgress.findMany({
+      where: {
+        userId,
+        targetLang: { in: langs },
+      },
+      select: {
+        satzId: true,
+        targetLang: true,
+        box: true,
+      },
+    });
+
     const conjugationForms = await ctx.db.conjugationForm.findMany({
       where: {
         translation: {
@@ -237,6 +275,17 @@ export const statsRouter = createTRPCRouter({
         )
         .map((p) => ({ id: `${p.entryId}:${p.cardKey}`, box: p.box }));
 
+      const satzAvailable = [
+        ...new Set(
+          satzTranslations
+            .filter((row) => row.lang === lang)
+            .map((row) => row.satzId),
+        ),
+      ];
+      const satzProgressed = satzProgresses
+        .filter((row) => row.targetLang === lang)
+        .map((row) => ({ id: row.satzId, box: row.box }));
+
       return {
         language: lang,
         languageName: LANGUAGE_NAMES[lang] ?? lang,
@@ -245,6 +294,7 @@ export const statsRouter = createTRPCRouter({
           conjugationAvailable,
           conjugationProgressed,
         ),
+        satze: summarizeLeitnerTrack(satzAvailable, satzProgressed),
       };
     });
 
@@ -262,6 +312,7 @@ export const statsRouter = createTRPCRouter({
       nounCount,
       adjectiveCount,
       proverbCategoryCount,
+      satzCount,
       languageProgress,
     };
   }),

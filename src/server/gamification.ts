@@ -581,6 +581,14 @@ export async function getGamificationStatus(db: PrismaClient, userId: string) {
       translation: { select: { entryId: true, lang: true } },
     },
   });
+  const satzTranslations = await db.satzTranslation.findMany({
+    where: { lang: { in: langs } },
+    select: { satzId: true, lang: true },
+  });
+  const satzProgresses = await db.satzProgress.findMany({
+    where: { userId, targetLang: { in: langs } },
+    select: { satzId: true, targetLang: true, box: true },
+  });
 
   const languages: LanguageMastery[] = langs.map((lang) => {
     const vocabAvailable = translations
@@ -600,10 +608,20 @@ export async function getGamificationStatus(db: PrismaClient, userId: string) {
     const conjProgressed = progresses.filter(
       (row) => row.targetLang === lang && row.cardType === CardType.CONJUGATION,
     );
-    const combinedAvailable = vocabAvailable.length + conjAvailable.size;
+    const satzAvailable = new Set(
+      satzTranslations
+        .filter((row) => row.lang === lang)
+        .map((row) => row.satzId),
+    );
+    const satzProgressed = satzProgresses.filter(
+      (row) => row.targetLang === lang,
+    );
+    const combinedAvailable =
+      vocabAvailable.length + conjAvailable.size + satzAvailable.size;
     const combinedProgressed = [
       ...vocabProgressed.map((row) => ({ box: row.box })),
       ...conjProgressed.map((row) => ({ box: row.box })),
+      ...satzProgressed.map((row) => ({ box: row.box })),
     ];
     const xp = xpByLang[lang] ?? 0;
     const level = levelForXp(xp);
