@@ -25,10 +25,24 @@ import {
 import { useFocusLang } from "~/components/focus-lang-provider";
 import { useCelebrate } from "~/components/gamification-provider";
 import { groupDomainsByKind } from "~/lib/domain-catalog";
-import { SOURCE_LANG } from "~/lib/languages";
+import { getTargetLang, SOURCE_LANG } from "~/lib/languages";
 import { playbackUrls } from "~/lib/satz-tts";
 import { MAX_BOX, MIN_BOX } from "~/lib/leitner";
-import { Eye, ThumbsDown, ThumbsUp } from "lucide-react";
+import { cn } from "~/lib/utils";
+import { Card, CardContent } from "~/components/ui/card";
+import { Caveat, Libre_Baskerville } from "next/font/google";
+import { ArrowLeft, Eye, Loader2, Play, ThumbsDown, ThumbsUp } from "lucide-react";
+
+const caveat = Caveat({
+  subsets: ["latin", "latin-ext"],
+  weight: ["400", "600", "700"],
+});
+
+const libreBaskerville = Libre_Baskerville({
+  subsets: ["latin", "latin-ext"],
+  weight: ["400", "700"],
+  style: ["normal", "italic"],
+});
 
 type ReviewState = "setup" | "active" | "summary";
 
@@ -41,6 +55,7 @@ const PRIORITIES: SatzPriority[] = [
 
 export function SatzReview() {
   const t = useTranslations("sentences");
+  const tReview = useTranslations("review");
   const tDomains = useTranslations("domains");
   const tCommon = useTranslations("common");
   const tLang = useTranslations("languages");
@@ -151,18 +166,23 @@ export function SatzReview() {
   if (state === "setup") {
     const due = statsQuery.data?.due ?? 0;
     return (
-      <div className="max-w-3xl space-y-8">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="mb-2 text-4xl font-bold">{t("reviewTitle")}</h1>
-            <p className="text-muted-foreground">{t("reviewSubtitle")}</p>
-          </div>
-          <Button asChild variant="ghost">
-            <Link href="/sentences">{t("importBack")}</Link>
-          </Button>
-        </div>
+      <div className="mx-auto max-w-3xl">
+        <header className="mb-8 space-y-3">
+          <p className={cn("text-lg text-red-600", caveat.className)}>
+            {t("reviewCahierLabel")}
+          </p>
+          <h1
+            className={cn(
+              "text-4xl font-bold text-[#1e3a5f]",
+              libreBaskerville.className,
+            )}
+          >
+            {t("reviewTitle")}
+          </h1>
+          <p className="text-sm text-slate-600">{t("reviewSubtitle")}</p>
+        </header>
 
-        <section className="cahier-card space-y-5 p-6">
+        <section className="cahier-card space-y-6 p-6 sm:p-8">
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-2">
               <Label>{t("reviewFilterDomain")}</Label>
@@ -217,22 +237,66 @@ export function SatzReview() {
             </div>
           </div>
 
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-slate-600">
             {t("reviewDueCount", { count: due, language: tLang(focusLang) })}
           </p>
-          <Button type="button" size="lg" disabled={due === 0} onClick={start}>
-            {t("reviewStart")}
-          </Button>
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              size="lg"
+              disabled={due === 0}
+              onClick={start}
+              className="bg-[#1e3a5f] text-white hover:bg-[#16304d]"
+            >
+              <Play className="mr-2 h-5 w-5" />
+              {t("reviewStart")}
+            </Button>
+          </div>
         </section>
         {themeDomains.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{tDomains("kindTHEME")}</p>
+          <p className="mt-4 text-sm text-slate-500">{tDomains("kindTHEME")}</p>
         ) : null}
       </div>
     );
   }
 
+  const totalAvailable = queueQuery.data?.totalAvailable ?? cards.length;
+  const cardsLeft = Math.max(0, totalAvailable - session.answers - 1);
+  const focusMeta = getTargetLang(focusLang);
+
   if (queueQuery.isLoading || !card) {
-    return <p className="text-sm text-muted-foreground">{tCommon("loading")}</p>;
+    if (!queueQuery.isLoading && !card) {
+      return (
+        <div className="mx-auto max-w-3xl">
+          <div className="cahier-card py-16 text-center">
+            <h2
+              className={cn(
+                "mb-2 text-2xl font-bold text-[#1e3a5f]",
+                libreBaskerville.className,
+              )}
+            >
+              {tReview("allCaughtUp")}
+            </h2>
+            <p className="mb-6 text-slate-600">{tReview("allCaughtUpDesc")}</p>
+            <Button
+              variant="ghost"
+              onClick={() => setState("setup")}
+              className="text-[#1e3a5f]"
+            >
+              {tReview("backToSetup")}
+            </Button>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="mx-auto max-w-3xl">
+        <div className="cahier-card py-16 text-center">
+          <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-[#1e3a5f]" />
+          <p className="text-slate-600">{tReview("loadingCards")}</p>
+        </div>
+      </div>
+    );
   }
 
   const translation = card.translation;
@@ -248,98 +312,145 @@ export function SatzReview() {
   });
 
   return (
-    <div className="max-w-3xl space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          {t("reviewProgress", {
-            current: session.answers + 1,
-            total: queueQuery.data?.totalAvailable ?? cards.length,
-          })}
-        </p>
-        <Button variant="ghost" onClick={() => setState("summary")}>
-          {tCommon("cancel")}
+    <div className="mx-auto max-w-3xl">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setState("setup")}
+          className="text-[#1e3a5f] hover:bg-white/70 hover:text-[#1e3a5f]"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          {tReview("backToSetup")}
         </Button>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-[#1e3a5f]">
+            {cardsLeft === 0
+              ? tReview("lastCard")
+              : tReview("cardsLeft", { count: cardsLeft })}
+          </span>
+          <span className="rounded-md bg-slate-200/80 px-2.5 py-1 text-xs text-slate-700">
+            {focusMeta?.flag} {tLang(focusLang)}
+          </span>
+        </div>
       </div>
-      <ReviewBoxBar remaining={remaining} />
 
-      <section className="cahier-card space-y-5 p-6">
-        <div className="flex flex-wrap gap-2">
-          <Badge variant="outline">{tCommon("box", { number: card.box })}</Badge>
-          <Badge variant="secondary">{t(`priority${card.priority}`)}</Badge>
-          {card.domains.map((domain) => (
-            <Badge key={domain.id} variant="outline">
-              {domain.name}
-            </Badge>
-          ))}
-        </div>
-        {card.trigger ? (
-          <p className="text-sm text-muted-foreground">
-            {t("triggerPrefix")}: {card.trigger}
-          </p>
-        ) : null}
-        <div className="flex items-start justify-between gap-3">
-          <p className="text-2xl font-semibold">{card.mainText}</p>
-          <SatzAudioButton
-            urls={mainClips}
-            langCode={SOURCE_LANG.code}
-            label={t("playAudioLang", { language: tLang(SOURCE_LANG.code) })}
-          />
-        </div>
+      <p className={cn("mb-3 text-center text-base text-red-600", caveat.className)}>
+        {t("reviewCahierLabel")}
+      </p>
+      <div className="mb-6">
+        <ReviewBoxBar remaining={remaining} />
+      </div>
 
-        {revealed && translation ? (
-          <div className="flex items-start justify-between gap-3 border-t border-border/60 pt-4">
-            <p className="text-xl">{translation.text}</p>
+      <Card key={card.satzId} className="cahier-card overflow-hidden">
+        <CardContent className="px-6 py-10 sm:px-12 sm:py-14">
+          <div className="mb-6 flex flex-wrap items-center justify-center gap-2">
+            <Badge variant="secondary">{tCommon("box", { number: card.box })}</Badge>
+            <Badge variant="outline">{t(`priority${card.priority}`)}</Badge>
+            {card.domains.map((domain) => (
+              <Badge key={domain.id} variant="outline">
+                {domain.name}
+              </Badge>
+            ))}
+          </div>
+
+          {card.trigger ? (
+            <p className="mb-3 text-center text-sm text-slate-500">
+              {card.trigger}
+            </p>
+          ) : null}
+
+          <h2
+            className={cn(
+              "text-center text-4xl font-bold leading-tight text-[#1e3a5f] sm:text-5xl",
+              libreBaskerville.className,
+            )}
+          >
+            {card.mainText}
+          </h2>
+          <div className="mt-4 flex justify-center">
             <SatzAudioButton
-              urls={translationClips}
-              langCode={focusLang}
-              label={t("playAudioLang", { language: tLang(focusLang) })}
+              urls={mainClips}
+              langCode={SOURCE_LANG.code}
+              label={t("playAudioLang", { language: tLang(SOURCE_LANG.code) })}
             />
           </div>
-        ) : null}
 
-        <div className="flex flex-wrap gap-2">
-          {!revealed ? (
-            <Button type="button" size="lg" onClick={() => setRevealed(true)}>
-              <Eye className="mr-2 h-4 w-4" />
-              {t("reviewShowAnswer")}
-            </Button>
-          ) : (
-            <>
+          {revealed && translation ? (
+            <div className="mx-auto mt-10 max-w-xl space-y-4 border-t border-[#1e3a5f]/10 pt-8">
+              <p
+                className={cn(
+                  "text-center text-3xl font-semibold leading-tight text-[#1e3a5f] sm:text-4xl",
+                  libreBaskerville.className,
+                )}
+              >
+                {translation.text}
+              </p>
+              <div className="flex justify-center">
+                <SatzAudioButton
+                  urls={translationClips}
+                  langCode={focusLang}
+                  label={t("playAudioLang", { language: tLang(focusLang) })}
+                />
+              </div>
+            </div>
+          ) : null}
+
+          <div className="mx-auto mt-10 max-w-xl space-y-3">
+            {!revealed ? (
               <Button
                 type="button"
                 size="lg"
-                disabled={gradeMutation.isPending}
-                onClick={() =>
-                  gradeMutation.mutate({
-                    satzId: card.satzId,
-                    targetLang: focusLang,
-                    isCorrect: true,
-                  })
-                }
+                className="h-12 w-full bg-[#1e3a5f] text-white hover:bg-[#16304d]"
+                onClick={() => setRevealed(true)}
               >
-                <ThumbsUp className="mr-2 h-4 w-4" />
-                {t("reviewKnew")}
+                <Eye className="mr-2 h-4 w-4" />
+                {t("reviewShowAnswer")}
               </Button>
-              <Button
-                type="button"
-                size="lg"
-                variant="outline"
-                disabled={gradeMutation.isPending}
-                onClick={() =>
-                  gradeMutation.mutate({
-                    satzId: card.satzId,
-                    targetLang: focusLang,
-                    isCorrect: false,
-                  })
-                }
-              >
-                <ThumbsDown className="mr-2 h-4 w-4" />
-                {t("reviewDidNotKnow")}
-              </Button>
-            </>
-          )}
-        </div>
-      </section>
+            ) : (
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Button
+                  type="button"
+                  size="lg"
+                  className="h-12 bg-[#1e3a5f] text-white hover:bg-[#16304d]"
+                  disabled={gradeMutation.isPending}
+                  onClick={() =>
+                    gradeMutation.mutate({
+                      satzId: card.satzId,
+                      targetLang: focusLang,
+                      isCorrect: true,
+                    })
+                  }
+                >
+                  {gradeMutation.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <ThumbsUp className="mr-2 h-4 w-4" />
+                  )}
+                  {t("reviewKnew")}
+                </Button>
+                <Button
+                  type="button"
+                  size="lg"
+                  variant="outline"
+                  className="h-12 border-[#1e3a5f]/20 text-[#1e3a5f]"
+                  disabled={gradeMutation.isPending}
+                  onClick={() =>
+                    gradeMutation.mutate({
+                      satzId: card.satzId,
+                      targetLang: focusLang,
+                      isCorrect: false,
+                    })
+                  }
+                >
+                  <ThumbsDown className="mr-2 h-4 w-4" />
+                  {t("reviewDidNotKnow")}
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

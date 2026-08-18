@@ -662,6 +662,7 @@
     "listenPlayerLeft": "Reste",
     "review": "Réviser",
     "reviewTitle": "Réviser les phrases",
+    "reviewCahierLabel": "carnet — phrases",
     "reviewSubtitle": "Voir la phrase allemande, produire la traduction de mémoire, puis s’auto-évaluer.",
     "reviewStart": "Commencer",
     "reviewDueCount": "{count, plural, one {1 phrase due} other {# phrases dues}} pour {language}",

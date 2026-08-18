@@ -662,6 +662,7 @@
     "listenPlayerLeft": "Rest",
     "review": "Abfragen",
     "reviewTitle": "Sätze abfragen",
+    "reviewCahierLabel": "carnet — phrases",
     "reviewSubtitle": "Deutscher Satz, Übersetzung aus dem Gedächtnis, dann selbst bewerten.",
     "reviewStart": "Abfrage starten",
     "reviewDueCount": "{count, plural, one {1 fälliger Satz} other {# fällige Sätze}} für {language}",

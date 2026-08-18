@@ -662,6 +662,7 @@
     "listenPlayerLeft": "Left",
     "review": "Recall",
     "reviewTitle": "Review sentences",
+    "reviewCahierLabel": "carnet — phrases",
     "reviewSubtitle": "See the German sentence, produce the translation from memory, then self-grade.",
     "reviewStart": "Start review",
     "reviewDueCount": "{count, plural, one {1 due sentence} other {# due sentences}} for {language}",

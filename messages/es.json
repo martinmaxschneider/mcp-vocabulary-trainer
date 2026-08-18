@@ -662,6 +662,7 @@
     "listenPlayerLeft": "Resta",
     "review": "Repasar",
     "reviewTitle": "Repasar frases",
+    "reviewCahierLabel": "carnet — frases",
     "reviewSubtitle": "Ve la frase alemana, produce la traducción de memoria y autoevalúate.",
     "reviewStart": "Empezar",
     "reviewDueCount": "{count, plural, one {1 frase pendiente} other {# frases pendientes}} para {language}",
