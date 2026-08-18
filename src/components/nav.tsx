@@ -38,6 +38,7 @@ export function Nav() {
 
   const startLinks = [
     { href: "/", label: t("dashboard"), icon: Home },
+    { href: "/sentences/review", label: t("sentences"), icon: Quote },
   ];
   const practiceLinks = [
     { href: "/review", label: t("review"), icon: Layers },
@@ -53,8 +54,17 @@ export function Nav() {
     { href: "/domains", label: t("domains"), icon: FolderOpen },
   ];
 
-  const isVocabularyActive = pathname.startsWith("/vocabulary");
-  const isSentencesActive = pathname.startsWith("/sentences");
+  const isSentencePractice =
+    pathname === "/sentences/review" ||
+    pathname.startsWith("/sentences/review/");
+  const isVocabularyActive =
+    pathname.startsWith("/vocabulary") ||
+    pathname === "/sentences" ||
+    pathname.startsWith("/sentences/new") ||
+    (pathname.startsWith("/sentences/") &&
+      !isSentencePractice &&
+      !pathname.startsWith("/sentences/listen") &&
+      !pathname.startsWith("/sentences/import"));
 
   const renderLinks = (
     items: Array<{ href: string; label: string; icon: typeof Home }>,
@@ -87,43 +97,6 @@ export function Nav() {
 
         <div className="flex gap-1">
             {renderLinks(startLinks)}
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant={isSentencesActive ? "default" : "ghost"}
-                  size="sm"
-                  className="gap-2"
-                >
-                  <Quote className="h-4 w-4" />
-                  {t("sentences")}
-                  <ChevronDown className="h-3 w-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                <DropdownMenuItem asChild>
-                  <Link href="/sentences" className="cursor-pointer">
-                    {t("sentences")}
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/sentences/review" className="cursor-pointer">
-                    {t("sentenceReview")}
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/sentences/listen" className="cursor-pointer">
-                    {t("sentenceListen")}
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/sentences/import" className="cursor-pointer">
-                    {t("sentenceImport")}
-                  </Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
             {renderLinks(practiceLinks)}
             {renderLinks(topicLinks)}
 
@@ -164,6 +137,11 @@ export function Nav() {
                     className="cursor-pointer"
                   >
                     {t("proverbs")}
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/sentences" className="cursor-pointer">
+                    {t("sentences")}
                   </Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>
