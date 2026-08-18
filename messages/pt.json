@@ -33,6 +33,7 @@
     "reviewHint": "Leitner — só cartões em atraso",
     "practiceHint": "Sem efeito no progresso",
     "listenHint": "Ouvir e repetir",
+    "listenPageTitle": "Ouvir {area}",
     "generateAudio": "Gerar áudio",
     "generateMissingAudio": "Gerar áudio em falta",
     "generatingAudio": "A gerar áudio…",

@@ -2,11 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Loader2, Volume2 } from "lucide-react";
 import { api } from "~/trpc/client";
 import { ListenSession } from "~/components/listen-session";
 import { useFocusLang } from "~/components/focus-lang-provider";
-import { Button } from "~/components/ui/button";
 import { Label } from "~/components/ui/label";
 import {
   Select,
@@ -23,6 +21,8 @@ import { resolveErrorCode } from "~/lib/trpc-error";
 export default function VocabListenPage() {
   const t = useTranslations("review");
   const tModes = useTranslations("practiceModes");
+  const tNav = useTranslations("nav");
+  const tCommon = useTranslations("common");
   const tToasts = useTranslations("toasts");
   const tErrors = useTranslations("errors.codes");
   const { toast } = useToast();
@@ -55,6 +55,7 @@ export default function VocabListenPage() {
             translationUpdatedAt: translation?.updatedAt,
             translationDurationMs: translation?.audioDurationMs,
           }),
+          audioStatus: translation?.audioStatus ?? entry.mainAudioStatus,
         };
       }),
     [data?.entries, focusLang],
@@ -91,28 +92,18 @@ export default function VocabListenPage() {
 
   return (
     <ListenSession
-      title={tModes("listen")}
-      subtitle={t("setupSubtitle")}
+      title={tModes("listenPageTitle", { area: tNav("review") })}
+      subtitle={tModes("listenHint")}
       items={items}
+      backHref="/review"
+      backLabel={tCommon("back")}
+      generating={generating}
+      onGenerateMissing={generateMissing}
       filters={
-        <div className="space-y-3">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={generating}
-            onClick={() => void generateMissing()}
-          >
-            {generating ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Volume2 className="mr-2 h-4 w-4" />
-            )}
-            {tModes("generateMissingAudio")}
-          </Button>
-          <div className="space-y-2">
+        <div className="space-y-2">
           <Label>{t("selectDomains")}</Label>
           <Select value={domainId} onValueChange={setDomainId}>
-            <SelectTrigger className="w-full sm:w-72">
+            <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -124,7 +115,6 @@ export default function VocabListenPage() {
               ))}
             </SelectContent>
           </Select>
-          </div>
         </div>
       }
     />

@@ -33,6 +33,7 @@
     "reviewHint": "Leitner — nur fällige Karten",
     "practiceHint": "Ohne Einfluss auf den Lernfortschritt",
     "listenHint": "Hören und mitsprechen",
+    "listenPageTitle": "{area} hören",
     "generateAudio": "Audio erzeugen",
     "generateMissingAudio": "Fehlende vertonen",
     "generatingAudio": "Erzeuge Audio…",

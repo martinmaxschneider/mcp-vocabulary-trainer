@@ -33,6 +33,7 @@
     "reviewHint": "Leitner — due cards only",
     "practiceHint": "No effect on learning progress",
     "listenHint": "Listen and shadow",
+    "listenPageTitle": "Listen to {area}",
     "generateAudio": "Generate audio",
     "generateMissingAudio": "Generate missing audio",
     "generatingAudio": "Generating audio…",

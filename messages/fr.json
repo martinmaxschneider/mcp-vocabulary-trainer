@@ -33,6 +33,7 @@
     "reviewHint": "Leitner — cartes dues seulement",
     "practiceHint": "Sans effet sur la progression",
     "listenHint": "Écouter et répéter",
+    "listenPageTitle": "Écouter — {area}",
     "generateAudio": "Générer l’audio",
     "generateMissingAudio": "Générer l’audio manquant",
     "generatingAudio": "Génération audio…",
