@@ -19,6 +19,7 @@ describe("parseSatzListenSettings", () => {
         listRepeats: 2,
         autoAdvance: false,
         mainLangOnce: false,
+        settingsOpen: true,
       }),
     ).toEqual({
       pauseMs: 2000,
@@ -27,6 +28,7 @@ describe("parseSatzListenSettings", () => {
       listRepeats: 2,
       autoAdvance: false,
       mainLangOnce: false,
+      settingsOpen: true,
     });
     expect(
       parseSatzListenSettings({

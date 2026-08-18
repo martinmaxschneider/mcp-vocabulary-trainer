@@ -7,6 +7,7 @@ export type SatzListenSettings = {
   listRepeats: number;
   autoAdvance: boolean;
   mainLangOnce: boolean;
+  settingsOpen: boolean;
 };
 
 export const DEFAULT_SATZ_LISTEN_SETTINGS: SatzListenSettings = {
@@ -16,6 +17,7 @@ export const DEFAULT_SATZ_LISTEN_SETTINGS: SatzListenSettings = {
   listRepeats: 1,
   autoAdvance: true,
   mainLangOnce: true,
+  settingsOpen: false,
 };
 
 export const SATZ_LISTEN_PAUSE_RANGE = { min: 0, max: 3000, step: 100 } as const;
@@ -84,6 +86,10 @@ export function parseSatzListenSettings(raw: unknown): SatzListenSettings {
       typeof value.mainLangOnce === "boolean"
         ? value.mainLangOnce
         : DEFAULT_SATZ_LISTEN_SETTINGS.mainLangOnce,
+    settingsOpen:
+      typeof value.settingsOpen === "boolean"
+        ? value.settingsOpen
+        : DEFAULT_SATZ_LISTEN_SETTINGS.settingsOpen,
   };
 }
 

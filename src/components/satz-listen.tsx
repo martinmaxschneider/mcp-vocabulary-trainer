@@ -10,7 +10,6 @@ import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Label } from "~/components/ui/label";
-import { Progress } from "~/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -36,7 +35,7 @@ import {
   SATZ_LISTEN_REPEAT_OPTIONS,
   type SatzListenSettings,
 } from "~/lib/satz-listen-settings";
-import { Headphones, Loader2, Pause, Play, Volume2 } from "lucide-react";
+import { Headphones, Pause, Play, Settings } from "lucide-react";
 
 const FALLBACK_CLIP_MS = 2500;
 
@@ -263,9 +262,6 @@ export function SatzListen() {
     [domains],
   );
 
-  const [includeQuestions, setIncludeQuestions] = useState(true);
-  const [generating, setGenerating] = useState(false);
-  const [generateProgress, setGenerateProgress] = useState({ done: 0, total: 0 });
   const [playlist, setPlaylist] = useState<ListenPlaylistItem[] | null>(null);
   const [clipIndex, setClipIndex] = useState(0);
   const [playingId, setPlayingId] = useState<string | null>(null);
@@ -301,8 +297,6 @@ export function SatzListen() {
     }
   }, [settings.playbackRate]);
 
-  const requestMutation = api.satz.requestAudio.useMutation();
-  const processMutation = api.satz.processAudio.useMutation();
   const markPracticed = api.satz.markPracticed.useMutation({
     onSuccess: () => {
       void utils.satz.list.invalidate();
@@ -333,13 +327,6 @@ export function SatzListen() {
     const plan = buildListenPlaylist(jobs, settings);
     return remainingListenMs(plan, 1, settings.playbackRate);
   }, [readyItems, focusLang, settings]);
-  const needsAudio = items.some((satz) => {
-    const translation = satz.translations.find((tr) => tr.lang === focusLang);
-    return (
-      satz.mainAudioStatus !== AudioStatus.DONE ||
-      translation?.audioStatus !== AudioStatus.DONE
-    );
-  });
 
   const stopPlayback = () => {
     runIdRef.current += 1;
@@ -581,52 +568,6 @@ export function SatzListen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playlist, clipIndex, awaitingNext]);
 
-  const handleGenerate = async () => {
-    const satzIds = items.map((s) => s.id);
-    if (satzIds.length === 0) return;
-    setGenerating(true);
-    setGenerateProgress({ done: 0, total: 0 });
-    try {
-      const requested = await requestMutation.mutateAsync({
-        satzIds,
-        includeQuestions,
-        langs: [focusLang],
-      });
-      const total = requested.requested;
-      setGenerateProgress({ done: 0, total });
-      let remaining = total;
-      let done = 0;
-      while (remaining > 0) {
-        const result = await processMutation.mutateAsync({ limit: 2 });
-        done += result.processed + result.failed;
-        remaining = result.remaining;
-        setGenerateProgress({
-          done: Math.min(done, total || done),
-          total: total || done + remaining,
-        });
-        await utils.satz.list.invalidate();
-        if (result.processed === 0 && result.failed === 0) break;
-      }
-      if (total > 0) setGenerateProgress({ done: total, total });
-      toast({ title: tToasts("satzAudioDone") });
-    } catch (error) {
-      toast({
-        title: tToasts("satzAudioError"),
-        description:
-          error instanceof Error ? errorDescription(error.message, tErrors) : undefined,
-        variant: "destructive",
-      });
-    } finally {
-      setGenerating(false);
-      setGenerateProgress({ done: 0, total: 0 });
-    }
-  };
-
-  const actionProgress = generateProgress;
-  const actionPercent =
-    actionProgress.total > 0
-      ? Math.round((actionProgress.done / actionProgress.total) * 100)
-      : 0;
   const bounds = playlist ? sentenceBounds(playlist, clipIndex) : null;
   const currentSatz = currentClip
     ? items.find((item) => item.id === currentClip.satzId)
@@ -738,8 +679,22 @@ export function SatzListen() {
           <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
+              size="icon"
+              variant={settings.settingsOpen ? "secondary" : "ghost"}
+              className="h-11 w-11"
+              aria-expanded={settings.settingsOpen}
+              aria-label={t("listenSettings")}
+              disabled={sessionActive}
+              onClick={() =>
+                updateSettings({ settingsOpen: !settings.settingsOpen })
+              }
+            >
+              <Settings className="h-5 w-5" />
+            </Button>
+            <Button
+              type="button"
               size="lg"
-              disabled={readyCount === 0 || generating || sessionActive}
+              disabled={readyCount === 0 || sessionActive}
               onClick={() => startSession(readyItems.map((satz) => satz.id))}
             >
               <Play className="mr-2 h-5 w-5" />
@@ -748,28 +703,8 @@ export function SatzListen() {
           </div>
         </div>
 
-        {generating ? (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
-              <span className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {t("listenGenerating")}
-              </span>
-              {actionProgress.total > 0 ? (
-                <span className="tabular-nums">
-                  {actionProgress.done} / {actionProgress.total}
-                </span>
-              ) : null}
-            </div>
-            <Progress value={actionPercent} />
-          </div>
-        ) : null}
-
-        <div
-          className={`space-y-4 border-t border-border/60 pt-4 ${
-            sessionActive ? "pointer-events-none opacity-50" : ""
-          }`}
-        >
+        {settings.settingsOpen ? (
+          <div className="space-y-4 border-t border-border/60 pt-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-3">
@@ -890,33 +825,8 @@ export function SatzListen() {
               </span>
             </span>
           </label>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border/60 pt-4 text-sm text-muted-foreground">
-          <span>{t("listenActions")}</span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="-ml-2 h-8 text-muted-foreground"
-            disabled={generating || items.length === 0 || !needsAudio}
-            onClick={() => void handleGenerate()}
-          >
-            {generating ? (
-              <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Volume2 className="mr-2 h-3.5 w-3.5" />
-            )}
-            {t("listenGenerate")}
-          </Button>
-          <label className="flex items-center gap-2">
-            <Checkbox
-              checked={includeQuestions}
-              onCheckedChange={(checked) => setIncludeQuestions(checked === true)}
-            />
-            {t("listenIncludeQuestions")}
-          </label>
-        </div>
+          </div>
+        ) : null}
       </section>
 
       <div className="space-y-3">
@@ -970,7 +880,7 @@ export function SatzListen() {
                         onClick={() =>
                           isCurrent ? stopPlayback() : startSession([satz.id])
                         }
-                        disabled={generating}
+                        disabled={sessionActive && !isCurrent}
                       >
                         {isCurrent ? (
                           <Pause className="h-4 w-4" />
