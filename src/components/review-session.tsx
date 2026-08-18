@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { SOURCE_LANG, TARGET_LANGS, TARGET_LANG_CODES } from "~/lib/languages";
+import { SOURCE_LANG, TARGET_LANG_CODES } from "~/lib/languages";
 import { api } from "~/trpc/client";
 import { Button } from "~/components/ui/button";
 import { ReviewCard } from "~/components/review-card";
@@ -52,7 +52,7 @@ export function ReviewSession() {
   const celebrate = useCelebrate();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { focusLang, setFocusLang } = useFocusLang();
+  const { focusLang } = useFocusLang();
   const [reviewState, setReviewState] = useState<ReviewState>("setup");
   const [mode, setMode] = useState<ReviewMode>("single");
   const selectedLang = mode === "multi" ? null : focusLang;
@@ -393,13 +393,6 @@ export function ReviewSession() {
   };
 
   const handleStartReview = () => {
-    if (!selectedLang) {
-      toast({
-        title: t("selectLangToast"),
-        variant: "destructive",
-      });
-      return;
-    }
     setMode("single");
     setReviewState("active");
     setCurrentIndex(0);
@@ -490,30 +483,6 @@ export function ReviewSession() {
         <section className="cahier-card p-6 sm:p-8">
             <div className="space-y-6">
               <div>
-                <h3 className="mb-3 font-semibold text-[#1e3a5f]">
-                  {t("selectLanguage")}
-                </h3>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  {TARGET_LANGS.map((lang) => (
-                    <button
-                      key={lang.code}
-                      type="button"
-                      className={cn(
-                        "flex h-auto flex-col items-center gap-1 rounded-xl border px-3 py-4 transition",
-                        selectedLang === lang.code
-                          ? "border-[#1e3a5f] bg-[#1e3a5f] text-white"
-                          : "border-slate-200 bg-white text-[#1e3a5f] hover:border-[#1e3a5f]/40",
-                      )}
-                      onClick={() => setFocusLang(lang.code)}
-                    >
-                      <span className="text-2xl">{lang.flag}</span>
-                      <span className="text-sm">{tLang(lang.code)}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
                 <div className="mb-3 flex items-center justify-between">
                   <h3 className="font-semibold text-[#1e3a5f]">
                     {t("selectDomains")}
@@ -529,7 +498,7 @@ export function ReviewSession() {
                   </button>
                 </div>
                 {domains && domains.length > 0 ? (
-                  <div className="max-h-72 space-y-4 overflow-y-auto p-1">
+                  <div className="space-y-4 p-1">
                     {groupDomainsByKind(domains).map((group) => (
                       <div key={group.kind} className="space-y-2">
                         <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -574,7 +543,6 @@ export function ReviewSession() {
               <div className="flex justify-end">
                 <Button
                   onClick={handleStartReview}
-                  disabled={!selectedLang}
                   size="lg"
                   className="bg-[#1e3a5f] text-white hover:bg-[#16304d]"
                 >
