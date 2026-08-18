@@ -270,7 +270,7 @@ function SettingsPageInner() {
   };
 
   return (
-    <div className="max-w-4xl">
+    <div className="mx-auto max-w-4xl">
       <div className="mb-8">
         <h1 className="mb-2 text-4xl font-bold">{t("title")}</h1>
         <p className="text-muted-foreground">{t("subtitle")}</p>

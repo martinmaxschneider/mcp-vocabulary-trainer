@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { SatzPriority } from "@prisma/client";
@@ -148,7 +147,7 @@ export function SatzReview() {
 
   if (state === "summary") {
     return (
-      <div className="max-w-3xl space-y-6">
+      <div className="mx-auto max-w-3xl space-y-6">
         <SessionSummary
           answers={session.answers}
           correct={session.correct}
@@ -264,36 +263,47 @@ export function SatzReview() {
   const cardsLeft = Math.max(0, totalAvailable - session.answers - 1);
   const focusMeta = getTargetLang(focusLang);
 
-  if (queueQuery.isLoading || !card) {
-    if (!queueQuery.isLoading && !card) {
-      return (
-        <div className="mx-auto max-w-3xl">
-          <div className="cahier-card py-16 text-center">
-            <h2
-              className={cn(
-                "mb-2 text-2xl font-bold text-[#1e3a5f]",
-                libreBaskerville.className,
-              )}
-            >
-              {tReview("allCaughtUp")}
-            </h2>
-            <p className="mb-6 text-slate-600">{tReview("allCaughtUpDesc")}</p>
-            <Button
-              variant="ghost"
-              onClick={() => setState("setup")}
-              className="text-[#1e3a5f]"
-            >
-              {tReview("backToSetup")}
-            </Button>
-          </div>
-        </div>
-      );
-    }
+  if (queueQuery.isLoading) {
     return (
       <div className="mx-auto max-w-3xl">
         <div className="cahier-card py-16 text-center">
           <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-[#1e3a5f]" />
           <p className="text-slate-600">{tReview("loadingCards")}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!card && session.answers === 0) {
+    return (
+      <div className="mx-auto max-w-3xl">
+        <div className="cahier-card py-16 text-center">
+          <h2
+            className={cn(
+              "mb-2 text-2xl font-bold text-[#1e3a5f]",
+              libreBaskerville.className,
+            )}
+          >
+            {tReview("allCaughtUp")}
+          </h2>
+          <p className="mb-6 text-slate-600">{tReview("allCaughtUpDesc")}</p>
+          <Button
+            variant="ghost"
+            onClick={() => setState("setup")}
+            className="text-[#1e3a5f]"
+          >
+            {tReview("backToSetup")}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!card) {
+    return (
+      <div className="mx-auto max-w-3xl">
+        <div className="cahier-card py-16 text-center">
+          <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-[#1e3a5f]" />
         </div>
       </div>
     );

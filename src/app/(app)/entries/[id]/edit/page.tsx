@@ -160,7 +160,7 @@ export default function EditEntryPage({
 
   if (isLoading) {
     return (
-      <div className="max-w-4xl">
+      <div className="mx-auto max-w-4xl">
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
@@ -169,7 +169,7 @@ export default function EditEntryPage({
   }
 
   return (
-    <div className="max-w-4xl">
+    <div className="mx-auto max-w-4xl">
       <div className="mb-8">
         <Link
           href={

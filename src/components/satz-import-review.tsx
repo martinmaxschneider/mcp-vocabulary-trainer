@@ -162,7 +162,7 @@ export function SatzImportReview({ batchId }: { batchId: string }) {
   const busy = enriching || committing;
 
   return (
-    <div className="max-w-4xl space-y-6">
+    <div className="mx-auto max-w-4xl space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="mb-2 text-4xl font-bold">{t("importReviewTitle")}</h1>

@@ -108,7 +108,7 @@ export function SatzTrain({ id }: { id: string }) {
   }
 
   return (
-    <div className="max-w-3xl space-y-8">
+    <div className="mx-auto max-w-3xl space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="mb-2 text-4xl font-bold">{t("trainTitle")}</h1>

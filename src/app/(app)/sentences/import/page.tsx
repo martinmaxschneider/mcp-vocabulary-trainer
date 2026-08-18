@@ -57,7 +57,7 @@ export default function SentenceImportPage() {
   };
 
   return (
-    <div className="max-w-3xl space-y-8">
+    <div className="mx-auto max-w-3xl space-y-8">
       <div>
         <h1 className="mb-2 text-4xl font-bold">{t("importTitle")}</h1>
         <p className="text-muted-foreground">{t("importSubtitle")}</p>
