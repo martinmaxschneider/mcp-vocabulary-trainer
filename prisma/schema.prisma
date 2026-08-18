@@ -370,6 +370,46 @@ model GamificationSettings {
   @@unique([userId])
 }
 
+/// Singleton (id = "default"): OpenRouter models and TTS voices.
+model AppSettings {
+  id               String   @id @default("default")
+  chatModel        String   @default("openai/gpt-4o-mini")
+  embeddingModel   String   @default("openai/text-embedding-3-small")
+  ttsModel         String   @default("openai/tts-1-hd")
+  ttsVoiceQuestion String   @default("onyx")
+  ttsVoiceAnswer   String   @default("nova")
+  updatedAt        DateTime @updatedAt
+}
+
+enum AiUsageKind {
+  CHAT
+  EMBEDDING
+  TTS
+}
+
+enum AiUsageStatus {
+  OK
+  ERROR
+}
+
+model AiUsageLog {
+  id               String        @id @default(cuid())
+  createdAt        DateTime      @default(now())
+  kind             AiUsageKind
+  model            String
+  generationId     String?
+  promptTokens     Int?
+  completionTokens Int?
+  totalTokens      Int?
+  characters       Int?
+  costUsd          Float?
+  status           AiUsageStatus
+  error            String?
+
+  @@index([createdAt])
+  @@index([kind])
+}
+
 enum EmbeddingOwnerType {
   ENTRY
   SATZ

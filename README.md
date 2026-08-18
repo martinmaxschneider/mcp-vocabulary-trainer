@@ -50,7 +50,7 @@ Edit `.env` and set at least:
 
 ```bash
 DATABASE_URL="file:../data/sprachen.db"
-OPENAI_API_KEY=your_openai_api_key_here
+OPENROUTER_API_KEY=your_openrouter_api_key_here
 NEXT_PUBLIC_NATIVE_LANG=de
 # Optional — train only some targets (omit = all except native):
 # NEXT_PUBLIC_TARGET_LANGS=en,es,fr
@@ -83,7 +83,7 @@ Copy from [`.env.example`](.env.example):
 | Variable | Required | Purpose |
 |----------|----------|---------|
 | `DATABASE_URL` | yes | SQLite path relative to `prisma/` (default `file:../data/sprachen.db`) |
-| `OPENAI_API_KEY` | for AI features | OpenAI API key |
+| `OPENROUTER_API_KEY` | for AI features | OpenRouter API key (models are chosen in Settings) |
 | `NEXT_PUBLIC_NATIVE_LANG` | yes | Source language (`de` by default) |
 | `NEXT_PUBLIC_TARGET_LANGS` | no | Comma-separated targets, e.g. `en,es,fr` (empty = all except native) |
 | `CONTROL_PLANE_API_KEY` | for ChatGPT tunnel | OpenAI org key with Tunnels Read + Use |
@@ -96,7 +96,7 @@ Never commit `.env` or `.env.production` — only `.env.example` is tracked.
 No separate database container. SQLite lives in `./data`:
 
 ```bash
-export OPENAI_API_KEY=your_openai_api_key_here
+export OPENROUTER_API_KEY=your_openrouter_api_key_here
 npm run docker:up
 ```
 

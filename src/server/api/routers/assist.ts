@@ -5,9 +5,8 @@ import {
   generateVocabSuggestions,
   generateCategorySuggestions,
 } from "~/server/services/openai";
-import OpenAI from "openai";
-import { env } from "~/env";
 import { getLanguageName, SOURCE_LANG } from "~/lib/languages";
+import { createChatCompletion } from "~/server/services/openrouter";
 import { WordCategory } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 import { isConjugatableLang } from "~/lib/conjugation-catalog";
@@ -155,8 +154,6 @@ export const assistRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ input }) => {
-      const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
-
       const sourceLang = input.sourceLang ?? SOURCE_LANG.code;
       const sourceLangName = getLanguageName(sourceLang);
       const targetLangName = getLanguageName(input.targetLang);
@@ -173,17 +170,16 @@ WICHTIG:
 - Aber alle Beispielsätze und Verwendungsbeispiele sollen in ${targetLangName} sein
 - Wenn der Benutzer nach Beispielsätzen fragt, gib sie in ${targetLangName} mit ${sourceLangName}-Übersetzung`;
 
-      const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-        { role: "system", content: systemPrompt },
+      const messages = [
+        { role: "system" as const, content: systemPrompt },
         ...(input.conversationHistory?.map((msg) => ({
           role: msg.role as "user" | "assistant",
           content: msg.content,
         })) ?? []),
-        { role: "user", content: input.userQuestion },
+        { role: "user" as const, content: input.userQuestion },
       ];
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+      const response = await createChatCompletion({
         messages,
         temperature: 0.7,
         max_tokens: 500,

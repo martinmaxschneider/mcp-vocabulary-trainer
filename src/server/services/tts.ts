@@ -1,20 +1,15 @@
 import { mkdir, rm, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { AudioStatus, Prisma } from "@prisma/client";
-import OpenAI from "openai";
-import { env } from "~/env";
 import { TARGET_LANG_CODES } from "~/lib/languages";
 import {
-  TTS_MODEL,
   audioFileName,
   audioPublicPath,
   voiceForSatz,
 } from "~/lib/satz-tts";
 import { db } from "~/server/db";
-
-const openai = new OpenAI({
-  apiKey: env.OPENAI_API_KEY,
-});
+import { getTtsSettings } from "~/server/services/ai-settings";
+import { createSpeechMp3 } from "~/server/services/openrouter";
 
 type DbClient = typeof db | Prisma.TransactionClient;
 
@@ -47,14 +42,8 @@ export async function wipeAllSatzAudio(): Promise<void> {
   await rm(audioDir(), { recursive: true, force: true });
 }
 
-async function synthesizeMp3(text: string, voice: "onyx" | "nova") {
-  const response = await openai.audio.speech.create({
-    model: TTS_MODEL,
-    voice,
-    input: text,
-    response_format: "mp3",
-  });
-  return Buffer.from(await response.arrayBuffer());
+async function synthesizeMp3(text: string, voice: string, model?: string) {
+  return createSpeechMp3({ text, voice, model });
 }
 
 export async function requestSatzAudio(params: {
@@ -128,10 +117,15 @@ export async function processRequestedAudio(limit: number): Promise<{
   let failed = 0;
   await ensureAudioDir();
 
+  const tts = await getTtsSettings();
+
   for (const translation of pending) {
     try {
-      const voice = voiceForSatz(translation.satz.mainText);
-      const buffer = await synthesizeMp3(translation.text, voice);
+      const voice = voiceForSatz(translation.satz.mainText, {
+        question: tts.voiceQuestion,
+        answer: tts.voiceAnswer,
+      });
+      const buffer = await synthesizeMp3(translation.text, voice, tts.model);
       await writeFile(audioFilePath(translation.id), buffer);
       await db.satzTranslation.update({
         where: { id: translation.id },

@@ -22,6 +22,7 @@ const EXACT_MESSAGE_TO_CODE: Record<string, string> = {
   "Conjugation form not found": "CONJUGATION_FORM_NOT_FOUND",
   "Updates are disabled in development": "UPDATE_DISABLED_IN_DEV",
   "An update is already running": "UPDATE_ALREADY_RUNNING",
+  "OpenRouter API key is not configured": "OPENROUTER_NOT_CONFIGURED",
 };
 
 export function resolveErrorCode(message: string | undefined): string | null {
@@ -45,6 +46,9 @@ export function resolveErrorCode(message: string | undefined): string | null {
   }
   if (message.startsWith("Cannot update a completed worksheet")) {
     return "WORKSHEET_COMPLETED";
+  }
+  if (message.startsWith("OpenRouter ")) {
+    return "OPENROUTER_UNAVAILABLE";
   }
 
   return null;

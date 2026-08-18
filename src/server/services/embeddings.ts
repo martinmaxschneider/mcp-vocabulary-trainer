@@ -1,13 +1,18 @@
 import { createHash } from "node:crypto";
 import { EmbeddingOwnerType, Prisma, type PrismaClient } from "@prisma/client";
-import OpenAI from "openai";
-import { env } from "~/env";
+import {
+  DEFAULT_EMBEDDING_MODEL,
+  embeddingModelAliases,
+  isSameEmbeddingModel,
+} from "~/lib/ai-settings";
 import { looksLikeQuestion } from "~/lib/satz-question";
 import { filterByThreshold, parseVector, topKByCosine } from "~/lib/vector";
 import { db } from "~/server/db";
+import { getEmbeddingModel } from "~/server/services/ai-settings";
 import { judgeSemanticDuplicates } from "~/server/services/openai";
+import { createEmbedding } from "~/server/services/openrouter";
 
-export const EMBEDDING_MODEL = "text-embedding-3-small";
+export const EMBEDDING_MODEL = DEFAULT_EMBEDDING_MODEL;
 export const EMBEDDING_DIMS = 1536;
 export const SIMILARITY_THRESHOLD = 0.9;
 export const SIMILARITY_TOP_K = 5;
@@ -15,10 +20,6 @@ export const VOCAB_LINK_TOP_K = 12;
 export const VOCAB_LINK_MIN_SCORE = 0.22;
 export const QUESTION_MATCH_THRESHOLD = 0.85;
 export const QUESTION_MATCH_TOP_K = 5;
-
-const openai = new OpenAI({
-  apiKey: env.OPENAI_API_KEY,
-});
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -42,14 +43,7 @@ export function hashEmbeddingText(text: string): string {
 export async function embedTexts(texts: string[]): Promise<number[][]> {
   if (texts.length === 0) return [];
 
-  const response = await openai.embeddings.create({
-    model: EMBEDDING_MODEL,
-    input: texts.map((t) => t.trim()),
-  });
-
-  return [...response.data]
-    .sort((a, b) => a.index - b.index)
-    .map((item) => item.embedding);
+  return createEmbedding(texts.map((t) => t.trim()));
 }
 
 export async function loadEntryVectorIndex(
@@ -218,13 +212,13 @@ export async function saveEntryEmbedding(
     create: {
       ownerType: EmbeddingOwnerType.ENTRY,
       ownerId: entryId,
-      model: EMBEDDING_MODEL,
+      model: await getEmbeddingModel(),
       dims: vector.length,
       vector: vector as Prisma.InputJsonValue,
       textHash,
     },
     update: {
-      model: EMBEDDING_MODEL,
+      model: await getEmbeddingModel(),
       dims: vector.length,
       vector: vector as Prisma.InputJsonValue,
       textHash,
@@ -246,10 +240,11 @@ export async function upsertEntryEmbedding(
       },
     },
   });
+  const model = await getEmbeddingModel();
   if (
     existing &&
     existing.textHash === textHash &&
-    existing.model === EMBEDDING_MODEL
+    isSameEmbeddingModel(existing.model, model)
   ) {
     return { skipped: true };
   }
@@ -290,13 +285,13 @@ export async function saveSatzEmbedding(
     create: {
       ownerType: EmbeddingOwnerType.SATZ,
       ownerId: satzId,
-      model: EMBEDDING_MODEL,
+      model: await getEmbeddingModel(),
       dims: vector.length,
       vector: vector as Prisma.InputJsonValue,
       textHash,
     },
     update: {
-      model: EMBEDDING_MODEL,
+      model: await getEmbeddingModel(),
       dims: vector.length,
       vector: vector as Prisma.InputJsonValue,
       textHash,
@@ -318,10 +313,11 @@ export async function upsertSatzEmbedding(
       },
     },
   });
+  const model = await getEmbeddingModel();
   if (
     existing &&
     existing.textHash === textHash &&
-    existing.model === EMBEDDING_MODEL
+    isSameEmbeddingModel(existing.model, model)
   ) {
     return { skipped: true };
   }
@@ -479,18 +475,19 @@ export async function getEmbeddingStatus(): Promise<{
   dims: number;
   threshold: number;
 }> {
+  const model = await getEmbeddingModel();
   const total = await db.entry.count();
   const withEmbedding = await db.embedding.count({
     where: {
       ownerType: EmbeddingOwnerType.ENTRY,
-      model: EMBEDDING_MODEL,
+      model: { in: embeddingModelAliases(model) },
     },
   });
   return {
     total,
     withEmbedding,
     missing: Math.max(0, total - withEmbedding),
-    model: EMBEDDING_MODEL,
+    model,
     dims: EMBEDDING_DIMS,
     threshold: SIMILARITY_THRESHOLD,
   };
@@ -503,10 +500,11 @@ export async function backfillEntryEmbeddings(limit: number): Promise<{
   total: number;
   withEmbedding: number;
 }> {
+  const model = await getEmbeddingModel();
   const existing = await db.embedding.findMany({
     where: {
       ownerType: EmbeddingOwnerType.ENTRY,
-      model: EMBEDDING_MODEL,
+      model: { in: embeddingModelAliases(model) },
     },
     select: { ownerId: true, textHash: true },
   });

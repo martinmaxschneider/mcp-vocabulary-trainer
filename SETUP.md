@@ -37,8 +37,9 @@ NEXT_PUBLIC_NATIVE_LANG=de
 # Optional: only train these targets (omit = all except native)
 # NEXT_PUBLIC_TARGET_LANGS=en,es,fr
 
-# OpenAI - https://platform.openai.com/api-keys
-OPENAI_API_KEY="sk-..."
+# OpenRouter - https://openrouter.ai/keys
+# Models are chosen in Settings, not here.
+OPENROUTER_API_KEY="sk-or-..."
 
 # Optional: ChatGPT MCP tunnel
 CONTROL_PLANE_API_KEY=
@@ -116,7 +117,7 @@ Browse chapters in the app at `/grammar`. No content seed — empty tables until
 
 2. Create an org API key with **Tunnels Read + Use**:  
    https://platform.openai.com/settings/organization/api-keys
-3. Put it in `.env` as `CONTROL_PLANE_API_KEY=...` (may be the same value as `OPENAI_API_KEY` if that key has tunnel scope).
+3. Put it in `.env` as `CONTROL_PLANE_API_KEY=...` (this is an OpenAI org key with tunnel scope, separate from OpenRouter).
 4. Configure a tunnel profile named `sprachen` (or set `TUNNEL_PROFILE`) that points to  
    `http://localhost:4810/mcp`, with health listener on **4811** (next to the app port) — **once per machine**:
 
@@ -160,6 +161,6 @@ MCP tools are persistence-only (domains, entries, conjugations/`ConjugationForm`
 
 - **DB file missing / schema outdated**: run `npm run db:migrate` (backs up existing DB to `data/backups/` first).
 - **Restore from backup**: copy a file from `data/backups/` back to `data/sprachen.db`.
-- **AI features fail**: check `OPENAI_API_KEY` in `.env`.
+- **AI features fail**: check `OPENROUTER_API_KEY` in `.env` and the models in Settings.
 - **MCP tunnel missing key**: set `CONTROL_PLANE_API_KEY` in `.env`.
 - **tunnel-client not found**: install the binary and ensure it is on `PATH`.

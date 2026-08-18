@@ -1,5 +1,3 @@
-import OpenAI from "openai";
-import { env } from "~/env";
 import { z } from "zod";
 import { conjugationsSchema } from "~/lib/schemas/translation";
 import {
@@ -10,10 +8,7 @@ import {
   personLabels,
 } from "~/lib/conjugation-catalog";
 import { getLanguageName, SOURCE_LANG } from "~/lib/languages";
-
-const openai = new OpenAI({
-  apiKey: env.OPENAI_API_KEY,
-});
+import { createChatCompletion } from "~/server/services/openrouter";
 
 const translationOutputSchema = z.record(
   z.string(),
@@ -203,8 +198,7 @@ Für jede Zielsprache: liefere zwingend "ipa" zur Übersetzung (IPA in Slash-Not
 Gib nur das JSON-Objekt zurück.`;
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+    const completion = await createChatCompletion({
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
@@ -355,8 +349,7 @@ Gib nur das JSON-Objekt zurück.`
 Gib nur das JSON-Objekt zurück.`;
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+    const completion = await createChatCompletion({
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
@@ -432,8 +425,7 @@ Gib nur valides JSON zurück im folgenden Format:
 Gib nur das JSON-Objekt zurück.`;
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+    const completion = await createChatCompletion({
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
@@ -513,8 +505,7 @@ matchId muss die id eines gelieferten Kandidaten sein, sonst null.`;
 Kandidaten:
 ${candidateLines}`;
 
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+  const completion = await createChatCompletion({
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
@@ -618,8 +609,7 @@ ${themeLines}
 Vokabel-Kandidaten:
 ${vocabLines}`;
 
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+  const completion = await createChatCompletion({
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
@@ -678,8 +668,7 @@ export async function classifySatzAnswer(params: {
     .map((code) => `- ${code}: ${getLanguageName(code)}`)
     .join("\n");
 
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+  const completion = await createChatCompletion({
     messages: [
       {
         role: "system",

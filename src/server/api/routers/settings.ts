@@ -1,5 +1,6 @@
 import { EmbeddingOwnerType } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
+import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import {
   isUpdateLocked,
@@ -9,6 +10,21 @@ import {
 } from "~/server/self-update";
 import { resetGamification } from "~/server/gamification";
 import { wipeAllSatzAudio } from "~/server/services/tts";
+import {
+  getAppSettings,
+  updateAppSettings,
+} from "~/server/services/ai-settings";
+import {
+  getProjectUsageSummary,
+  listAiUsageLogs,
+} from "~/server/services/ai-usage";
+import {
+  OPENROUTER_NOT_CONFIGURED,
+  createSpeechMp3,
+  getOpenRouterKeyInfo,
+  isOpenRouterConfigured,
+  listOpenRouterModels,
+} from "~/server/services/openrouter";
 
 export const settingsRouter = createTRPCRouter({
   updateStatus: publicProcedure.query(() => {
@@ -85,8 +101,88 @@ export const settingsRouter = createTRPCRouter({
     await wipeAllSatzAudio();
     await ctx.db.entry.deleteMany({});
     await ctx.db.domain.deleteMany({});
+    await ctx.db.aiUsageLog.deleteMany({});
 
     return { success: true };
   }),
+
+  getAi: publicProcedure.query(async () => {
+    const settings = await getAppSettings();
+    return {
+      ...settings,
+      configured: isOpenRouterConfigured(),
+    };
+  }),
+
+  updateAi: publicProcedure
+    .input(
+      z.object({
+        chatModel: z.string().min(1).optional(),
+        embeddingModel: z.string().min(1).optional(),
+        ttsModel: z.string().min(1).optional(),
+        ttsVoiceQuestion: z.string().min(1).optional(),
+        ttsVoiceAnswer: z.string().min(1).optional(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      return updateAppSettings(input);
+    }),
+
+  listModels: publicProcedure.query(async () => {
+    if (!isOpenRouterConfigured()) {
+      return { chat: [], embedding: [], speech: [], error: "not_configured" as const };
+    }
+    try {
+      return { ...(await listOpenRouterModels()), error: null };
+    } catch {
+      return { chat: [], embedding: [], speech: [], error: "unavailable" as const };
+    }
+  }),
+
+  getBudget: publicProcedure.query(async () => {
+    const project = await getProjectUsageSummary();
+    if (!isOpenRouterConfigured()) {
+      return { configured: false, key: null, project, error: null };
+    }
+    try {
+      const key = await getOpenRouterKeyInfo();
+      return { configured: true, key, project, error: null };
+    } catch {
+      return {
+        configured: true,
+        key: null,
+        project,
+        error: "unavailable" as const,
+      };
+    }
+  }),
+
+  listUsageLogs: publicProcedure.query(() => listAiUsageLogs(50)),
+
+  testTts: publicProcedure
+    .input(
+      z.object({
+        text: z.string().min(1).max(500),
+        voice: z.string().min(1),
+        model: z.string().min(1).optional(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      if (!isOpenRouterConfigured()) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: OPENROUTER_NOT_CONFIGURED,
+        });
+      }
+      const buffer = await createSpeechMp3({
+        text: input.text,
+        voice: input.voice,
+        model: input.model,
+      });
+      return {
+        audioBase64: buffer.toString("base64"),
+        mimeType: "audio/mpeg" as const,
+      };
+    }),
 });
 
