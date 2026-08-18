@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { EmbeddingOwnerType, Prisma, type PrismaClient } from "@prisma/client";
 import OpenAI from "openai";
 import { env } from "~/env";
+import { looksLikeQuestion } from "~/lib/satz-question";
 import { filterByThreshold, parseVector, topKByCosine } from "~/lib/vector";
 import { db } from "~/server/db";
 import { judgeSemanticDuplicates } from "~/server/services/openai";
@@ -12,6 +13,8 @@ export const SIMILARITY_THRESHOLD = 0.9;
 export const SIMILARITY_TOP_K = 5;
 export const VOCAB_LINK_TOP_K = 12;
 export const VOCAB_LINK_MIN_SCORE = 0.22;
+export const QUESTION_MATCH_THRESHOLD = 0.85;
+export const QUESTION_MATCH_TOP_K = 5;
 
 const openai = new OpenAI({
   apiKey: env.OPENAI_API_KEY,
@@ -154,6 +157,39 @@ export async function findSimilarSaetze(
     vector,
     textHash: hashEmbeddingText(trimmed),
     candidates: rankSimilar(vector, index, options?.k),
+  };
+}
+
+export async function loadQuestionVectorIndex(
+  excludeId?: string,
+): Promise<EntryVectorRow[]> {
+  const rows = await loadSatzVectorIndex(excludeId);
+  return rows.filter((row) => looksLikeQuestion(row.mainText));
+}
+
+export async function findSimilarQuestions(
+  queryText: string,
+  options?: { excludeId?: string; k?: number },
+): Promise<{
+  vector: number[];
+  candidates: SimilarCandidate[];
+  flagged: SimilarCandidate[];
+}> {
+  const trimmed = queryText.trim();
+  const [vector] = await embedTexts([trimmed]);
+  if (!vector) {
+    throw new Error("Failed to embed question text");
+  }
+  const index = await loadQuestionVectorIndex(options?.excludeId);
+  const candidates = rankSimilar(
+    vector,
+    index,
+    options?.k ?? QUESTION_MATCH_TOP_K,
+  );
+  return {
+    vector,
+    candidates,
+    flagged: filterByThreshold(candidates, QUESTION_MATCH_THRESHOLD),
   };
 }
 

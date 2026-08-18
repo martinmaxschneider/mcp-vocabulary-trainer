@@ -26,8 +26,9 @@ import { useToast } from "~/hooks/use-toast";
 import { resolveErrorCode } from "~/lib/trpc-error";
 import { SOURCE_LANG, TARGET_LANGS } from "~/lib/languages";
 import { groupDomainsByKind } from "~/lib/domain-catalog";
+import { looksLikeQuestion } from "~/lib/satz-question";
 import { useFocusLang } from "~/components/focus-lang-provider";
-import { Loader2, Save, Search, X } from "lucide-react";
+import { Loader2, Save, Search, Sparkles, X } from "lucide-react";
 
 type TranslationDraft = {
   text: string;
@@ -45,6 +46,7 @@ export type SatzFormValues = {
   linkedEntries: Array<{ id: string; mainText: string }>;
   grammarTopicIds: string[];
   translations: Record<string, TranslationDraft>;
+  answerTo: { id: string; mainText: string } | null;
 };
 
 function emptyTranslations(): Record<string, TranslationDraft> {
@@ -67,6 +69,7 @@ export function emptySatzFormValues(domainId?: string): SatzFormValues {
     linkedEntries: [],
     grammarTopicIds: [],
     translations: emptyTranslations(),
+    answerTo: null,
   };
 }
 
@@ -89,6 +92,7 @@ export function SatzForm({
 
   const [values, setValues] = useState<SatzFormValues>(initial);
   const [entryQuery, setEntryQuery] = useState("");
+  const [questionQuery, setQuestionQuery] = useState("");
 
   const errorDescription = (message: string) => {
     const code = resolveErrorCode(message);
@@ -103,6 +107,40 @@ export function SatzForm({
     { query: entryQuery, limit: 8 },
     { enabled: entryQuery.trim().length > 0 },
   );
+  const questionSearch = api.satz.search.useQuery(
+    { query: questionQuery, limit: 8 },
+    { enabled: questionQuery.trim().length > 0 },
+  );
+  const suggestQuestion = api.satz.suggestQuestion.useMutation({
+    onSuccess: (result) => {
+      if (result.matchId) {
+        const match = result.candidates.find((c) => c.id === result.matchId);
+        if (match) {
+          setValues((prev) => ({
+            ...prev,
+            answerTo: { id: match.id, mainText: match.mainText },
+          }));
+          toast({ title: tToasts("satzQuestionLinked") });
+          return;
+        }
+      }
+      if (result.suggestedQuestionText) {
+        toast({
+          title: tToasts("satzQuestionSuggested"),
+          description: result.suggestedQuestionText,
+        });
+        return;
+      }
+      toast({ title: tToasts("satzQuestionNone") });
+    },
+    onError: (error) => {
+      toast({
+        title: tToasts("satzQuestionSuggestError"),
+        description: errorDescription(error.message),
+        variant: "destructive",
+      });
+    },
+  });
 
   const createMutation = api.satz.create.useMutation({
     onSuccess: () => {
@@ -189,12 +227,17 @@ export function SatzForm({
       linkedEntryIds: values.linkedEntries.map((e) => e.id),
       grammarTopicIds: values.grammarTopicIds,
       translations,
+      answerToId: values.answerTo?.id,
     };
 
     if (mode === "create") {
       createMutation.mutate(payload);
     } else if (values.id) {
-      updateMutation.mutate({ id: values.id, ...payload });
+      updateMutation.mutate({
+        id: values.id,
+        ...payload,
+        answerToId: values.answerTo?.id ?? null,
+      });
     }
   };
 
@@ -437,6 +480,89 @@ export function SatzForm({
             </Badge>
           ))}
         </div>
+      </div>
+
+      <div className="space-y-3">
+        <h3 className="font-medium">{t("answerToTitle")}</h3>
+        <p className="text-sm text-muted-foreground">{t("answerToHint")}</p>
+        {looksLikeQuestion(values.mainText) ? (
+          <p className="text-sm text-muted-foreground">{t("answerToIsQuestion")}</p>
+        ) : (
+          <>
+            <div className="flex flex-wrap gap-2">
+              <div className="relative max-w-md flex-1">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  className="pl-9"
+                  value={questionQuery}
+                  onChange={(e) => setQuestionQuery(e.target.value)}
+                  placeholder={t("answerToSearch")}
+                  disabled={busy}
+                />
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={busy || !values.mainText.trim() || suggestQuestion.isPending}
+                onClick={() =>
+                  suggestQuestion.mutate({
+                    mainText: values.mainText.trim(),
+                    excludeId: values.id,
+                  })
+                }
+              >
+                {suggestQuestion.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="mr-2 h-4 w-4" />
+                )}
+                {t("answerToSuggest")}
+              </Button>
+            </div>
+            {questionSearch.data?.items && questionSearch.data.items.length > 0 ? (
+              <div className="cahier-section space-y-1">
+                {questionSearch.data.items
+                  .filter((satz) => satz.id !== values.id)
+                  .map((satz) => (
+                    <button
+                      key={satz.id}
+                      type="button"
+                      className="cahier-item cahier-item-hover w-full p-2 text-left"
+                      onClick={() => {
+                        setValues((prev) => ({
+                          ...prev,
+                          answerTo: { id: satz.id, mainText: satz.mainText },
+                        }));
+                        setQuestionQuery("");
+                      }}
+                    >
+                      {satz.mainText}
+                    </button>
+                  ))}
+              </div>
+            ) : null}
+            {values.answerTo ? (
+              <Badge variant="secondary" className="gap-1">
+                {values.answerTo.mainText}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setValues((prev) => ({ ...prev, answerTo: null }))
+                  }
+                  aria-label={tCommon("delete")}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            ) : null}
+            {suggestQuestion.data?.suggestedQuestionText &&
+            !values.answerTo ? (
+              <p className="text-sm text-muted-foreground">
+                {t("answerToSuggested")}: {suggestQuestion.data.suggestedQuestionText}
+              </p>
+            ) : null}
+          </>
+        )}
       </div>
 
       <div className="space-y-3">

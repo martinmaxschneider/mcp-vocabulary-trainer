@@ -16,6 +16,7 @@ import {
   deleteSatzEmbedding,
   upsertSatzEmbedding,
 } from "~/server/services/embeddings";
+import { suggestAnswerQuestion } from "~/server/services/satz-question";
 
 const SATZ_DOMAIN_KINDS: DomainKind[] = [DomainKind.THEME, DomainKind.SPECIAL];
 
@@ -60,6 +61,7 @@ const satzInclude = {
     },
   },
   answerTo: { select: { id: true, mainText: true } },
+  answers: { select: { id: true, mainText: true } },
 } as const;
 
 type DbClient = typeof db | Prisma.TransactionClient;
@@ -446,5 +448,16 @@ export const satzRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       await syncSatzGrammarTopics(ctx.db, input.satzId, input.grammarTopicIds);
       return { success: true };
+    }),
+
+  suggestQuestion: publicProcedure
+    .input(
+      z.object({
+        mainText: z.string().min(1),
+        excludeId: z.string().optional(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      return suggestAnswerQuestion(input);
     }),
 });

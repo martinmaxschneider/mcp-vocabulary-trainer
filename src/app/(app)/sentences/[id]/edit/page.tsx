@@ -74,6 +74,7 @@ export default function EditSentencePage({
                 })),
                 grammarTopicIds: data.grammarTopics.map((g) => g.grammarTopicId),
                 translations,
+                answerTo: data.answerTo,
               }}
             />
           )}

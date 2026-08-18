@@ -4,6 +4,7 @@
 const EXACT_MESSAGE_TO_CODE: Record<string, string> = {
   "Entry not found": "ENTRY_NOT_FOUND",
   "Satz not found": "SATZ_NOT_FOUND",
+  "answerToId does not match an existing Satz": "SATZ_ANSWER_NOT_FOUND",
   "Satz import batch not found": "SATZ_IMPORT_NOT_FOUND",
   "Satz import draft not found": "SATZ_IMPORT_DRAFT_NOT_FOUND",
   "Satz import batch already committed": "SATZ_IMPORT_ALREADY_COMMITTED",

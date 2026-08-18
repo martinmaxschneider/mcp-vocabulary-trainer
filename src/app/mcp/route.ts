@@ -315,6 +315,20 @@ const handler = createMcpHandler(
     );
 
     server.tool(
+      "suggest_satz_question",
+      "Schlägt vor, ob ein Satz eine Antwort ist, und sucht passende bestehende Fragen (nur Frageform-Sätze).",
+      { mainText: z.string().min(1), excludeId: z.string().optional() },
+      async (args) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.satz.suggestQuestion(args));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
       "import_saetze_csv",
       "Lädt eine CSV (Spalten Nummer + deutscher Satz) als Staging-Batch. " +
         "Noch keine echten Sätze — danach enrich_satz_import und commit_satz_import.",
@@ -331,7 +345,7 @@ const handler = createMcpHandler(
 
     server.tool(
       "enrich_satz_import",
-      "Reichert die nächsten Drafts eines Satz-Imports an (Duplikat-Check, Übersetzung, Themen, Vokabeln).",
+      "Reichert die nächsten Drafts eines Satz-Imports an (Duplikat-Check, Übersetzung, Themen, Vokabeln, Frage-Vorschlag).",
       {
         batchId: z.string(),
         limit: z.number().min(1).max(10).default(2),

@@ -542,6 +542,9 @@ const satzImportEnrichSchema = z.object({
   trigger: z.string().nullable().optional(),
   themeNames: z.array(z.string()).optional(),
   linkedEntryIds: z.array(z.string()).optional(),
+  isAnswer: z.boolean().optional(),
+  question: z.string().nullable().optional(),
+  questionTranslations: z.record(z.string(), z.string()).optional(),
 });
 
 export type SatzImportEnrichResult = z.infer<typeof satzImportEnrichSchema>;
@@ -587,6 +590,9 @@ Regeln:
 - trigger: kurze deutsche Szene, wann der Satz fällt, oder null.
 - themeNames: 1–3 Namen exakt aus der Themenliste, sonst leer.
 - linkedEntryIds: nur ids der gelieferten Vokabeln, die wirklich im Satz vorkommen.
+- isAnswer: true, wenn der Satz typischerweise eine Antwort auf eine Alltagssfrage ist (nicht selbst die Frage).
+- question: die natürliche deutsche Frage dazu, sonst null. Immer mit Fragezeichen.
+- questionTranslations: Übersetzung dieser Frage in jede Zielsprache, nur wenn isAnswer.
 
 Gib nur JSON zurück:
 {
@@ -595,7 +601,10 @@ Gib nur JSON zurück:
   "priority": "DAILY" | "WEEKLY" | "OCCASIONAL" | "RARE",
   "trigger": string | null,
   "themeNames": string[],
-  "linkedEntryIds": string[]
+  "linkedEntryIds": string[],
+  "isAnswer": boolean,
+  "question": string | null,
+  "questionTranslations": { "<lang>": "<text>" }
 }`;
 
   const userPrompt = `Deutscher Satz: ${JSON.stringify(params.germanText)}
@@ -631,12 +640,79 @@ ${vocabLines}`;
       .map(([lang, text]) => [lang, text.trim()]),
   );
 
+  const questionTranslations = Object.fromEntries(
+    Object.entries(parsed.questionTranslations ?? {})
+      .filter(([lang, text]) => allowedLangs.has(lang) && text.trim().length > 0)
+      .map(([lang, text]) => [lang, text.trim()]),
+  );
+  const question = parsed.question?.trim() || null;
+
   return {
     ...parsed,
     translations,
     themeNames: (parsed.themeNames ?? []).filter((name) => allowedThemes.has(name)),
     linkedEntryIds: (parsed.linkedEntryIds ?? []).filter((id) =>
       allowedEntryIds.has(id),
+    ),
+    isAnswer: parsed.isAnswer === true && Boolean(question),
+    question,
+    questionTranslations,
+  };
+}
+
+const satzAnswerClassifySchema = z.object({
+  isAnswer: z.boolean(),
+  question: z.string().nullable(),
+  questionTranslations: z.record(z.string(), z.string()).optional(),
+});
+
+export type SatzAnswerClassifyResult = z.infer<typeof satzAnswerClassifySchema>;
+
+/** Small call for existing Sätze: is this an answer, and what is the question? */
+export async function classifySatzAnswer(params: {
+  germanText: string;
+  targetLangs: string[];
+}): Promise<SatzAnswerClassifyResult> {
+  const allowedLangs = new Set(params.targetLangs);
+  const langLines = params.targetLangs
+    .map((code) => `- ${code}: ${getLanguageName(code)}`)
+    .join("\n");
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      {
+        role: "system",
+        content: `Du prüfst, ob ein deutscher Alltagssatz typischerweise eine Antwort auf eine Frage ist.
+Ist der Satz selbst eine Frage oder eine eigenständige Aussage ohne typische Gegenfrage: isAnswer=false, question=null.
+Sonst: natürliche deutsche Frage (mit Fragezeichen) und deren Übersetzungen.
+
+Gib nur JSON zurück:
+{ "isAnswer": boolean, "question": string | null, "questionTranslations": { "<lang>": "<text>" } }`,
+      },
+      {
+        role: "user",
+        content: `Satz: ${JSON.stringify(params.germanText)}\n\nZielsprachen:\n${langLines}`,
+      },
+    ],
+    temperature: 0,
+    response_format: { type: "json_object" },
+  });
+
+  const content = completion.choices[0]?.message?.content;
+  if (!content) {
+    throw new Error("No content in OpenAI satz-answer classify response");
+  }
+
+  const parsed = satzAnswerClassifySchema.parse(JSON.parse(content) as unknown);
+  const question = parsed.question?.trim() || null;
+  return {
+    isAnswer: parsed.isAnswer === true && Boolean(question),
+    question,
+    questionTranslations: Object.fromEntries(
+      Object.entries(parsed.questionTranslations ?? {})
+        .filter(([lang, text]) => allowedLangs.has(lang) && text.trim().length > 0)
+        .map(([lang, text]) => [lang, text.trim()]),
     ),
   };
 }

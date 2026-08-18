@@ -113,6 +113,11 @@ function SentencesPageInner() {
                         {t("triggerPrefix")}: {satz.trigger}
                       </p>
                     ) : null}
+                    {satz.answerTo ? (
+                      <p className="text-sm text-muted-foreground">
+                        {t("answerToPrefix")}: {satz.answerTo.mainText}
+                      </p>
+                    ) : null}
                     <div className="flex flex-wrap gap-1 pt-1">
                       {satz.domains.map((link) => (
                         <Badge key={link.id} variant="outline">

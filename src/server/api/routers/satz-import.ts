@@ -122,14 +122,23 @@ export const satzImportRouter = createTRPCRouter({
         translations: z.array(satzTranslationInputSchema).optional(),
         domainIds: z.array(z.string()).optional(),
         linkedEntryIds: z.array(z.string()).optional(),
+        isAnswer: z.boolean().optional(),
+        answerToId: z.string().nullable().optional(),
+        suggestedQuestionText: z.string().nullable().optional(),
+        questionTranslations: z.array(satzTranslationInputSchema).optional(),
       }),
     )
     .mutation(async ({ input }) => {
       try {
-        const { id, translations, ...data } = input;
+        const { id, translations, questionTranslations, ...data } = input;
         await updateImportDraft(id, {
           ...data,
           translations: translations?.map((t) => ({
+            lang: t.lang,
+            text: t.text,
+            register: t.register ?? SatzRegister.INFORMAL,
+          })),
+          questionTranslations: questionTranslations?.map((t) => ({
             lang: t.lang,
             text: t.text,
             register: t.register ?? SatzRegister.INFORMAL,

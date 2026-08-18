@@ -33,6 +33,7 @@ import {
   upsertSatzEmbedding,
 } from "~/server/services/embeddings";
 import { enrichSatzImport } from "~/server/services/openai";
+import { resolveAnswerQuestion } from "~/server/services/satz-question";
 
 type DbClient = typeof db | Prisma.TransactionClient;
 
@@ -158,6 +159,13 @@ async function enrichOneDraft(
   const linkedEntryIds = (enriched.linkedEntryIds ?? []).filter((id) =>
     vocabCandidates.some((c) => c.id === id),
   );
+  const qa = await resolveAnswerQuestion({
+    mainText: draft.mainText,
+    isAnswer: enriched.isAnswer,
+    question: enriched.question,
+    questionTranslations: enriched.questionTranslations,
+    register,
+  });
 
   await db.satzImportDraft.update({
     where: { id: draft.id },
@@ -172,6 +180,11 @@ async function enrichOneDraft(
       linkedEntryIds: linkedEntryIds as Prisma.InputJsonValue,
       duplicateCandidates: similarity.candidates as Prisma.InputJsonValue,
       vocabCandidates: vocabCandidates as Prisma.InputJsonValue,
+      isAnswer: qa.isAnswer,
+      answerToId: qa.matchId,
+      suggestedQuestionText: qa.suggestedQuestionText,
+      questionTranslations: qa.questionTranslations as Prisma.InputJsonValue,
+      questionCandidates: qa.candidates as Prisma.InputJsonValue,
       error: null,
     },
   });
@@ -258,6 +271,10 @@ export type DraftUpdateInput = {
   translations?: DraftTranslation[];
   domainIds?: string[];
   linkedEntryIds?: string[];
+  isAnswer?: boolean;
+  answerToId?: string | null;
+  suggestedQuestionText?: string | null;
+  questionTranslations?: DraftTranslation[];
 };
 
 export async function updateImportDraft(id: string, input: DraftUpdateInput) {
@@ -280,6 +297,9 @@ export async function updateImportDraft(id: string, input: DraftUpdateInput) {
   }
   if (input.linkedEntryIds) {
     await assertEntryIds(db, input.linkedEntryIds);
+  }
+  if (input.answerToId) {
+    await assertAnswerToId(db, input.answerToId);
   }
 
   const register = input.register ?? parseRegister(existing.register);
@@ -314,6 +334,14 @@ export async function updateImportDraft(id: string, input: DraftUpdateInput) {
       }),
       ...(input.linkedEntryIds && {
         linkedEntryIds: input.linkedEntryIds as Prisma.InputJsonValue,
+      }),
+      ...(input.isAnswer !== undefined && { isAnswer: input.isAnswer }),
+      ...(input.answerToId !== undefined && { answerToId: input.answerToId }),
+      ...(input.suggestedQuestionText !== undefined && {
+        suggestedQuestionText: input.suggestedQuestionText?.trim() || null,
+      }),
+      ...(input.questionTranslations && {
+        questionTranslations: input.questionTranslations as Prisma.InputJsonValue,
       }),
     },
   });
@@ -362,6 +390,17 @@ async function assertEntryIds(client: DbClient, entryIds: string[]) {
   }
 }
 
+async function assertAnswerToId(client: DbClient, answerToId: string | null) {
+  if (!answerToId) return;
+  const question = await client.satz.findUnique({
+    where: { id: answerToId },
+    select: { id: true },
+  });
+  if (!question) {
+    throw new Error("answerToId does not match an existing Satz");
+  }
+}
+
 async function persistSatzEmbeddingSafe(satzId: string, mainText: string) {
   try {
     await upsertSatzEmbedding(satzId, mainText);
@@ -392,6 +431,7 @@ export async function commitImportBatch(batchId: string, draftIds?: string[]) {
   }
 
   const created: string[] = [];
+  const createdQuestions = new Map<string, string>();
 
   for (const draft of ready) {
     const translations = parseDraftTranslations(draft.translations);
@@ -399,6 +439,49 @@ export async function commitImportBatch(batchId: string, draftIds?: string[]) {
     const linkedEntryIds = parseStringIds(draft.linkedEntryIds);
     await assertAssignableDomainIds(db, domainIds);
     await assertEntryIds(db, linkedEntryIds);
+
+    let answerToId = draft.answerToId;
+    const suggestedQuestion = draft.suggestedQuestionText?.trim();
+    if (!answerToId && draft.isAnswer && suggestedQuestion) {
+      const questionKey = normalizeSatzText(suggestedQuestion);
+      const existingInBatch = createdQuestions.get(questionKey);
+      if (existingInBatch) {
+        answerToId = existingInBatch;
+      } else {
+        const questionTranslations = parseDraftTranslations(
+          draft.questionTranslations,
+        );
+        if (questionTranslations.length > 0) {
+          const question = await db.satz.create({
+            data: {
+              mainLang: SOURCE_LANG.code,
+              mainText: suggestedQuestion,
+              source: parseSource(draft.source),
+              priority: draft.priority,
+              shadowingStatus: ShadowingStatus.NOT_STARTED,
+              translations: {
+                create: questionTranslations.map((t) => ({
+                  lang: t.lang,
+                  text: t.text,
+                  register: t.register,
+                  audioStatus: AudioStatus.NONE,
+                })),
+              },
+              ...(domainIds.length > 0 && {
+                domains: { create: domainIds.map((domainId) => ({ domainId })) },
+              }),
+            },
+          });
+          await persistSatzEmbeddingSafe(question.id, question.mainText);
+          answerToId = question.id;
+          createdQuestions.set(questionKey, question.id);
+          created.push(question.id);
+        }
+      }
+    }
+    if (answerToId) {
+      await assertAnswerToId(db, answerToId);
+    }
 
     const satz = await db.satz.create({
       data: {
@@ -408,6 +491,7 @@ export async function commitImportBatch(batchId: string, draftIds?: string[]) {
         source: parseSource(draft.source),
         priority: draft.priority,
         shadowingStatus: ShadowingStatus.NOT_STARTED,
+        answerToId,
         translations: {
           create: translations.map((t) => ({
             lang: t.lang,
@@ -486,8 +570,15 @@ export async function getBatchView(batchId: string) {
       ]),
     ),
   ];
+  const answerToIds = [
+    ...new Set(
+      batch.items
+        .map((item) => item.answerToId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
 
-  const [domains, entries] = await Promise.all([
+  const [domains, entries, questions] = await Promise.all([
     domainIds.length
       ? db.domain.findMany({
           where: { id: { in: domainIds } },
@@ -500,9 +591,16 @@ export async function getBatchView(batchId: string) {
           select: { id: true, mainText: true },
         })
       : Promise.resolve([]),
+    answerToIds.length
+      ? db.satz.findMany({
+          where: { id: { in: answerToIds } },
+          select: { id: true, mainText: true },
+        })
+      : Promise.resolve([]),
   ]);
   const domainById = new Map(domains.map((d) => [d.id, d]));
   const entryById = new Map(entries.map((e) => [e.id, e]));
+  const questionById = new Map(questions.map((q) => [q.id, q]));
 
   const items = batch.items.map((item) => {
     const translations = parseDraftTranslations(item.translations);
@@ -534,6 +632,12 @@ export async function getBatchView(batchId: string) {
       duplicateCandidates: parseDraftCandidates(item.duplicateCandidates),
       isDuplicate: item.isDuplicate,
       allowSimilar: item.allowSimilar,
+      isAnswer: item.isAnswer,
+      answerToId: item.answerToId,
+      answerTo: item.answerToId ? questionById.get(item.answerToId) ?? null : null,
+      suggestedQuestionText: item.suggestedQuestionText,
+      questionTranslations: parseDraftTranslations(item.questionTranslations),
+      questionCandidates: parseDraftCandidates(item.questionCandidates),
       error: item.error,
       committedSatzId: item.committedSatzId,
       ready: isDraftReadyToCommit(item),

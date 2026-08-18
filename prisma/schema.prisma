@@ -557,6 +557,13 @@ model SatzImportDraft {
 
   isDuplicate  Boolean @default(false)
   allowSimilar Boolean @default(false)
+  isAnswer     Boolean @default(false)
+  answerToId   String?
+  suggestedQuestionText String?
+  /// [{ lang, text, register }]
+  questionTranslations Json?
+  /// [{ id, mainText, score, llmMatch? }]
+  questionCandidates Json?
   error        String?
   committedSatzId String?
 

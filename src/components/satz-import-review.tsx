@@ -223,6 +223,11 @@ function DraftCard({
   const [register, setRegister] = useState(item.register);
   const [domainIds, setDomainIds] = useState(item.domainIds);
   const [linkedEntries, setLinkedEntries] = useState(item.linkedEntries);
+  const [isAnswer, setIsAnswer] = useState(item.isAnswer);
+  const [answerToId, setAnswerToId] = useState(item.answerToId);
+  const [suggestedQuestion, setSuggestedQuestion] = useState(
+    item.suggestedQuestionText ?? "",
+  );
   const [translations, setTranslations] = useState<
     Record<string, { text: string; register: SatzRegister }>
   >(() =>
@@ -371,6 +376,97 @@ function DraftCard({
                 </div>
               );
             })}
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="font-medium">{t("answerToTitle")}</h3>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={isAnswer}
+                onCheckedChange={(checked) => {
+                  const next = checked === true;
+                  setIsAnswer(next);
+                  if (!next) {
+                    setAnswerToId(null);
+                    setSuggestedQuestion("");
+                    persist({
+                      id: item.id,
+                      isAnswer: false,
+                      answerToId: null,
+                      suggestedQuestionText: null,
+                    });
+                  } else {
+                    persist({ id: item.id, isAnswer: true });
+                  }
+                }}
+              />
+              {t("importIsAnswer")}
+            </label>
+            {isAnswer ? (
+              <>
+                {item.questionCandidates.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {item.questionCandidates.map((candidate) => (
+                      <button
+                        key={candidate.id}
+                        type="button"
+                        onClick={() => {
+                          setAnswerToId(candidate.id);
+                          persist({
+                            id: item.id,
+                            isAnswer: true,
+                            answerToId: candidate.id,
+                          });
+                        }}
+                      >
+                        <Badge
+                          variant={
+                            answerToId === candidate.id ? "default" : "outline"
+                          }
+                        >
+                          {candidate.mainText}
+                        </Badge>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                <div className="space-y-2">
+                  <Label>{t("importNewQuestion")}</Label>
+                  <Input
+                    value={suggestedQuestion}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setSuggestedQuestion(next);
+                      persist({
+                        id: item.id,
+                        isAnswer: true,
+                        suggestedQuestionText: next,
+                        answerToId: answerToId,
+                      });
+                    }}
+                    placeholder={t("importNewQuestionPlaceholder")}
+                  />
+                  {item.answerTo && answerToId === item.answerTo.id ? (
+                    <p className="text-sm text-muted-foreground">
+                      {t("answerToPrefix")}: {item.answerTo.mainText}
+                    </p>
+                  ) : null}
+                </div>
+                {answerToId ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setAnswerToId(null);
+                      persist({ id: item.id, answerToId: null });
+                    }}
+                  >
+                    {t("answerToUnlink")}
+                  </Button>
+                ) : null}
+              </>
+            ) : null}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
