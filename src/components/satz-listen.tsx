@@ -124,8 +124,6 @@ export function SatzListen() {
             : null,
           clips: [...questionClips, ...answerClips],
           audioStatus: answer?.audioStatus ?? AudioStatus.NONE,
-          itemHref: `/sentences/${satz.id}/train`,
-          itemHrefLabel: t("train"),
         };
       });
   }, [items, focusLang, t]);
@@ -172,7 +170,6 @@ export function SatzListen() {
       generating={generating}
       onGenerateMissing={generateMissing}
       onFirstPassComplete={(satzIds) => markPracticed.mutate({ satzIds })}
-      emptyMessage={t("emptyDesc")}
       filters={
         ids ? undefined : (
           <div className="grid gap-4 sm:grid-cols-3">

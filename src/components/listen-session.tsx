@@ -3,8 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Headphones, Loader2, Pause, Play, Settings, Volume2 } from "lucide-react";
-import { Badge } from "~/components/ui/badge";
+import { Headphones, Loader2, Play, Settings, Volume2 } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Label } from "~/components/ui/label";
@@ -44,8 +43,6 @@ export type ListenItem = {
   extraText?: string | null;
   clips: PlaybackClip[];
   audioStatus?: string;
-  itemHref?: string;
-  itemHrefLabel?: string;
 };
 
 export function ListenSession({
@@ -58,7 +55,6 @@ export function ListenSession({
   generating,
   onGenerateMissing,
   onFirstPassComplete,
-  emptyMessage,
 }: {
   title: string;
   subtitle?: string;
@@ -69,7 +65,6 @@ export function ListenSession({
   generating?: boolean;
   onGenerateMissing?: () => void;
   onFirstPassComplete?: (ids: string[]) => void;
-  emptyMessage?: string;
 }) {
   const t = useTranslations("sentences");
   const tModes = useTranslations("practiceModes");
@@ -82,7 +77,6 @@ export function ListenSession({
   );
   const [playlist, setPlaylist] = useState<ListenPlaylistItem[] | null>(null);
   const [clipIndex, setClipIndex] = useState(0);
-  const [playingId, setPlayingId] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
   const [awaitingNext, setAwaitingNext] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -149,7 +143,6 @@ export function ListenSession({
     frozenRemainingRef.current = null;
     setPaused(false);
     setAwaitingNext(false);
-    setPlayingId(null);
     setPlaylist(null);
     setClipIndex(0);
   };
@@ -169,7 +162,6 @@ export function ListenSession({
     setAwaitingNext(false);
     setClipIndex(0);
     setPlaylist(nextPlaylist);
-    setPlayingId(nextPlaylist[0]!.itemId);
     commitRemaining(remainingListenMs(nextPlaylist, 1, settings.playbackRate));
   };
 
@@ -183,7 +175,6 @@ export function ListenSession({
     setPaused(false);
     setAwaitingNext(false);
     setClipIndex(nextIndex);
-    setPlayingId(playlist[nextIndex]!.itemId);
     commitRemaining(
       remainingListenMs(playlist, nextIndex + 1, settingsRef.current.playbackRate),
     );
@@ -309,7 +300,6 @@ export function ListenSession({
         void audio.play().catch(reject);
       });
 
-    setPlayingId(item.itemId);
     commitRemaining(
       remainingListenMs(playlist, clipIndex + 1, settingsRef.current.playbackRate),
     );
@@ -606,72 +596,6 @@ export function ListenSession({
           </div>
         ) : null}
       </section>
-
-      <div className="space-y-3">
-        {items.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {emptyMessage ?? t("emptyDesc")}
-          </p>
-        ) : (
-          items.map((item) => {
-            const status =
-              item.audioStatus ?? (item.clips.length > 0 ? "DONE" : "NONE");
-            const canPlay = item.clips.length > 0;
-            const isCurrent = playingId === item.id;
-            return (
-              <div
-                key={item.id}
-                className={`cahier-item space-y-2 p-4 ${isCurrent ? "cahier-item-selected" : ""}`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold">{item.mainText}</p>
-                    {item.translationText ? (
-                      <p className="text-sm text-muted-foreground">
-                        {item.translationText}
-                      </p>
-                    ) : null}
-                    {item.extraText ? (
-                      <p className="text-sm text-muted-foreground">
-                        {item.extraText}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline">
-                      {t(`audioStatus${status}` as "audioStatusDONE")}
-                    </Badge>
-                    {item.itemHref ? (
-                      <Button asChild size="sm" variant="ghost">
-                        <Link href={item.itemHref}>
-                          {item.itemHrefLabel ?? t("train")}
-                        </Link>
-                      </Button>
-                    ) : null}
-                    {canPlay ? (
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        onClick={() =>
-                          isCurrent ? stopPlayback() : startSession([item.id])
-                        }
-                        disabled={sessionActive && !isCurrent}
-                      >
-                        {isCurrent ? (
-                          <Pause className="h-4 w-4" />
-                        ) : (
-                          <Play className="h-4 w-4" />
-                        )}
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
 
       {sessionActive && currentClip ? (
         <SatzListenPlayer
