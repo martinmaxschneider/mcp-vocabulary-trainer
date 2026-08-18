@@ -326,16 +326,20 @@
     "aiProjectTotal": "Gesamt",
     "aiProjectCalls": "{count, plural, one {# Aufruf} other {# Aufrufe}}",
     "aiModelsTitle": "Modelle",
-    "aiModelsDesc": "Chat, Embeddings und Stimme — gespeichert in den Einstellungen",
+    "aiModelsDesc": "Chat- und Embedding-Modelle — gespeichert in den Einstellungen",
     "aiChatModel": "Chat-Modell",
     "aiEmbeddingModel": "Embedding-Modell",
     "aiEmbeddingModelHelp": "Ein Wechsel macht bestehende Vektoren ungültig. Danach unter Lernen die Embeddings nachziehen.",
+    "aiTtsTitle": "Stimme pro Sprache",
+    "aiTtsDesc": "Modell und Stimmen für jede Lernsprache",
+    "aiTtsHelp": "Die Stimme bestimmt den Akzent. Wähle pro Sprache ein Modell und passende Stimmen.",
     "aiTtsModel": "Sprachmodell",
     "aiTtsVoiceQuestion": "Stimme für Fragen",
     "aiTtsVoiceAnswer": "Stimme für Aussagen",
     "aiSaved": "KI-Einstellungen gespeichert",
     "aiTestTitle": "Stimme testen",
-    "aiTestDesc": "Erzeugt eine Testdatei und spielt sie ab, ohne sie zu speichern",
+    "aiTestDesc": "Sprache wählen, dann Modell und Stimme — die Stimmliste folgt dem Modell",
+    "aiTestLang": "Sprache",
     "aiTestText": "Text",
     "aiTestPlaceholder": "Satz zum Vorlesen…",
     "aiTestVoice": "Stimme",
@@ -825,7 +829,8 @@
       "UPDATE_DISABLED_IN_DEV": "Updates sind im Entwicklungsmodus deaktiviert. Nutze npm run update oder die Production-App.",
       "UPDATE_ALREADY_RUNNING": "Es läuft bereits ein Update.",
       "OPENROUTER_NOT_CONFIGURED": "OpenRouter-API-Schlüssel fehlt. Setze OPENROUTER_API_KEY in der .env.",
-      "OPENROUTER_UNAVAILABLE": "OpenRouter ist gerade nicht erreichbar."
+      "OPENROUTER_UNAVAILABLE": "OpenRouter ist gerade nicht erreichbar.",
+      "OPENROUTER_TTS_MODEL": "Dieses Sprachmodell gibt es bei OpenRouter nicht. Bitte ein anderes wählen."
     }
   },
   "toasts": {

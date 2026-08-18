@@ -326,16 +326,20 @@
     "aiProjectTotal": "Total",
     "aiProjectCalls": "{count, plural, one {# appel} other {# appels}}",
     "aiModelsTitle": "Modèles",
-    "aiModelsDesc": "Chat, embeddings et voix — enregistrés dans les paramètres",
+    "aiModelsDesc": "Modèles de chat et d’embeddings — enregistrés dans les paramètres",
     "aiChatModel": "Modèle de chat",
     "aiEmbeddingModel": "Modèle d’embeddings",
     "aiEmbeddingModelHelp": "Un changement invalide les vecteurs existants. Régénérez ensuite les embeddings sous Apprentissage.",
+    "aiTtsTitle": "Voix par langue",
+    "aiTtsDesc": "Modèle et voix pour chaque langue d’apprentissage",
+    "aiTtsHelp": "La voix détermine l’accent. Choisissez un modèle et des voix adaptées pour chaque langue.",
     "aiTtsModel": "Modèle vocal",
     "aiTtsVoiceQuestion": "Voix pour les questions",
     "aiTtsVoiceAnswer": "Voix pour les affirmations",
     "aiSaved": "Paramètres IA enregistrés",
     "aiTestTitle": "Tester la voix",
-    "aiTestDesc": "Génère un échantillon et le lit sans enregistrer de fichier",
+    "aiTestDesc": "Choisissez la langue, puis le modèle et la voix — la liste suit le modèle",
+    "aiTestLang": "Langue",
     "aiTestText": "Texte",
     "aiTestPlaceholder": "Phrase à lire…",
     "aiTestVoice": "Voix",
@@ -825,7 +829,8 @@
       "UPDATE_DISABLED_IN_DEV": "Les mises à jour sont désactivées en mode développement. Utilisez npm run update ou l’application en production.",
       "UPDATE_ALREADY_RUNNING": "Une mise à jour est déjà en cours.",
       "OPENROUTER_NOT_CONFIGURED": "Clé API OpenRouter manquante. Définissez OPENROUTER_API_KEY dans .env.",
-      "OPENROUTER_UNAVAILABLE": "OpenRouter est indisponible pour le moment."
+      "OPENROUTER_UNAVAILABLE": "OpenRouter est indisponible pour le moment.",
+      "OPENROUTER_TTS_MODEL": "Ce modèle vocal n’existe pas sur OpenRouter. Veuillez en choisir un autre."
     }
   },
   "toasts": {

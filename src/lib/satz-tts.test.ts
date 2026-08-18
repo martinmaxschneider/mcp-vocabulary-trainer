@@ -7,8 +7,8 @@ import {
 
 describe("satz tts helpers", () => {
   it("uses different voices for question and answer", () => {
-    expect(voiceForSatz("Wo ist der Bahnhof?")).toBe("onyx");
-    expect(voiceForSatz("Gleich um die Ecke.")).toBe("nova");
+    expect(voiceForSatz("Wo ist der Bahnhof?")).toBe("am_onyx");
+    expect(voiceForSatz("Gleich um die Ecke.")).toBe("af_nova");
   });
 
   it("builds a safe public audio path", () => {

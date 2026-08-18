@@ -1,6 +1,11 @@
 import { AiUsageKind, AiUsageStatus } from "@prisma/client";
 import OpenAI from "openai";
 import { env } from "~/env";
+import {
+  DEFAULT_TTS_MODEL,
+  isLegacyTtsModel,
+  migrateTtsVoice,
+} from "~/lib/ai-settings";
 import { logAiUsage, usageCost } from "~/server/services/ai-usage";
 import {
   getChatModel,
@@ -233,23 +238,38 @@ export async function createSpeechMp3(params: {
   text: string;
   voice: string;
   model?: string;
-}): Promise<Buffer> {
-  const model = params.model ?? (await getTtsSettings()).model;
+  language?: string;
+}): Promise<{ buffer: Buffer; mimeType: string }> {
+  const requested = params.model ?? (await getTtsSettings(params.language)).model;
+  const model = isLegacyTtsModel(requested) ? DEFAULT_TTS_MODEL : requested;
+  const voice = migrateTtsVoice(params.voice);
   try {
-    const response = await getOpenRouter().audio.speech.create({
-      model,
-      voice: params.voice as "alloy",
-      input: params.text,
-      response_format: "mp3",
-    });
-    const buffer = Buffer.from(await response.arrayBuffer());
-    await logAiUsage({
-      kind: AiUsageKind.TTS,
-      model,
-      characters: params.text.length,
-      status: AiUsageStatus.OK,
-    });
-    return buffer;
+    const mp3 = await requestSpeech(model, params.text, voice, "mp3", params.language);
+    if (mp3.ok) {
+      await logAiUsage({
+        kind: AiUsageKind.TTS,
+        model,
+        characters: params.text.length,
+        status: AiUsageStatus.OK,
+      });
+      return { buffer: mp3.buffer, mimeType: "audio/mpeg" };
+    }
+
+    if (isPcmOnlyError(mp3.error)) {
+      const pcm = await requestSpeech(model, params.text, voice, "pcm", params.language);
+      if (pcm.ok) {
+        await logAiUsage({
+          kind: AiUsageKind.TTS,
+          model,
+          characters: params.text.length,
+          status: AiUsageStatus.OK,
+        });
+        return { buffer: pcm16LeToWav(pcm.buffer), mimeType: "audio/wav" };
+      }
+      throw new Error(pcm.error);
+    }
+
+    throw new Error(mp3.error);
   } catch (error) {
     await logAiUsage({
       kind: AiUsageKind.TTS,
@@ -260,4 +280,75 @@ export async function createSpeechMp3(params: {
     });
     throw error;
   }
+}
+
+async function requestSpeech(
+  model: string,
+  text: string,
+  voice: string,
+  responseFormat: "mp3" | "pcm",
+  language?: string,
+): Promise<{ ok: true; buffer: Buffer } | { ok: false; error: string }> {
+  if (!env.OPENROUTER_API_KEY) {
+    return { ok: false, error: OPENROUTER_NOT_CONFIGURED };
+  }
+
+  const response = await fetch(`${OPENROUTER_BASE_URL}/audio/speech`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
+      "Content-Type": "application/json",
+      ...APP_HEADERS,
+    },
+    body: JSON.stringify({
+      model,
+      input: text,
+      voice,
+      response_format: responseFormat,
+      ...(language ? { language } : {}),
+    }),
+  });
+
+  const buffer = Buffer.from(await response.arrayBuffer());
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!response.ok || contentType.includes("application/json")) {
+    let message = `OpenRouter speech request failed (${response.status})`;
+    try {
+      const json = JSON.parse(buffer.toString("utf8")) as {
+        error?: { message?: string };
+        message?: string;
+      };
+      message = json.error?.message ?? json.message ?? message;
+    } catch {
+      // keep status message
+    }
+    return { ok: false, error: message };
+  }
+
+  return { ok: true, buffer };
+}
+
+function isPcmOnlyError(message: string): boolean {
+  return /response_format=["']pcm["']/i.test(message) || /only supports pcm/i.test(message);
+}
+
+function pcm16LeToWav(pcm: Buffer, sampleRate = 24000, channels = 1): Buffer {
+  const bytesPerSample = 2;
+  const blockAlign = channels * bytesPerSample;
+  const byteRate = sampleRate * blockAlign;
+  const header = Buffer.alloc(44);
+  header.write("RIFF", 0);
+  header.writeUInt32LE(36 + pcm.length, 4);
+  header.write("WAVE", 8);
+  header.write("fmt ", 12);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20);
+  header.writeUInt16LE(channels, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(byteRate, 28);
+  header.writeUInt16LE(blockAlign, 32);
+  header.writeUInt16LE(16, 34);
+  header.write("data", 36);
+  header.writeUInt32LE(pcm.length, 40);
+  return Buffer.concat([header, pcm]);
 }

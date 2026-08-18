@@ -326,16 +326,20 @@
     "aiProjectTotal": "All time",
     "aiProjectCalls": "{count, plural, one {# call} other {# calls}}",
     "aiModelsTitle": "Models",
-    "aiModelsDesc": "Chat, embeddings, and voice — stored in settings",
+    "aiModelsDesc": "Chat and embedding models — stored in settings",
     "aiChatModel": "Chat model",
     "aiEmbeddingModel": "Embedding model",
     "aiEmbeddingModelHelp": "Changing this invalidates existing vectors. Then backfill embeddings under Learning.",
+    "aiTtsTitle": "Voice per language",
+    "aiTtsDesc": "Model and voices for each learning language",
+    "aiTtsHelp": "The voice determines the accent. Pick a model and matching voices for each language.",
     "aiTtsModel": "Voice model",
     "aiTtsVoiceQuestion": "Voice for questions",
     "aiTtsVoiceAnswer": "Voice for statements",
     "aiSaved": "AI settings saved",
     "aiTestTitle": "Test voice",
-    "aiTestDesc": "Generates a sample and plays it without saving a file",
+    "aiTestDesc": "Pick a language, then model and voice — the list follows the model",
+    "aiTestLang": "Language",
     "aiTestText": "Text",
     "aiTestPlaceholder": "Sentence to read aloud…",
     "aiTestVoice": "Voice",
@@ -825,7 +829,8 @@
       "UPDATE_DISABLED_IN_DEV": "Updates are disabled in development. Use npm run update or the production app.",
       "UPDATE_ALREADY_RUNNING": "An update is already running.",
       "OPENROUTER_NOT_CONFIGURED": "OpenRouter API key is missing. Set OPENROUTER_API_KEY in .env.",
-      "OPENROUTER_UNAVAILABLE": "OpenRouter is unavailable right now."
+      "OPENROUTER_UNAVAILABLE": "OpenRouter is unavailable right now.",
+      "OPENROUTER_TTS_MODEL": "This voice model is not available on OpenRouter. Please choose another one."
     }
   },
   "toasts": {

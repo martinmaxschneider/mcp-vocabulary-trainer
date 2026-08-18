@@ -42,8 +42,13 @@ export async function wipeAllSatzAudio(): Promise<void> {
   await rm(audioDir(), { recursive: true, force: true });
 }
 
-async function synthesizeMp3(text: string, voice: string, model?: string) {
-  return createSpeechMp3({ text, voice, model });
+async function synthesizeMp3(
+  text: string,
+  voice: string,
+  model?: string,
+  language?: string,
+) {
+  return createSpeechMp3({ text, voice, model, language });
 }
 
 export async function requestSatzAudio(params: {
@@ -117,16 +122,20 @@ export async function processRequestedAudio(limit: number): Promise<{
   let failed = 0;
   await ensureAudioDir();
 
-  const tts = await getTtsSettings();
-
   for (const translation of pending) {
     try {
+      const tts = await getTtsSettings(translation.lang);
       const voice = voiceForSatz(translation.satz.mainText, {
         question: tts.voiceQuestion,
         answer: tts.voiceAnswer,
       });
-      const buffer = await synthesizeMp3(translation.text, voice, tts.model);
-      await writeFile(audioFilePath(translation.id), buffer);
+      const audio = await synthesizeMp3(
+        translation.text,
+        voice,
+        tts.model,
+        translation.lang,
+      );
+      await writeFile(audioFilePath(translation.id), audio.buffer);
       await db.satzTranslation.update({
         where: { id: translation.id },
         data: {

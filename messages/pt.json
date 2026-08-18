@@ -326,16 +326,20 @@
     "aiProjectTotal": "Total",
     "aiProjectCalls": "{count, plural, one {# chamada} other {# chamadas}}",
     "aiModelsTitle": "Modelos",
-    "aiModelsDesc": "Chat, embeddings e voz — guardados nas definições",
+    "aiModelsDesc": "Modelos de chat e embeddings — guardados nas definições",
     "aiChatModel": "Modelo de chat",
     "aiEmbeddingModel": "Modelo de embeddings",
     "aiEmbeddingModelHelp": "Uma alteração invalida os vetores existentes. Depois regenere os embeddings em Aprendizagem.",
+    "aiTtsTitle": "Voz por idioma",
+    "aiTtsDesc": "Modelo e vozes para cada idioma de aprendizagem",
+    "aiTtsHelp": "A voz determina o sotaque. Escolha um modelo e vozes adequadas para cada idioma.",
     "aiTtsModel": "Modelo de voz",
     "aiTtsVoiceQuestion": "Voz para perguntas",
     "aiTtsVoiceAnswer": "Voz para afirmações",
     "aiSaved": "Definições de IA guardadas",
     "aiTestTitle": "Testar voz",
-    "aiTestDesc": "Gera uma amostra e reproduz sem guardar o ficheiro",
+    "aiTestDesc": "Escolha o idioma, depois o modelo e a voz — a lista segue o modelo",
+    "aiTestLang": "Idioma",
     "aiTestText": "Texto",
     "aiTestPlaceholder": "Frase para ler em voz alta…",
     "aiTestVoice": "Voz",
@@ -825,7 +829,8 @@
       "UPDATE_DISABLED_IN_DEV": "As atualizações estão desativadas em desenvolvimento. Use npm run update ou a app em produção.",
       "UPDATE_ALREADY_RUNNING": "Já está uma atualização em curso.",
       "OPENROUTER_NOT_CONFIGURED": "Falta a chave API do OpenRouter. Defina OPENROUTER_API_KEY no .env.",
-      "OPENROUTER_UNAVAILABLE": "O OpenRouter está indisponível de momento."
+      "OPENROUTER_UNAVAILABLE": "O OpenRouter está indisponível de momento.",
+      "OPENROUTER_TTS_MODEL": "Este modelo de voz não existe no OpenRouter. Escolha outro."
     }
   },
   "toasts": {

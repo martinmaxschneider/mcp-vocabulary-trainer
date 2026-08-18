@@ -6,6 +6,14 @@ import { Bot, KeyRound, Volume2, Wallet } from "lucide-react";
 import { api } from "~/trpc/client";
 import { useToast } from "~/hooks/use-toast";
 import { resolveErrorCode } from "~/lib/trpc-error";
+import {
+  DEFAULT_TTS_PROFILES,
+  defaultTtsProfile,
+  type TtsLangProfile,
+  type TtsProfiles,
+} from "~/lib/ai-settings";
+import { TARGET_LANGS, type LearningLangCode } from "~/lib/languages";
+import { voicesForLang } from "~/lib/tts-voices";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import {
@@ -24,8 +32,9 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import { Progress } from "~/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 
-const FALLBACK_VOICES = ["onyx", "nova", "alloy", "echo", "fable", "shimmer"];
+const FALLBACK_VOICES = ["am_onyx", "af_nova", "am_adam", "af_bella"];
 
 function formatUsd(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value)) return "—";
@@ -70,8 +79,35 @@ function ModelSelect({
   );
 }
 
+function VoiceSelect({
+  value,
+  voices,
+  onValueChange,
+}: {
+  value: string;
+  voices: string[];
+  onValueChange: (value: string) => void;
+}) {
+  const items = voices.includes(value) || !value ? voices : [value, ...voices];
+  return (
+    <Select value={value} onValueChange={onValueChange} disabled={items.length === 0}>
+      <SelectTrigger>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent className="max-h-72">
+        {items.map((voice) => (
+          <SelectItem key={voice} value={voice}>
+            {voice}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 export function SettingsAiPanel() {
   const t = useTranslations("settings");
+  const tLang = useTranslations("languages");
   const tCommon = useTranslations("common");
   const tErrors = useTranslations("errors.codes");
   const { toast } = useToast();
@@ -81,43 +117,62 @@ export function SettingsAiPanel() {
   const { data: models } = api.settings.listModels.useQuery();
   const { data: budget } = api.settings.getBudget.useQuery();
 
+  const defaultLang = TARGET_LANGS[0]?.code ?? "en";
   const [chatModel, setChatModel] = useState("");
   const [embeddingModel, setEmbeddingModel] = useState("");
-  const [ttsModel, setTtsModel] = useState("");
-  const [ttsVoiceQuestion, setTtsVoiceQuestion] = useState("");
-  const [ttsVoiceAnswer, setTtsVoiceAnswer] = useState("");
+  const [ttsProfiles, setTtsProfiles] = useState<TtsProfiles>(DEFAULT_TTS_PROFILES);
+  const [ttsLang, setTtsLang] = useState<LearningLangCode>(defaultLang);
+  const [testLang, setTestLang] = useState<LearningLangCode>(defaultLang);
   const [testText, setTestText] = useState("");
+  const [testModel, setTestModel] = useState("");
   const [testVoice, setTestVoice] = useState("");
 
   useEffect(() => {
     if (!ai) return;
     setChatModel(ai.chatModel);
     setEmbeddingModel(ai.embeddingModel);
-    setTtsModel(ai.ttsModel);
-    setTtsVoiceQuestion(ai.ttsVoiceQuestion);
-    setTtsVoiceAnswer(ai.ttsVoiceAnswer);
-    setTestVoice((current) => current || ai.ttsVoiceAnswer);
+    if (ai.ttsProfiles) setTtsProfiles(ai.ttsProfiles);
   }, [ai]);
 
-  const speechVoices = useMemo(() => {
-    const fromModel =
-      models?.speech.find((model) => model.id === ttsModel)?.voices ?? [];
-    const voices = fromModel.length > 0 ? fromModel : FALLBACK_VOICES;
-    return [...new Set(voices)];
-  }, [models?.speech, ttsModel]);
+  useEffect(() => {
+    const row = ttsProfiles[testLang] ?? defaultTtsProfile(testLang);
+    setTestModel(row.model);
+    setTestVoice(row.voiceAnswer);
+    // Prefill only when the test language changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [testLang]);
+
+  const speechModels = models?.speech ?? [];
+
+  const voicesFor = (modelId: string, lang: string, extras: string[] = []) => {
+    const fromModel = speechModels.find((model) => model.id === modelId)?.voices ?? [];
+    const source =
+      fromModel.length > 0
+        ? fromModel
+        : [...FALLBACK_VOICES, ...extras.filter(Boolean)];
+    return voicesForLang([...new Set(source)], lang);
+  };
+
+  const testVoices = useMemo(
+    () => voicesFor(testModel, testLang, [testVoice]),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [testModel, testLang, testVoice, speechModels],
+  );
 
   useEffect(() => {
-    if (speechVoices.length === 0) return;
-    if (!speechVoices.includes(ttsVoiceQuestion)) {
-      setTtsVoiceQuestion(speechVoices[0] ?? "");
+    const fromModel = speechModels.find((model) => model.id === testModel)?.voices ?? [];
+    if (fromModel.length === 0 || testVoices.length === 0) return;
+    if (!testVoices.includes(testVoice)) {
+      setTestVoice(testVoices[0] ?? "");
     }
-    if (!speechVoices.includes(ttsVoiceAnswer)) {
-      setTtsVoiceAnswer(speechVoices[1] ?? speechVoices[0] ?? "");
-    }
-    if (!speechVoices.includes(testVoice)) {
-      setTestVoice(speechVoices[0] ?? "");
-    }
-  }, [speechVoices, ttsVoiceQuestion, ttsVoiceAnswer, testVoice]);
+  }, [speechModels, testModel, testVoices, testVoice]);
+
+  function updateProfile(lang: string, patch: Partial<TtsLangProfile>) {
+    setTtsProfiles((current) => {
+      const base = current[lang] ?? defaultTtsProfile(lang);
+      return { ...current, [lang]: { ...base, ...patch } };
+    });
+  }
 
   const errorDescription = (message: string) => {
     const code = resolveErrorCode(message);
@@ -304,47 +359,6 @@ export function SettingsAiPanel() {
             />
             <p className="text-sm text-muted-foreground">{t("aiEmbeddingModelHelp")}</p>
           </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">{t("aiTtsModel")}</label>
-            <ModelSelect
-              value={ttsModel}
-              options={models?.speech ?? []}
-              onValueChange={setTtsModel}
-              disabled={!ttsModel}
-            />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">{t("aiTtsVoiceQuestion")}</label>
-              <Select value={ttsVoiceQuestion} onValueChange={setTtsVoiceQuestion}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {speechVoices.map((voice) => (
-                    <SelectItem key={voice} value={voice}>
-                      {voice}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">{t("aiTtsVoiceAnswer")}</label>
-              <Select value={ttsVoiceAnswer} onValueChange={setTtsVoiceAnswer}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {speechVoices.map((voice) => (
-                    <SelectItem key={voice} value={voice}>
-                      {voice}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
           <Button
             type="button"
             disabled={saveAi.isPending || !chatModel}
@@ -352,11 +366,98 @@ export function SettingsAiPanel() {
               saveAi.mutate({
                 chatModel,
                 embeddingModel,
-                ttsModel,
-                ttsVoiceQuestion,
-                ttsVoiceAnswer,
               })
             }
+          >
+            {tCommon("save")}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Volume2 className="h-5 w-5" />
+            <CardTitle>{t("aiTtsTitle")}</CardTitle>
+          </div>
+          <CardDescription>{t("aiTtsDesc")}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">{t("aiTtsHelp")}</p>
+          <Tabs
+            value={ttsLang}
+            onValueChange={(value) => setTtsLang(value as LearningLangCode)}
+          >
+            <TabsList className="flex h-auto flex-wrap justify-start gap-1">
+              {TARGET_LANGS.map((lang) => (
+                <TabsTrigger key={lang.code} value={lang.code}>
+                  {lang.flag} {tLang(lang.code)}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+            {TARGET_LANGS.map((lang) => {
+              const row = ttsProfiles[lang.code] ?? defaultTtsProfile(lang.code);
+              const voices = voicesFor(row.model, lang.code, [
+                row.voiceQuestion,
+                row.voiceAnswer,
+              ]);
+              return (
+                <TabsContent key={lang.code} value={lang.code} className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">{t("aiTtsModel")}</label>
+                    <ModelSelect
+                      value={row.model}
+                      options={speechModels}
+                      onValueChange={(model) => {
+                        const fromModel =
+                          speechModels.find((item) => item.id === model)?.voices ?? [];
+                        if (fromModel.length === 0) {
+                          updateProfile(lang.code, { model });
+                          return;
+                        }
+                        const nextVoices = voicesForLang([...new Set(fromModel)], lang.code);
+                        updateProfile(lang.code, {
+                          model,
+                          voiceQuestion: nextVoices.includes(row.voiceQuestion)
+                            ? row.voiceQuestion
+                            : (nextVoices[0] ?? row.voiceQuestion),
+                          voiceAnswer: nextVoices.includes(row.voiceAnswer)
+                            ? row.voiceAnswer
+                            : (nextVoices[1] ?? nextVoices[0] ?? row.voiceAnswer),
+                        });
+                      }}
+                    />
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">{t("aiTtsVoiceQuestion")}</label>
+                      <VoiceSelect
+                        value={row.voiceQuestion}
+                        voices={voices}
+                        onValueChange={(voiceQuestion) =>
+                          updateProfile(lang.code, { voiceQuestion })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">{t("aiTtsVoiceAnswer")}</label>
+                      <VoiceSelect
+                        value={row.voiceAnswer}
+                        voices={voices}
+                        onValueChange={(voiceAnswer) =>
+                          updateProfile(lang.code, { voiceAnswer })
+                        }
+                      />
+                    </div>
+                  </div>
+                </TabsContent>
+              );
+            })}
+          </Tabs>
+          <Button
+            type="button"
+            disabled={saveAi.isPending}
+            onClick={() => saveAi.mutate({ ttsProfiles })}
           >
             {tCommon("save")}
           </Button>
@@ -373,6 +474,24 @@ export function SettingsAiPanel() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
+            <label className="text-sm font-medium">{t("aiTestLang")}</label>
+            <Select
+              value={testLang}
+              onValueChange={(value) => setTestLang(value as LearningLangCode)}
+            >
+              <SelectTrigger className="max-w-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TARGET_LANGS.map((lang) => (
+                  <SelectItem key={lang.code} value={lang.code}>
+                    {lang.flag} {tLang(lang.code)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor="tts-test-text">
               {t("aiTestText")}
             </label>
@@ -384,19 +503,20 @@ export function SettingsAiPanel() {
             />
           </div>
           <div className="space-y-2">
+            <label className="text-sm font-medium">{t("aiTtsModel")}</label>
+            <ModelSelect
+              value={testModel}
+              options={speechModels}
+              onValueChange={setTestModel}
+            />
+          </div>
+          <div className="space-y-2">
             <label className="text-sm font-medium">{t("aiTestVoice")}</label>
-            <Select value={testVoice} onValueChange={setTestVoice}>
-              <SelectTrigger className="max-w-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {speechVoices.map((voice) => (
-                  <SelectItem key={voice} value={voice}>
-                    {voice}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <VoiceSelect
+              value={testVoice}
+              voices={testVoices}
+              onValueChange={setTestVoice}
+            />
           </div>
           <Button
             type="button"
@@ -405,7 +525,8 @@ export function SettingsAiPanel() {
               testTts.mutate({
                 text: testText.trim(),
                 voice: testVoice,
-                model: ttsModel || undefined,
+                model: testModel || undefined,
+                lang: testLang,
               })
             }
           >

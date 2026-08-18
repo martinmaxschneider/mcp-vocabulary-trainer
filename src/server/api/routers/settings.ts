@@ -119,9 +119,16 @@ export const settingsRouter = createTRPCRouter({
       z.object({
         chatModel: z.string().min(1).optional(),
         embeddingModel: z.string().min(1).optional(),
-        ttsModel: z.string().min(1).optional(),
-        ttsVoiceQuestion: z.string().min(1).optional(),
-        ttsVoiceAnswer: z.string().min(1).optional(),
+        ttsProfiles: z
+          .record(
+            z.string().min(1),
+            z.object({
+              model: z.string().min(1),
+              voiceQuestion: z.string().min(1),
+              voiceAnswer: z.string().min(1),
+            }),
+          )
+          .optional(),
       }),
     )
     .mutation(async ({ input }) => {
@@ -165,6 +172,7 @@ export const settingsRouter = createTRPCRouter({
         text: z.string().min(1).max(500),
         voice: z.string().min(1),
         model: z.string().min(1).optional(),
+        lang: z.string().min(1).optional(),
       }),
     )
     .mutation(async ({ input }) => {
@@ -174,15 +182,23 @@ export const settingsRouter = createTRPCRouter({
           message: OPENROUTER_NOT_CONFIGURED,
         });
       }
-      const buffer = await createSpeechMp3({
-        text: input.text,
-        voice: input.voice,
-        model: input.model,
-      });
-      return {
-        audioBase64: buffer.toString("base64"),
-        mimeType: "audio/mpeg" as const,
-      };
+      try {
+        const audio = await createSpeechMp3({
+          text: input.text,
+          voice: input.voice,
+          model: input.model,
+          language: input.lang,
+        });
+        return {
+          audioBase64: audio.buffer.toString("base64"),
+          mimeType: audio.mimeType,
+        };
+      } catch (error) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: error instanceof Error ? error.message : "TTS failed",
+        });
+      }
     }),
 });
 

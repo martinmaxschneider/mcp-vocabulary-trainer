@@ -375,9 +375,11 @@ model AppSettings {
   id               String   @id @default("default")
   chatModel        String   @default("openai/gpt-4o-mini")
   embeddingModel   String   @default("openai/text-embedding-3-small")
-  ttsModel         String   @default("openai/tts-1-hd")
-  ttsVoiceQuestion String   @default("onyx")
-  ttsVoiceAnswer   String   @default("nova")
+  ttsModel         String   @default("hexgrad/kokoro-82m")
+  ttsVoiceQuestion String   @default("am_onyx")
+  ttsVoiceAnswer   String   @default("af_nova")
+  /// { [lang]: { model, voiceQuestion, voiceAnswer } }
+  ttsProfiles      Json?
   updatedAt        DateTime @updatedAt
 }
 

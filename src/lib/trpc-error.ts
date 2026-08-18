@@ -50,6 +50,9 @@ export function resolveErrorCode(message: string | undefined): string | null {
   if (message.startsWith("OpenRouter ")) {
     return "OPENROUTER_UNAVAILABLE";
   }
+  if (/Model .+ does not exist/i.test(message)) {
+    return "OPENROUTER_TTS_MODEL";
+  }
 
   return null;
 }

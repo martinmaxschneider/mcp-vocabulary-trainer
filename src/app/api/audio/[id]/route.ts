@@ -14,9 +14,13 @@ export async function GET(
 
   try {
     const data = await readFile(audioFilePath(id));
+    const isWav =
+      data.length >= 12 &&
+      data.subarray(0, 4).toString("ascii") === "RIFF" &&
+      data.subarray(8, 12).toString("ascii") === "WAVE";
     return new NextResponse(new Uint8Array(data), {
       headers: {
-        "Content-Type": "audio/mpeg",
+        "Content-Type": isWav ? "audio/wav" : "audio/mpeg",
         "Cache-Control": "public, max-age=31536000, immutable",
       },
     });
