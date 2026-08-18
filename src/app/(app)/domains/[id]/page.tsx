@@ -44,6 +44,7 @@ import { SOURCE_LANG, TARGET_LANG_CODES } from "~/lib/languages";
 
 const VIEW_STORAGE_KEY = "sprachen-domain-view";
 type DomainView = "cards" | "list";
+type DomainTypeFilter = "ALL" | "WORD" | "PROVERB" | "SENTENCE";
 
 function readStoredView(): DomainView {
   if (typeof window === "undefined") return "cards";
@@ -62,11 +63,13 @@ export default function DomainDetailPage({
   const { toast } = useToast();
   const t = useTranslations("domains");
   const tCategories = useTranslations("categories");
+  const tSentences = useTranslations("sentences");
   const tNav = useTranslations("nav");
   const tCommon = useTranslations("common");
   const tLang = useTranslations("languages");
   const tToasts = useTranslations("toasts");
   const tErrors = useTranslations("errors.codes");
+  const utils = api.useUtils();
 
   const addToDomainLinks = [
     { href: `/vocabulary/verbs?domainId=${id}`, label: tNav("verbs") },
@@ -78,9 +81,7 @@ export default function DomainDetailPage({
     { href: `/vocabulary/proverbs?domainId=${id}`, label: tNav("proverbs") },
     { href: `/sentences/new?domainId=${id}`, label: tNav("sentences") },
   ] as const;
-  const [typeFilter, setTypeFilter] = useState<"ALL" | "WORD" | "PROVERB">(
-    "ALL"
-  );
+  const [typeFilter, setTypeFilter] = useState<DomainTypeFilter>("ALL");
   const [view, setView] = useState<DomainView>("cards");
   const { focusLang } = useFocusLang();
 
@@ -108,7 +109,15 @@ export default function DomainDetailPage({
 
   const { data, refetch } = api.entry.list.useQuery({
     domainId: id,
-    type: typeFilter === "ALL" ? undefined : typeFilter,
+    type:
+      typeFilter === "ALL" || typeFilter === "SENTENCE"
+        ? undefined
+        : typeFilter,
+  });
+
+  const { data: satzData } = api.satz.list.useQuery({
+    domainId: id,
+    limit: 200,
   });
 
   const guidesQuery = api.pronunciation.getByPairs.useQuery({
@@ -137,10 +146,26 @@ export default function DomainDetailPage({
     onSuccess: () => {
       toast({ title: tToasts("entryDeleted") });
       void refetch();
+      void utils.domain.list.invalidate();
     },
     onError: (error) => {
       toast({
         title: tToasts("entryDeleteError"),
+        description: errorDescription(error.message),
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteSatzMutation = api.satz.delete.useMutation({
+    onSuccess: () => {
+      toast({ title: tToasts("satzDeleted") });
+      void utils.satz.list.invalidate();
+      void utils.domain.list.invalidate();
+    },
+    onError: (error) => {
+      toast({
+        title: tToasts("satzDeleteError"),
         description: errorDescription(error.message),
         variant: "destructive",
       });
@@ -153,11 +178,23 @@ export default function DomainDetailPage({
     }
   };
 
+  const handleDeleteSatz = (satzId: string, satzText: string) => {
+    if (confirm(tCommon("confirmDelete", { name: satzText }))) {
+      deleteSatzMutation.mutate({ id: satzId });
+    }
+  };
+
   const handleEdit = (entryId: string) => {
     router.push(`/entries/${entryId}/edit`);
   };
 
-  const entries = data?.entries ?? [];
+  const entries =
+    typeFilter === "SENTENCE" ? [] : (data?.entries ?? []);
+  const satze =
+    typeFilter === "WORD" || typeFilter === "PROVERB"
+      ? []
+      : (satzData?.items ?? []);
+  const isEmpty = entries.length === 0 && satze.length === 0;
   const domainName = domainMeta?.name ?? t("detailDefaultName");
 
   return (
@@ -173,7 +210,11 @@ export default function DomainDetailPage({
           <div>
             <h1 className="text-4xl font-bold mb-2">{domainName}</h1>
             <p className="text-muted-foreground">
-              {t("entries", { count: entries.length })}
+              {t("countWords", { count: domainMeta?.wordCount ?? 0 })}
+              {" · "}
+              {t("countSentences", { count: domainMeta?.satzCount ?? 0 })}
+              {" · "}
+              {t("countVerbs", { count: domainMeta?.verbCount ?? 0 })}
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
@@ -204,15 +245,16 @@ export default function DomainDetailPage({
             <Select
               value={typeFilter}
               onValueChange={(value) =>
-                setTypeFilter(value as "ALL" | "WORD" | "PROVERB")
+                setTypeFilter(value as DomainTypeFilter)
               }
             >
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-[170px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">{t("filterAllTypes")}</SelectItem>
                 <SelectItem value="WORD">{t("filterWords")}</SelectItem>
+                <SelectItem value="SENTENCE">{t("filterSentences")}</SelectItem>
                 <SelectItem value="PROVERB">{t("filterProverbs")}</SelectItem>
               </SelectContent>
             </Select>
@@ -238,7 +280,7 @@ export default function DomainDetailPage({
         </div>
       </div>
 
-      {entries.length === 0 ? (
+      {isEmpty ? (
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-muted-foreground mb-4">{t("emptyDomain")}</p>
@@ -271,6 +313,54 @@ export default function DomainDetailPage({
               <span>{tLang(focusLang)}</span>
               <span className="w-20" />
             </div>
+            {satze.map((satz) => {
+              const translation = satz.translations.find(
+                (tr) => tr.lang === focusLang
+              );
+              return (
+                <div
+                  key={satz.id}
+                  className="cahier-item grid items-center gap-2 p-3 sm:grid-cols-[7rem_1fr_1fr_auto] sm:gap-3"
+                >
+                  <Badge variant="outline" className="w-fit">
+                    {t("typeSentence")}
+                  </Badge>
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground sm:hidden">
+                      {tLang(SOURCE_LANG.code)}
+                    </p>
+                    <p className="font-medium">{satz.mainText}</p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground sm:hidden">
+                      {tLang(focusLang)}
+                    </p>
+                    <span className="font-medium">
+                      {translation?.text ?? (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex justify-end gap-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => router.push(`/sentences/${satz.id}/edit`)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => handleDeleteSatz(satz.id, satz.mainText)}
+                      disabled={deleteSatzMutation.isPending}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
             {entries.map((entry) => {
               const translation = entry.translations.find(
                 (tr) => tr.lang === focusLang
@@ -333,6 +423,62 @@ export default function DomainDetailPage({
           </div>
         ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {satze.map((satz) => (
+            <Card key={satz.id} className="hover:shadow-md transition-shadow">
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="mb-1 flex items-center gap-2">
+                      <Badge variant="outline">{t("typeSentence")}</Badge>
+                    </div>
+                    <CardTitle className="text-lg">{satz.mainText}</CardTitle>
+                    {satz.trigger ? (
+                      <CardDescription className="mt-2">
+                        {tSentences("triggerPrefix")}: {satz.trigger}
+                      </CardDescription>
+                    ) : null}
+                  </div>
+                  <div className="flex gap-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => router.push(`/sentences/${satz.id}/edit`)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => handleDeleteSatz(satz.id, satz.mainText)}
+                      disabled={deleteSatzMutation.isPending}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="cahier-section space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {t("translationsLabel")}
+                  </p>
+                  {satz.translations.map((translation) => (
+                    <div
+                      key={translation.id}
+                      className="cahier-item p-2 text-sm"
+                    >
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <Badge variant="secondary" className="text-xs">
+                          {translation.lang.toUpperCase()}
+                        </Badge>
+                        <span className="font-medium">{translation.text}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
           {entries.map((entry) => (
             <Card key={entry.id} className="hover:shadow-md transition-shadow">
               <CardHeader>
