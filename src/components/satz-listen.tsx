@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -10,13 +10,6 @@ import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Progress } from "~/components/ui/progress";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "~/components/ui/card";
 import { useToast } from "~/hooks/use-toast";
 import { resolveErrorCode } from "~/lib/trpc-error";
 import { LISTEN_PAUSE_MS, playbackUrls } from "~/lib/satz-tts";
@@ -52,8 +45,6 @@ export function SatzListen() {
   });
   const items = data?.items ?? [];
 
-  const [selected, setSelected] = useState<Set<string>>(() => new Set(ids ?? []));
-  const didInitSelection = useRef(false);
   const [includeQuestions, setIncludeQuestions] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [generateProgress, setGenerateProgress] = useState({ done: 0, total: 0 });
@@ -62,32 +53,30 @@ export function SatzListen() {
   const stopRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  useEffect(() => {
-    if (didInitSelection.current || items.length === 0) return;
-    didInitSelection.current = true;
-    if (!ids) {
-      setSelected(new Set(items.map((satz) => satz.id)));
-    }
-  }, [ids, items]);
-
   const requestMutation = api.satz.requestAudio.useMutation();
   const processMutation = api.satz.processAudio.useMutation();
 
-  const readyCount = useMemo(() => {
+  const readyItems = useMemo(() => {
+    const linkedQuestionIds = new Set(
+      items
+        .map((satz) => satz.answerTo?.id)
+        .filter((id): id is string => Boolean(id)),
+    );
     return items.filter((satz) => {
+      if (linkedQuestionIds.has(satz.id)) return false;
       const translation = satz.translations.find((tr) => tr.lang === focusLang);
       return translation?.audioStatus === AudioStatus.DONE && translation.audioUrl;
-    }).length;
+    });
   }, [items, focusLang]);
 
-  const toggle = (id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
+  const readyCount = readyItems.length;
+  const needsAudio = items.some((satz) => {
+    const translation = satz.translations.find((tr) => tr.lang === focusLang);
+    return (
+      satz.mainAudioStatus !== AudioStatus.DONE ||
+      translation?.audioStatus !== AudioStatus.DONE
+    );
+  });
 
   const stopPlayback = () => {
     stopRef.current = true;
@@ -176,7 +165,7 @@ export function SatzListen() {
   };
 
   const handleGenerate = async () => {
-    const satzIds = selected.size > 0 ? [...selected] : items.map((s) => s.id);
+    const satzIds = items.map((s) => s.id);
     if (satzIds.length === 0) return;
     setGenerating(true);
     setGenerateProgress({ done: 0, total: 0 });
@@ -221,112 +210,101 @@ export function SatzListen() {
     actionProgress.total > 0
       ? Math.round((actionProgress.done / actionProgress.total) * 100)
       : 0;
+  const busy = generating || Boolean(playingId);
 
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">{tCommon("loading")}</p>;
   }
 
   return (
-    <div className="max-w-4xl space-y-6">
+    <div className="max-w-4xl space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="mb-2 text-4xl font-bold">{t("listenTitle")}</h1>
           <p className="text-muted-foreground">{t("listenSubtitle")}</p>
         </div>
-        <Button asChild variant="outline">
+        <Button asChild variant="ghost">
           <Link href="/sentences">{t("importBack")}</Link>
         </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Headphones className="h-5 w-5" />
-            {t("listenActions")}
-          </CardTitle>
-          <CardDescription>
-            {t("listenReadyCount", { ready: readyCount, total: items.length })}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={includeQuestions}
-                onCheckedChange={(checked) => setIncludeQuestions(checked === true)}
-              />
-              {t("listenIncludeQuestions")}
-            </label>
+      <section className="cahier-card space-y-5 p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="space-y-1">
+            <h2 className="flex items-center gap-2 text-2xl font-semibold">
+              <Headphones className="h-6 w-6" />
+              {t("listenMode")}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {t("listenReadyCount", { ready: readyCount, total: items.length })}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
-              disabled={generating || items.length === 0}
-              onClick={() => void handleGenerate()}
-            >
-              {generating ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Volume2 className="mr-2 h-4 w-4" />
-              )}
-              {t("listenGenerate")}
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
+              size="lg"
               disabled={readyCount === 0 || generating}
-              onClick={() => {
-                const linkedQuestionIds = new Set(
-                  items
-                    .map((satz) => satz.answerTo?.id)
-                    .filter((id): id is string => Boolean(id)),
-                );
-                void playQueue(
-                  items
-                    .filter((satz) => {
-                      if (linkedQuestionIds.has(satz.id)) return false;
-                      const translation = satz.translations.find(
-                        (tr) => tr.lang === focusLang,
-                      );
-                      return (
-                        translation?.audioStatus === AudioStatus.DONE &&
-                        Boolean(translation.audioUrl)
-                      );
-                    })
-                    .map((satz) => satz.id),
-                );
-              }}
+              onClick={() => void playQueue(readyItems.map((satz) => satz.id))}
             >
-              <Play className="mr-2 h-4 w-4" />
+              <Play className="mr-2 h-5 w-5" />
               {t("listenStart")}
             </Button>
             {playingId ? (
-              <Button type="button" variant="ghost" onClick={stopPlayback}>
+              <Button type="button" variant="outline" size="lg" onClick={stopPlayback}>
                 <Square className="mr-2 h-4 w-4" />
                 {tCommon("cancel")}
               </Button>
             ) : null}
           </div>
-          {generating || playingId ? (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
-                <span className="flex items-center gap-2">
-                  {generating ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Volume2 className="h-4 w-4" />
-                  )}
-                  {generating ? t("listenGenerating") : t("listenPlaying")}
+        </div>
+
+        {busy ? (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
+              <span className="flex items-center gap-2">
+                {generating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Volume2 className="h-4 w-4" />
+                )}
+                {generating ? t("listenGenerating") : t("listenPlaying")}
+              </span>
+              {actionProgress.total > 0 ? (
+                <span>
+                  {actionProgress.done} / {actionProgress.total}
                 </span>
-                {actionProgress.total > 0 ? (
-                  <span>
-                    {actionProgress.done} / {actionProgress.total}
-                  </span>
-                ) : null}
-              </div>
-              <Progress value={actionPercent} />
+              ) : null}
             </div>
-          ) : null}
-        </CardContent>
-      </Card>
+            <Progress value={actionPercent} />
+          </div>
+        ) : null}
+
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border/60 pt-4 text-sm text-muted-foreground">
+          <span>{t("listenActions")}</span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="-ml-2 h-8 text-muted-foreground"
+            disabled={generating || items.length === 0 || !needsAudio}
+            onClick={() => void handleGenerate()}
+          >
+            {generating ? (
+              <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Volume2 className="mr-2 h-3.5 w-3.5" />
+            )}
+            {t("listenGenerate")}
+          </Button>
+          <label className="flex items-center gap-2">
+            <Checkbox
+              checked={includeQuestions}
+              onCheckedChange={(checked) => setIncludeQuestions(checked === true)}
+            />
+            {t("listenIncludeQuestions")}
+          </label>
+        </div>
+      </section>
 
       <div className="space-y-3">
         {items.length === 0 ? (
@@ -337,46 +315,48 @@ export function SatzListen() {
               (tr) => tr.lang === focusLang,
             );
             const status = translation?.audioStatus ?? AudioStatus.NONE;
+            const canPlay =
+              playbackUrls({
+                mainUrl: satz.mainAudioUrl,
+                mainStatus: satz.mainAudioStatus,
+                mainUpdatedAt: satz.updatedAt,
+                translationUrl: translation?.audioUrl,
+                translationStatus: status,
+                translationUpdatedAt: translation?.updatedAt,
+              }).length > 0;
+            const isCurrent = playingId === satz.id;
             return (
-              <div key={satz.id} className="cahier-item space-y-2 p-4">
+              <div
+                key={satz.id}
+                className={`cahier-item space-y-2 p-4 ${isCurrent ? "cahier-item-selected" : ""}`}
+              >
                 <div className="flex items-start justify-between gap-3">
-                  <label className="flex items-start gap-3">
-                    <Checkbox
-                      checked={selected.has(satz.id)}
-                      onCheckedChange={() => toggle(satz.id)}
-                    />
-                    <div>
-                      <p className="font-semibold">{satz.mainText}</p>
-                      {translation ? (
-                        <p className="text-sm text-muted-foreground">
-                          {translation.text}
-                        </p>
-                      ) : null}
-                      {satz.answerTo ? (
-                        <p className="text-sm text-muted-foreground">
-                          {t("answerToPrefix")}: {satz.answerTo.mainText}
-                        </p>
-                      ) : null}
-                    </div>
-                  </label>
+                  <div>
+                    <p className="font-semibold">{satz.mainText}</p>
+                    {translation ? (
+                      <p className="text-sm text-muted-foreground">
+                        {translation.text}
+                      </p>
+                    ) : null}
+                    {satz.answerTo ? (
+                      <p className="text-sm text-muted-foreground">
+                        {t("answerToPrefix")}: {satz.answerTo.mainText}
+                      </p>
+                    ) : null}
+                  </div>
                   <div className="flex items-center gap-2">
                     <Badge variant="outline">{t(`audioStatus${status}`)}</Badge>
-                    {playbackUrls({
-                      mainUrl: satz.mainAudioUrl,
-                      mainStatus: satz.mainAudioStatus,
-                      mainUpdatedAt: satz.updatedAt,
-                      translationUrl: translation?.audioUrl,
-                      translationStatus: status,
-                      translationUpdatedAt: translation?.updatedAt,
-                    }).length > 0 ? (
+                    {canPlay ? (
                       <Button
                         type="button"
                         size="icon"
                         variant="ghost"
-                        onClick={() => void playQueue([satz.id])}
+                        onClick={() =>
+                          isCurrent ? stopPlayback() : void playQueue([satz.id])
+                        }
                         disabled={generating}
                       >
-                        {playingId === satz.id ? (
+                        {isCurrent ? (
                           <Pause className="h-4 w-4" />
                         ) : (
                           <Play className="h-4 w-4" />
