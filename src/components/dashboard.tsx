@@ -106,6 +106,17 @@ export function Dashboard() {
 
       <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <Button asChild size="lg" className="h-auto justify-start gap-3 py-4">
+          <Link href="/sentences/review?start=1">
+            <Quote className="h-5 w-5" />
+            <span className="flex flex-col items-start text-left">
+              <span>{t("startSatzReview")}</span>
+              <span className="text-xs font-normal opacity-80">
+                {t("startSatzReviewDesc", { language: tLang(focusLang) })}
+              </span>
+            </span>
+          </Link>
+        </Button>
+        <Button asChild size="lg" variant="outline" className="h-auto justify-start gap-3 py-4">
           <Link
             href={
               showAll ? "/review?start=1&mode=multi" : "/review?start=1"
@@ -114,7 +125,7 @@ export function Dashboard() {
             <Play className="h-5 w-5" />
             <span className="flex flex-col items-start text-left">
               <span>{t("startVocabReview")}</span>
-              <span className="text-xs font-normal opacity-80">
+              <span className="text-xs font-normal text-muted-foreground">
                 {showAll
                   ? t("startVocabReviewAllDesc")
                   : t("startVocabReviewDesc", {
@@ -161,17 +172,6 @@ export function Dashboard() {
             </span>
           </Button>
         )}
-        <Button asChild size="lg" variant="outline" className="h-auto justify-start gap-3 py-4">
-          <Link href="/sentences/review?start=1">
-            <Quote className="h-5 w-5" />
-            <span className="flex flex-col items-start text-left">
-              <span>{t("startSatzReview")}</span>
-              <span className="text-xs font-normal text-muted-foreground">
-                {t("startSatzReviewDesc", { language: tLang(focusLang) })}
-              </span>
-            </span>
-          </Link>
-        </Button>
       </div>
 
       {isLoading || !stats ? (
@@ -313,73 +313,38 @@ export function Dashboard() {
             </CardContent>
           </Card>
 
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t("domainsCardTitle")}</CardTitle>
-                <CardDescription>{t("domainsCardDesc")}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {stats.domainStats.length === 0 ? (
-                  <p className="mb-4 text-muted-foreground">
-                    {t("noDomainsYet")}
-                  </p>
-                ) : (
-                  <div className="cahier-section mb-4 space-y-2.5">
-                    {stats.domainStats.map((domain) => (
-                      <div
-                        key={domain.name}
-                        className="cahier-item flex items-center justify-between p-2"
-                      >
-                        <span className="font-medium">{domain.name}</span>
-                        <Badge variant="secondary">
-                          {t("domainEntryCount", { count: domain.count })}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <Link href="/domains">
-                  <Button variant="outline" className="w-full">
-                    {t("manageDomains")}
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>{t("quickActions")}</CardTitle>
-                <CardDescription>{t("quickActionsDesc")}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Link href="/vocabulary/verbs">
-                  <Button variant="outline" className="w-full justify-start">
-                    <FileText className="mr-2 h-4 w-4" />
-                    {t("addVocabulary")}
-                  </Button>
-                </Link>
-                <Link href="/practice/conjugations">
-                  <Button variant="outline" className="w-full justify-start">
-                    <BookOpen className="mr-2 h-4 w-4" />
-                    {t("practiceConjugations")}
-                  </Button>
-                </Link>
-                <Link href="/domains">
-                  <Button variant="outline" className="w-full justify-start">
-                    <BookOpen className="mr-2 h-4 w-4" />
-                    {t("browseDomains")}
-                  </Button>
-                </Link>
-                <Link href="/settings">
-                  <Button variant="outline" className="w-full justify-start">
-                    <MessageSquare className="mr-2 h-4 w-4" />
-                    {t("openSettings")}
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("domainsCardTitle")}</CardTitle>
+              <CardDescription>{t("domainsCardDesc")}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {stats.domainStats.length === 0 ? (
+                <p className="mb-4 text-muted-foreground">
+                  {t("noDomainsYet")}
+                </p>
+              ) : (
+                <div className="cahier-section mb-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                  {stats.domainStats.map((domain) => (
+                    <div
+                      key={domain.name}
+                      className="cahier-item flex items-center justify-between p-2"
+                    >
+                      <span className="font-medium">{domain.name}</span>
+                      <Badge variant="secondary">
+                        {t("domainEntryCount", { count: domain.count })}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <Link href="/domains">
+                <Button variant="outline" className="w-full">
+                  {t("manageDomains")}
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
         </>
       )}
     </>
