@@ -536,6 +536,7 @@
     "importIsAnswer": "Typische Antwort auf eine Frage",
     "importNewQuestion": "Neue Frage (wird beim Übernehmen angelegt, wenn keine bestehende gewählt ist)",
     "importNewQuestionPlaceholder": "z. B. Was darf es sein?",
+    "playAudio": "Audio abspielen",
     "listen": "Hören",
     "listenTitle": "Sätze hören",
     "listenSubtitle": "Ausgewählte Sätze vertonen. Im Hör-Modus: Frage, Pause, dann Antwort — mit zwei Stimmen.",

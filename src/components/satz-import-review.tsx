@@ -27,7 +27,7 @@ import { useToast } from "~/hooks/use-toast";
 import { resolveErrorCode } from "~/lib/trpc-error";
 import { TARGET_LANGS } from "~/lib/languages";
 import { groupDomainsByKind } from "~/lib/domain-catalog";
-import { Loader2, Search, X } from "lucide-react";
+import { Loader2, Pencil, Search, X } from "lucide-react";
 
 type BatchView = RouterOutputs["satzImport"]["getBatch"];
 type DraftItem = BatchView["items"][number];
@@ -216,6 +216,8 @@ function DraftCard({
     { enabled: entryQuery.trim().length > 0 },
   );
 
+  const [mainText, setMainText] = useState(item.mainText);
+  const [editingMainText, setEditingMainText] = useState(false);
   const [skip, setSkip] = useState(item.skip);
   const [allowSimilar, setAllowSimilar] = useState(item.allowSimilar);
   const [trigger, setTrigger] = useState(item.trigger ?? "");
@@ -275,18 +277,12 @@ function DraftCard({
   return (
     <div className="cahier-item space-y-4 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="mb-1 flex flex-wrap items-center gap-2">
-            <span className="text-xs text-muted-foreground">#{item.rowNumber}</span>
-            <Badge variant="outline">{statusLabel}</Badge>
-            {item.ready ? <Badge>{t("importReady")}</Badge> : null}
-            {item.isDuplicate ? (
-              <Badge variant="destructive">{t("importDuplicate")}</Badge>
-            ) : null}
-          </div>
-          <p className="text-lg font-semibold">{item.mainText}</p>
-          {item.error ? (
-            <p className="mt-1 text-sm text-destructive">{item.error}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground">#{item.rowNumber}</span>
+          <Badge variant="outline">{statusLabel}</Badge>
+          {item.ready ? <Badge>{t("importReady")}</Badge> : null}
+          {item.isDuplicate ? (
+            <Badge variant="destructive">{t("importDuplicate")}</Badge>
           ) : null}
         </div>
         <label className="flex items-center gap-2 text-sm">
@@ -302,6 +298,53 @@ function DraftCard({
           {t("importSkip")}
         </label>
       </div>
+
+      {editingMainText && item.status !== "COMMITTED" ? (
+        <Input
+          id={`draft-main-${item.id}`}
+          className="w-full text-lg font-semibold"
+          value={mainText}
+          autoFocus
+          onChange={(e) => {
+            const next = e.target.value;
+            setMainText(next);
+            if (next.trim()) {
+              persist({ id: item.id, mainText: next });
+            }
+          }}
+          onBlur={() => {
+            if (mainText.trim()) setEditingMainText(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && mainText.trim()) {
+              e.currentTarget.blur();
+            }
+            if (e.key === "Escape") {
+              setMainText(item.mainText);
+              setEditingMainText(false);
+            }
+          }}
+          placeholder={t("mainTextPlaceholder")}
+        />
+      ) : (
+        <div className="flex items-start gap-2">
+          <p className="min-w-0 flex-1 text-lg font-semibold">{mainText}</p>
+          {item.status !== "COMMITTED" ? (
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              onClick={() => setEditingMainText(true)}
+              aria-label={tCommon("edit")}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+          ) : null}
+        </div>
+      )}
+      {item.error ? (
+        <p className="text-sm text-destructive">{item.error}</p>
+      ) : null}
 
       {item.isDuplicate ? (
         <div className="space-y-2 rounded-md border border-destructive/40 p-3 text-sm">

@@ -35,6 +35,8 @@ export default function EditSentencePage({
         {
           text: match?.text ?? "",
           register: match?.register ?? SatzRegister.INFORMAL,
+          audioUrl: match?.audioUrl,
+          audioStatus: match?.audioStatus,
         },
       ];
     }),

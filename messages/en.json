@@ -536,6 +536,7 @@
     "importIsAnswer": "Typical answer to a question",
     "importNewQuestion": "New question (created on commit if none selected)",
     "importNewQuestionPlaceholder": "e.g. What can I get you?",
+    "playAudio": "Play audio",
     "listen": "Listen",
     "listenTitle": "Listen to sentences",
     "listenSubtitle": "Generate audio for selected sentences. Listen mode: question, pause, then answer — two voices.",

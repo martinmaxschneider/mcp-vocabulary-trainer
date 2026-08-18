@@ -536,6 +536,7 @@
     "importIsAnswer": "Respuesta típica a una pregunta",
     "importNewQuestion": "Nueva pregunta (se crea al confirmar si no hay una elegida)",
     "importNewQuestionPlaceholder": "p. ej. ¿Qué desea?",
+    "playAudio": "Reproducir audio",
     "listen": "Escuchar",
     "listenTitle": "Escuchar frases",
     "listenSubtitle": "Genera audio de las frases elegidas. Modo escucha: pregunta, pausa y respuesta — dos voces.",

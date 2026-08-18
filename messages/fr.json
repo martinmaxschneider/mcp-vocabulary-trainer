@@ -536,6 +536,7 @@
     "importIsAnswer": "Réponse typique à une question",
     "importNewQuestion": "Nouvelle question (créée à la validation si aucune n'est choisie)",
     "importNewQuestionPlaceholder": "p. ex. Qu'est-ce que ce sera ?",
+    "playAudio": "Lire l'audio",
     "listen": "Écouter",
     "listenTitle": "Écouter les phrases",
     "listenSubtitle": "Générer l'audio des phrases choisies. Mode écoute : question, pause, puis réponse — deux voix.",

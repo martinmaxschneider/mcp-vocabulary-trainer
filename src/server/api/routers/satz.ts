@@ -18,6 +18,7 @@ import {
 } from "~/server/services/embeddings";
 import { suggestAnswerQuestion } from "~/server/services/satz-question";
 import {
+  deleteAudioFiles,
   deleteSatzAudioFiles,
   getSatzAudioStatus,
   processRequestedAudio,
@@ -394,17 +395,41 @@ export const satzRouter = createTRPCRouter({
         await syncSatzGrammarTopics(ctx.db, input.id, input.grammarTopicIds);
       }
       if (input.translations) {
-        await deleteSatzAudioFiles(input.id, ctx.db);
-        await ctx.db.satzTranslation.deleteMany({ where: { satzId: input.id } });
-        if (input.translations.length > 0) {
+        const previous = await ctx.db.satzTranslation.findMany({
+          where: { satzId: input.id },
+          select: { id: true, lang: true, text: true, register: true },
+        });
+        const incoming = input.translations.map((t) => ({
+          lang: t.lang,
+          text: t.text.trim(),
+          register: t.register ?? SatzRegister.INFORMAL,
+          audioUrl: t.audioUrl,
+          audioStatus: t.audioStatus ?? AudioStatus.NONE,
+        }));
+        const incomingKey = (t: {
+          lang: string;
+          text: string;
+          register: SatzRegister;
+        }) => `${t.lang}:${t.register}:${t.text}`;
+        const keepKeys = new Set(incoming.map(incomingKey));
+        const stale = previous.filter((t) => !keepKeys.has(incomingKey(t)));
+        if (stale.length > 0) {
+          await deleteAudioFiles(stale.map((t) => t.id));
+          await ctx.db.satzTranslation.deleteMany({
+            where: { id: { in: stale.map((t) => t.id) } },
+          });
+        }
+        const previousKeys = new Set(previous.map(incomingKey));
+        const toCreate = incoming.filter((t) => !previousKeys.has(incomingKey(t)));
+        if (toCreate.length > 0) {
           await ctx.db.satzTranslation.createMany({
-            data: input.translations.map((t) => ({
+            data: toCreate.map((t) => ({
               satzId: input.id,
               lang: t.lang,
-              text: t.text.trim(),
-              register: t.register ?? SatzRegister.INFORMAL,
+              text: t.text,
+              register: t.register,
               audioUrl: t.audioUrl,
-              audioStatus: t.audioStatus ?? AudioStatus.NONE,
+              audioStatus: t.audioStatus,
             })),
           });
         }

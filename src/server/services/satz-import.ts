@@ -262,6 +262,7 @@ export async function enrichNextDrafts(batchId: string, limit: number) {
 }
 
 export type DraftUpdateInput = {
+  mainText?: string;
   skip?: boolean;
   allowSimilar?: boolean;
   trigger?: string | null;
@@ -301,6 +302,9 @@ export async function updateImportDraft(id: string, input: DraftUpdateInput) {
   if (input.answerToId) {
     await assertAnswerToId(db, input.answerToId);
   }
+  if (input.mainText !== undefined && !input.mainText.trim()) {
+    throw new Error("CSV_EMPTY");
+  }
 
   const register = input.register ?? parseRegister(existing.register);
   let translationsUpdate: Prisma.InputJsonValue | undefined;
@@ -320,6 +324,7 @@ export async function updateImportDraft(id: string, input: DraftUpdateInput) {
   const updated = await db.satzImportDraft.update({
     where: { id },
     data: {
+      ...(input.mainText !== undefined && { mainText: input.mainText.trim() }),
       ...(input.skip !== undefined && { skip: input.skip }),
       ...(input.allowSimilar !== undefined && { allowSimilar: input.allowSimilar }),
       ...(input.trigger !== undefined && {

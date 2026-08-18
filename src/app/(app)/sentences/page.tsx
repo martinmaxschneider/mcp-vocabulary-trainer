@@ -16,6 +16,8 @@ import {
   CardTitle,
 } from "~/components/ui/card";
 import { Headphones, Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { SatzAudioButton } from "~/components/satz-audio-button";
+import { AudioStatus } from "@prisma/client";
 import { useToast } from "~/hooks/use-toast";
 import { resolveErrorCode } from "~/lib/trpc-error";
 import { useFocusLang } from "~/components/focus-lang-provider";
@@ -138,6 +140,13 @@ function SentencesPageInner() {
                     </div>
                   </div>
                   <div className="flex gap-1">
+                    {translation?.audioUrl &&
+                    translation.audioStatus === AudioStatus.DONE ? (
+                      <SatzAudioButton
+                        url={translation.audioUrl}
+                        label={t("playAudio")}
+                      />
+                    ) : null}
                     <Button asChild size="icon" variant="ghost">
                       <Link href={`/sentences/${satz.id}/edit`}>
                         <Pencil className="h-4 w-4" />

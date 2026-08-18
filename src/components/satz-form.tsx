@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
+  AudioStatus,
   SatzPriority,
   SatzRegister,
   SatzSource,
@@ -28,11 +29,14 @@ import { SOURCE_LANG, TARGET_LANGS } from "~/lib/languages";
 import { groupDomainsByKind } from "~/lib/domain-catalog";
 import { looksLikeQuestion } from "~/lib/satz-question";
 import { useFocusLang } from "~/components/focus-lang-provider";
+import { SatzAudioButton } from "~/components/satz-audio-button";
 import { Loader2, Save, Search, Sparkles, X } from "lucide-react";
 
 type TranslationDraft = {
   text: string;
   register: SatzRegister;
+  audioUrl?: string | null;
+  audioStatus?: AudioStatus;
 };
 
 export type SatzFormValues = {
@@ -207,6 +211,8 @@ export function SatzForm({
         lang,
         text: draft.text.trim(),
         register: draft.register,
+        audioUrl: draft.audioUrl ?? undefined,
+        audioStatus: draft.audioStatus,
       }));
     if (translations.length === 0) {
       toast({
@@ -349,6 +355,12 @@ export function SatzForm({
               <div className="flex items-center gap-2">
                 <Badge variant="secondary">{lang.code.toUpperCase()}</Badge>
                 <span className="font-medium">{tLang(lang.code)}</span>
+                {draft?.audioUrl && draft.audioStatus === AudioStatus.DONE ? (
+                  <SatzAudioButton
+                    url={draft.audioUrl}
+                    label={t("playAudio")}
+                  />
+                ) : null}
               </div>
               <Input
                 value={draft?.text ?? ""}
@@ -362,6 +374,16 @@ export function SatzForm({
                         register:
                           prev.translations[lang.code]?.register ??
                           SatzRegister.INFORMAL,
+                        audioUrl:
+                          e.target.value ===
+                          prev.translations[lang.code]?.text
+                            ? prev.translations[lang.code]?.audioUrl
+                            : null,
+                        audioStatus:
+                          e.target.value ===
+                          prev.translations[lang.code]?.text
+                            ? prev.translations[lang.code]?.audioStatus
+                            : AudioStatus.NONE,
                       },
                     },
                   }))
@@ -381,6 +403,8 @@ export function SatzForm({
                       [lang.code]: {
                         text: prev.translations[lang.code]?.text ?? "",
                         register: value as SatzRegister,
+                        audioUrl: null,
+                        audioStatus: AudioStatus.NONE,
                       },
                     },
                   }))

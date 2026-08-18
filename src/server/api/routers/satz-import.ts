@@ -113,6 +113,7 @@ export const satzImportRouter = createTRPCRouter({
     .input(
       z.object({
         id: z.string(),
+        mainText: z.string().optional(),
         skip: z.boolean().optional(),
         allowSimilar: z.boolean().optional(),
         trigger: z.string().nullable().optional(),
