@@ -76,6 +76,7 @@ const entryToolSchema = {
   domainId: z.string().optional(),
   domainIds: z.array(z.string()).optional(),
   translations: z.array(z.object(translationToolSchema)).min(1),
+  allowSimilar: z.boolean().optional(),
 };
 
 const handler = createMcpHandler(
@@ -134,7 +135,8 @@ const handler = createMcpHandler(
     server.tool(
       "search_entries",
       "Sucht Einträge nach Teilstring im Quellwort (mainText/Muttersprache) oder Übersetzung. " +
-        "Vor create_entry nutzen, um Dubletten zu erkennen.",
+        "create_entry prüft zusätzlich semantische Ähnlichkeit per Embedding (nicht den ganzen Bestand als Text). " +
+        "Für eine Vorab-Prüfung ohne Anlegen: find_similar_entries.",
       { query: z.string().min(1), limit: z.number().min(1).max(50).default(20) },
       async ({ query, limit }) => {
         const api = await getCaller();
@@ -143,11 +145,31 @@ const handler = createMcpHandler(
     );
 
     server.tool(
+      "find_similar_entries",
+      "Semantische Nachbarn zu einem Quelltext (Embedding + Cosine). " +
+        "Liefert Top-Treffer mit Score; kein LLM, kein Anlegen. " +
+        "Zum Kalibrieren und als Vorab-Check vor create_entry.",
+      {
+        query: z.string().min(1),
+        limit: z.number().min(1).max(20).default(5),
+      },
+      async ({ query, limit }) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.entry.findSimilar({ query, limit }));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
       "create_entry",
       "Legt einen Vokabeleintrag an (Typ, Kategorie, mainText, Übersetzungen, Domains). " +
         "Jede Übersetzung SOLL ipa mitliefern (IPA der Zielübersetzung in Slash-Notation, z.B. /həˈloʊ/). " +
         "Pro Übersetzung optional isIrregular (unregelmäßig in dieser Sprache). " +
-        "conjugations-JSON sync't zu ConjugationForm; für gezielte Pflege lieber upsert_conjugation_forms nutzen.",
+        "conjugations-JSON sync't zu ConjugationForm; für gezielte Pflege lieber upsert_conjugation_forms nutzen. " +
+        "Vor dem Speichern: Embedding-Ähnlichkeit gegen den Bestand. Bei vermutetem Duplikat kommt created:false mit candidates — dann allowSimilar:true setzen, um trotzdem anzulegen.",
       entryToolSchema,
       async (args) => {
         const api = await getCaller();
@@ -163,7 +185,9 @@ const handler = createMcpHandler(
     server.tool(
       "create_entries",
       "Bulk-Anlage mehrerer Vokabeleinträge (max. 50). Für Listen wie „30 Auto-Vokabeln“. " +
-        "Jede Übersetzung SOLL ipa mitliefern (IPA in Slash-Notation).",
+        "Jede Übersetzung SOLL ipa mitliefern (IPA in Slash-Notation). " +
+        "Semantische Dubletten landen in skipped (reason: similar), der Rest wird angelegt. " +
+        "Pro Eintrag allowSimilar:true, um eine erkannte Ähnlichkeit zu ignorieren.",
       {
         entries: z.array(z.object(entryToolSchema)).min(1).max(50),
       },

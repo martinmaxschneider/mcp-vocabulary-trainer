@@ -20,6 +20,7 @@ import { Progress } from "~/components/ui/progress";
 import { useToast } from "~/hooks/use-toast";
 import { resolveErrorCode } from "~/lib/trpc-error";
 import { SOURCE_LANG, TARGET_LANGS, TARGET_LANG_CODES } from "~/lib/languages";
+import { isEntryCreated } from "~/lib/entry-create";
 import { CONJUGATABLE_LANGS } from "~/lib/conjugation-catalog";
 import { Checkbox } from "~/components/ui/checkbox";
 import { ManualVocabularyAddCard } from "~/components/manual-vocabulary-add-card";
@@ -156,6 +157,7 @@ export default function VerbsPage() {
     try {
       let successCount = 0;
       let errorCount = 0;
+      let skippedCount = 0;
 
       for (let i = 0; i < selected.length; i++) {
         const suggestion = selected[i];
@@ -187,7 +189,7 @@ export default function VerbsPage() {
             },
           );
 
-          await createEntryMutation.mutateAsync({
+          const created = await createEntryMutation.mutateAsync({
             type: "WORD",
             category: "VERB",
             mainLang: SOURCE_LANG.code,
@@ -196,7 +198,11 @@ export default function VerbsPage() {
             translations: translationsList,
           });
 
-          successCount++;
+          if (!isEntryCreated(created)) {
+            skippedCount++;
+          } else {
+            successCount++;
+          }
           setAddingProgress({ current: i + 1, total: selected.length });
         } catch (error) {
           console.error(`Error adding ${suggestion.text}:`, error);
@@ -214,6 +220,7 @@ export default function VerbsPage() {
           description: tToasts("verbsAddedPartial", {
             success: successCount,
             failed: errorCount,
+            skipped: skippedCount,
           }),
         });
 
@@ -227,7 +234,10 @@ export default function VerbsPage() {
       } else {
         toast({
           title: tCommon("error"),
-          description: tToasts("verbsAddFailed"),
+          description:
+            skippedCount > 0
+              ? tToasts("similarBatchSkipped", { count: skippedCount })
+              : tToasts("verbsAddFailed"),
           variant: "destructive",
         });
       }

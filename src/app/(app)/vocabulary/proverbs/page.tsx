@@ -20,6 +20,7 @@ import { api } from "~/trpc/client";
 import { useToast } from "~/hooks/use-toast";
 import { resolveErrorCode } from "~/lib/trpc-error";
 import { SOURCE_LANG, TARGET_LANG_CODES } from "~/lib/languages";
+import { isEntryCreated } from "~/lib/entry-create";
 import { ManualVocabularyAddCard } from "~/components/manual-vocabulary-add-card";
 
 interface ProverbSuggestion {
@@ -112,9 +113,11 @@ export default function AddProverbsPage() {
     try {
       let successCount = 0;
       let errorCount = 0;
+      let skippedCount = 0;
 
       for (let i = 0; i < selected.length; i++) {
         const suggestion = selected[i];
+        if (!suggestion) continue;
         try {
           const translations = await generateTranslationsMutation.mutateAsync({
             mainText: suggestion.text,
@@ -134,7 +137,7 @@ export default function AddProverbsPage() {
             })
           );
 
-          await createEntryMutation.mutateAsync({
+          const created = await createEntryMutation.mutateAsync({
             type: "PROVERB",
             category: "PROVERB",
             mainLang: SOURCE_LANG.code,
@@ -143,7 +146,11 @@ export default function AddProverbsPage() {
             translations: translationsList,
           });
 
-          successCount++;
+          if (!isEntryCreated(created)) {
+            skippedCount++;
+          } else {
+            successCount++;
+          }
           setAddingProgress({ current: i + 1, total: selected.length });
         } catch (error) {
           console.error(`Error adding ${suggestion.text}:`, error);
@@ -159,6 +166,7 @@ export default function AddProverbsPage() {
           description: tToasts("proverbsAddedPartial", {
             success: successCount,
             failed: errorCount,
+            skipped: skippedCount,
           }),
         });
 
@@ -168,7 +176,10 @@ export default function AddProverbsPage() {
       } else {
         toast({
           title: tCommon("error"),
-          description: tToasts("proverbsAddFailed"),
+          description:
+            skippedCount > 0
+              ? tToasts("similarBatchSkipped", { count: skippedCount })
+              : tToasts("proverbsAddFailed"),
           variant: "destructive",
         });
       }

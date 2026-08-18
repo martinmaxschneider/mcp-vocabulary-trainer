@@ -359,3 +359,24 @@ model GamificationSettings {
 
   @@unique([userId])
 }
+
+enum EmbeddingOwnerType {
+  ENTRY
+  SATZ
+}
+
+/// Brute-force similarity index (no FK — polymorphic for Entry now, Satz later).
+model Embedding {
+  id        String              @id @default(cuid())
+  ownerType EmbeddingOwnerType
+  ownerId   String
+  model     String
+  dims      Int
+  vector    Json
+  textHash  String
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  @@unique([ownerType, ownerId])
+  @@index([ownerType])
+}

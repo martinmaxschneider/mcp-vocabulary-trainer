@@ -6,6 +6,17 @@ import { conjugationsSchema } from "~/lib/schemas/translation";
 import { SOURCE_LANG } from "~/lib/languages";
 import { db } from "~/server/db";
 import { syncConjugationFormsFromJson } from "~/server/services/conjugation-forms";
+import {
+  assessNewEntrySimilarity,
+  backfillEntryEmbeddings,
+  deleteEntryEmbedding,
+  embedTexts,
+  findSimilarEntries,
+  getEmbeddingStatus,
+  saveEntryEmbedding,
+  upsertEntryEmbedding,
+  type EntryVectorRow,
+} from "~/server/services/embeddings";
 
 const translationInputSchema = z.object({
   lang: z.string(),
@@ -19,7 +30,7 @@ const translationInputSchema = z.object({
   conjugations: conjugationsSchema,
 });
 
-export const createEntryInputSchema = z.object({
+export const createEntryFieldsSchema = z.object({
   type: z.nativeEnum(EntryType),
   category: z.nativeEnum(WordCategory).optional(),
   mainLang: z.string().default(SOURCE_LANG.code),
@@ -28,6 +39,10 @@ export const createEntryInputSchema = z.object({
   domainId: z.string().optional(),
   domainIds: z.array(z.string()).optional(),
   translations: z.array(translationInputSchema).min(1),
+});
+
+export const createEntryInputSchema = createEntryFieldsSchema.extend({
+  allowSimilar: z.boolean().optional(),
 });
 
 const domainsInclude = {
@@ -67,7 +82,7 @@ function resolveDomainIds(input: {
 
 async function createEntryRecord(
   client: DbClient,
-  input: z.infer<typeof createEntryInputSchema>
+  input: z.infer<typeof createEntryFieldsSchema>
 ) {
   const domainIds = resolveDomainIds(input);
 
@@ -334,7 +349,27 @@ export const entryRouter = createTRPCRouter({
   createManual: publicProcedure
     .input(createEntryInputSchema)
     .mutation(async ({ ctx, input }) => {
-      return createEntryRecord(ctx.db, input);
+      const { allowSimilar, ...fields } = input;
+      const assessment = await assessNewEntrySimilarity({
+        mainText: fields.mainText,
+        allowSimilar,
+      });
+      if (assessment.blocked) {
+        return {
+          created: false as const,
+          reason: "similar" as const,
+          candidates: assessment.candidates,
+        };
+      }
+
+      const entry = await createEntryRecord(ctx.db, fields);
+      await saveEntryEmbedding(
+        entry.id,
+        assessment.vector,
+        assessment.textHash,
+        ctx.db,
+      );
+      return { created: true as const, entry };
     }),
 
   createMany: publicProcedure
@@ -344,18 +379,56 @@ export const entryRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const created = await ctx.db.$transaction(async (tx) => {
-        const results = [];
-        for (const entryInput of input.entries) {
-          const entry = await createEntryRecord(tx, entryInput);
-          results.push(entry);
+      const vectors = await embedTexts(
+        input.entries.map((entryInput) => entryInput.mainText),
+      );
+      const extra: EntryVectorRow[] = [];
+      const created = [];
+      const skipped: Array<{
+        mainText: string;
+        reason: "similar";
+        candidates: Awaited<
+          ReturnType<typeof assessNewEntrySimilarity>
+        >["candidates"];
+      }> = [];
+
+      for (let i = 0; i < input.entries.length; i++) {
+        const entryInput = input.entries[i]!;
+        const { allowSimilar, ...fields } = entryInput;
+        const assessment = await assessNewEntrySimilarity({
+          mainText: fields.mainText,
+          allowSimilar,
+          queryVector: vectors[i],
+          extraCandidates: extra,
+        });
+        if (assessment.blocked) {
+          skipped.push({
+            mainText: fields.mainText,
+            reason: "similar",
+            candidates: assessment.candidates,
+          });
+          continue;
         }
-        return results;
-      });
+
+        const entry = await createEntryRecord(ctx.db, fields);
+        await saveEntryEmbedding(
+          entry.id,
+          assessment.vector,
+          assessment.textHash,
+          ctx.db,
+        );
+        created.push(entry);
+        extra.push({
+          id: entry.id,
+          mainText: entry.mainText,
+          vector: assessment.vector,
+        });
+      }
 
       return {
         createdCount: created.length,
         entries: created,
+        skipped,
       };
     }),
 
@@ -378,6 +451,14 @@ export const entryRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const previous = await ctx.db.entry.findUnique({
+        where: { id: input.id },
+        select: { mainText: true },
+      });
+      if (!previous) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Entry not found" });
+      }
+
       await ctx.db.entry.update({
         where: { id: input.id },
         data: {
@@ -454,6 +535,10 @@ export const entryRouter = createTRPCRouter({
         }
       }
 
+      if (input.mainText && input.mainText !== previous.mainText) {
+        await upsertEntryEmbedding(input.id, input.mainText, ctx.db);
+      }
+
       return ctx.db.entry.findUnique({
         where: { id: input.id },
         include: {
@@ -466,6 +551,7 @@ export const entryRouter = createTRPCRouter({
   delete: publicProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      await deleteEntryEmbedding(input.id, ctx.db);
       await ctx.db.entry.delete({
         where: { id: input.id },
       });
@@ -653,5 +739,34 @@ export const entryRouter = createTRPCRouter({
         domainId: input.domainId,
         entryIds: input.entryIds,
       };
+    }),
+
+  embeddingStatus: publicProcedure.query(async () => {
+    return getEmbeddingStatus();
+  }),
+
+  findSimilar: publicProcedure
+    .input(
+      z.object({
+        query: z.string().min(1),
+        limit: z.number().min(1).max(20).default(5),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const result = await findSimilarEntries(input.query, { k: input.limit });
+      return {
+        query: input.query.trim(),
+        candidates: result.candidates,
+      };
+    }),
+
+  backfillEmbeddings: publicProcedure
+    .input(
+      z.object({
+        limit: z.number().min(1).max(100).default(50),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      return backfillEntryEmbeddings(input.limit);
     }),
 });

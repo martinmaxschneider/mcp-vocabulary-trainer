@@ -1,3 +1,4 @@
+import { EmbeddingOwnerType } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import {
@@ -56,6 +57,7 @@ export const settingsRouter = createTRPCRouter({
   }),
 
   resetEntries: publicProcedure.mutation(async ({ ctx }) => {
+    await ctx.db.embedding.deleteMany({ where: { ownerType: EmbeddingOwnerType.ENTRY } });
     // Delete all Entries (cascades to Translations, UserProgress, ReviewLog)
     await ctx.db.entry.deleteMany({});
 
@@ -76,6 +78,7 @@ export const settingsRouter = createTRPCRouter({
     await resetGamification(ctx.db, ctx.userId);
     await ctx.db.domainEntry.deleteMany({});
     await ctx.db.translation.deleteMany({});
+    await ctx.db.embedding.deleteMany({ where: { ownerType: EmbeddingOwnerType.ENTRY } });
     await ctx.db.entry.deleteMany({});
     await ctx.db.domain.deleteMany({});
 

@@ -54,6 +54,7 @@ import { resolveErrorCode } from "~/lib/trpc-error";
 import { ThemeToggle } from "~/components/theme-toggle";
 import { Input } from "~/components/ui/input";
 import { PronunciationGuideSettings } from "~/components/pronunciation-guide-settings";
+import { EmbeddingsSettings } from "~/components/embeddings-settings";
 import { AppUpdateCard } from "~/components/app-update-card";
 
 export default function SettingsPage() {
@@ -400,6 +401,8 @@ export default function SettingsPage() {
             </p>
           </CardContent>
         </Card>
+
+        <EmbeddingsSettings />
 
         <PronunciationGuideSettings />
 

@@ -28,9 +28,14 @@ import { useToast } from "~/hooks/use-toast";
 import { resolveErrorCode } from "~/lib/trpc-error";
 import { SOURCE_LANG, TARGET_LANGS } from "~/lib/languages";
 import { isConjugatableLang } from "~/lib/conjugation-catalog";
+import { isEntryCreated } from "~/lib/entry-create";
 import type { z } from "zod";
 import type { conjugationsSchema } from "~/lib/schemas/translation";
 import { Plus, Save, Sparkles, Loader2 } from "lucide-react";
+import {
+  SimilarEntriesDialog,
+  type SimilarEntryCandidate,
+} from "~/components/similar-entries-dialog";
 
 type Conjugations = z.infer<typeof conjugationsSchema>;
 
@@ -110,6 +115,28 @@ function ManualVocabularyAddCardInner({
   );
   const [translations, setTranslations] =
     useState<Record<string, TranslationDraft>>(emptyTranslations);
+  const [similarOpen, setSimilarOpen] = useState(false);
+  const [similarCandidates, setSimilarCandidates] = useState<
+    SimilarEntryCandidate[]
+  >([]);
+  const [pendingCreate, setPendingCreate] = useState<{
+    type: "WORD" | "PROVERB";
+    category: WordCategory;
+    mainLang: string;
+    mainText: string;
+    note?: string;
+    domainId?: string;
+    translations: Array<{
+      lang: string;
+      text: string;
+      example?: string;
+      regionTag?: string;
+      variants?: string[];
+      ipa?: string;
+      isIrregular?: boolean;
+      conjugations?: Conjugations;
+    }>;
+  } | null>(null);
 
   const { data: domains } = api.domain.list.useQuery();
 
@@ -147,7 +174,13 @@ function ManualVocabularyAddCardInner({
   });
 
   const createMutation = api.entry.createManual.useMutation({
-    onSuccess: () => {
+    onSuccess: (result) => {
+      if (!isEntryCreated(result)) {
+        setSimilarCandidates(result.candidates);
+        setSimilarOpen(true);
+        return;
+      }
+      setSimilarOpen(false);
       toast({ title: tToasts("entryCreated") });
       if (domainId && domainId !== "none") {
         router.push(`/domains/${domainId}`);
@@ -225,15 +258,22 @@ function ManualVocabularyAddCardInner({
       return;
     }
 
-    createMutation.mutate({
-      type: category === "PROVERB" ? "PROVERB" : "WORD",
+    const payload = {
+      type: (category === "PROVERB" ? "PROVERB" : "WORD") as "WORD" | "PROVERB",
       category,
       mainLang: SOURCE_LANG.code,
       mainText: mainText.trim(),
       note: note.trim() || undefined,
       domainId: domainId === "none" ? undefined : domainId,
       translations: translationsList,
-    });
+    };
+    setPendingCreate(payload);
+    createMutation.mutate(payload);
+  };
+
+  const handleConfirmSimilar = () => {
+    if (!pendingCreate) return;
+    createMutation.mutate({ ...pendingCreate, allowSimilar: true });
   };
 
   const busy = generateMutation.isPending || createMutation.isPending;
@@ -442,6 +482,13 @@ function ManualVocabularyAddCardInner({
           )}
         </Button>
       </CardContent>
+      <SimilarEntriesDialog
+        open={similarOpen}
+        onOpenChange={setSimilarOpen}
+        candidates={similarCandidates}
+        confirming={createMutation.isPending}
+        onConfirm={handleConfirmSimilar}
+      />
     </Card>
   );
 }

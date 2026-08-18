@@ -459,3 +459,69 @@ Gib nur das JSON-Objekt zurück.`;
     };
   }
 }
+
+const duplicateJudgeSchema = z.object({
+  isDuplicate: z.boolean(),
+  matchId: z.string().nullable(),
+  reason: z.string().optional(),
+});
+
+export type DuplicateJudgeCandidate = {
+  id: string;
+  mainText: string;
+  score: number;
+};
+
+export type DuplicateJudgeResult = z.infer<typeof duplicateJudgeSchema>;
+
+/** Small-context duplicate check: only the flagged neighbors, never the full corpus. */
+export async function judgeSemanticDuplicates(params: {
+  queryText: string;
+  candidates: DuplicateJudgeCandidate[];
+}): Promise<DuplicateJudgeResult> {
+  const { queryText, candidates } = params;
+  const allowedIds = new Set(candidates.map((c) => c.id));
+
+  const candidateLines = candidates
+    .map(
+      (c) =>
+        `- id=${c.id} score=${c.score.toFixed(3)} text=${JSON.stringify(c.mainText)}`,
+    )
+    .join("\n");
+
+  const systemPrompt = `Du prüfst, ob ein neuer Vokabeleintrag ein Duplikat eines bestehenden Eintrags ist.
+Vergleiche nur den neuen Text mit den gelieferten Kandidaten. Es gibt keine weiteren Einträge.
+
+Ein Duplikat ist: dasselbe Lemma, offensichtliches Synonym derselben Bedeutung, oder nur eine Umschreibung desselben Worts.
+Kein Duplikat: verwandte aber verschiedene Wörter, andere Wortarten mit anderer Bedeutung, Ober-/Unterbegriffe.
+
+Gib nur JSON zurück:
+{ "isDuplicate": boolean, "matchId": string | null, "reason": string }
+matchId muss die id eines gelieferten Kandidaten sein, sonst null.`;
+
+  const userPrompt = `Neuer Eintrag: ${JSON.stringify(queryText)}
+
+Kandidaten:
+${candidateLines}`;
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ],
+    temperature: 0,
+    response_format: { type: "json_object" },
+  });
+
+  const content = completion.choices[0]?.message?.content;
+  if (!content) {
+    throw new Error("No content in OpenAI duplicate-judge response");
+  }
+
+  const parsed = duplicateJudgeSchema.parse(JSON.parse(content) as unknown);
+  if (parsed.matchId && !allowedIds.has(parsed.matchId)) {
+    return { ...parsed, matchId: null };
+  }
+  return parsed;
+}
