@@ -26,6 +26,18 @@
     "focusLangAria": "Definir o idioma de aprendizagem atual",
     "achievements": "Conquistas"
   },
+  "practiceModes": {
+    "review": "Rever",
+    "practice": "Treinar",
+    "listen": "Ouvir",
+    "reviewHint": "Leitner — só cartões em atraso",
+    "practiceHint": "Sem efeito no progresso",
+    "listenHint": "Ouvir e repetir",
+    "generateAudio": "Gerar áudio",
+    "generateMissingAudio": "Gerar áudio em falta",
+    "generatingAudio": "A gerar áudio…",
+    "playAudio": "Reproduzir"
+  },
   "common": {
     "back": "Voltar",
     "save": "Guardar",

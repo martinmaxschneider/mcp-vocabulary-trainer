@@ -98,7 +98,8 @@ async function gradeAndUpdateProgress(
   userId: string,
   entryId: string,
   targetLang: string,
-  userAnswer: string
+  userAnswer: string,
+  skipProgress = false,
 ) {
   let progress = await prisma.userProgress.findUnique({
     where: vocabProgressWhere(userId, entryId, targetLang),
@@ -112,6 +113,46 @@ async function gradeAndUpdateProgress(
       },
     },
   });
+
+  if (!progress && skipProgress) {
+    const entry = await prisma.entry.findUnique({
+      where: { id: entryId },
+      include: { translations: { where: { lang: targetLang } } },
+    });
+    if (!entry?.translations[0]) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: `No translation found for language: ${targetLang}`,
+      });
+    }
+    const translation = entry.translations[0];
+    const variants = Array.isArray(translation.variants)
+      ? (translation.variants as string[])
+      : [];
+    const matchResult = matchAnswer({
+      userAnswer,
+      expected: translation.text,
+      variants,
+    });
+    const answers = expectedAnswers(translation.text, variants);
+    return {
+      targetLang,
+      isCorrect: matchResult.isCorrect,
+      expected: translation.text,
+      ipa: translation.ipa,
+      typo: matchResult.isTypo,
+      newBox: MIN_BOX,
+      nextReviewAt: new Date(),
+      matchedVariant: matchResult.matchedVariant,
+      correctCount: 0,
+      wrongCount: 0,
+      correct: matchResult.isCorrect,
+      boxBefore: MIN_BOX,
+      boxAfter: MIN_BOX,
+      expectedAnswers: answers,
+      leechRecovered: false,
+    };
+  }
 
   if (!progress) {
     progress = await prisma.userProgress.create({
@@ -159,6 +200,26 @@ async function gradeAndUpdateProgress(
     matchResult.isCorrect,
   );
   const answers = expectedAnswers(translation.text, variants);
+
+  if (skipProgress) {
+    return {
+      targetLang,
+      isCorrect: matchResult.isCorrect,
+      expected: translation.text,
+      ipa: translation.ipa,
+      typo: matchResult.isTypo,
+      newBox: boxBefore,
+      nextReviewAt: progress.nextReviewAt,
+      matchedVariant: matchResult.matchedVariant,
+      correctCount: progress.correctCount,
+      wrongCount: progress.wrongCount,
+      correct: matchResult.isCorrect,
+      boxBefore,
+      boxAfter: boxBefore,
+      expectedAnswers: answers,
+      leechRecovered: false,
+    };
+  }
 
   const updatedProgress = await prisma.userProgress.update({
     where: { id: progress.id },
@@ -219,12 +280,43 @@ export const reviewRouter = createTRPCRouter({
         targetLang: z.string(),
         domainIds: z.array(z.string()).optional(),
         limit: z.number().min(1).max(100).default(20),
+        practice: z.boolean().optional(),
       })
     )
     .query(async ({ ctx, input }) => {
       const userId = ctx.userId;
       const now = new Date();
       const domainFilter = entryDomainFilter(input.domainIds);
+
+      if (input.practice) {
+        const entries = await ctx.db.entry.findMany({
+          where: {
+            ...(domainFilter || {}),
+            translations: { some: { lang: input.targetLang } },
+          },
+          take: input.limit,
+          orderBy: { updatedAt: "desc" },
+          include: {
+            translations: { where: { lang: input.targetLang } },
+            domains: { include: { domain: true } },
+          },
+        });
+        return {
+          cards: entries.map((entry) => ({
+            ...mapCardWithoutSolution({
+              id: entry.id,
+              box: MIN_BOX,
+              correctCount: 0,
+              wrongCount: 0,
+              nextReviewAt: now,
+              entry,
+            }),
+            translation: entry.translations[0],
+          })),
+          totalAvailable: entries.length,
+          boxCounts: emptyBoxCounts(),
+        };
+      }
 
       const dueProgresses = await ctx.db.userProgress.findMany({
         where: {
@@ -644,6 +736,7 @@ export const reviewRouter = createTRPCRouter({
         entryId: z.string(),
         targetLang: z.string(),
         userAnswer: z.string(),
+        skipProgress: z.boolean().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -652,8 +745,12 @@ export const reviewRouter = createTRPCRouter({
         ctx.userId,
         input.entryId,
         input.targetLang,
-        input.userAnswer
+        input.userAnswer,
+        input.skipProgress,
       );
+      if (input.skipProgress) {
+        return { ...result, gamification: null };
+      }
       const gamification = await recordActivity(ctx.db, ctx.userId, {
         items: [
           {
@@ -679,6 +776,7 @@ export const reviewRouter = createTRPCRouter({
             })
           )
           .min(1),
+        skipProgress: z.boolean().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -689,9 +787,13 @@ export const reviewRouter = createTRPCRouter({
           ctx.userId,
           input.entryId,
           answer.targetLang,
-          answer.userAnswer
+          answer.userAnswer,
+          input.skipProgress,
         );
         results.push(result);
+      }
+      if (input.skipProgress) {
+        return { results, gamification: null };
       }
       const gamification = await recordActivity(ctx.db, ctx.userId, {
         items: results.map((result) => ({

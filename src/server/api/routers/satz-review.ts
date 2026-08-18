@@ -89,6 +89,7 @@ export const satzReviewRouter = createTRPCRouter({
       z.object({
         ...reviewFilterSchema,
         limit: z.number().min(1).max(100).default(20),
+        practice: z.boolean().optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
@@ -99,6 +100,37 @@ export const satzReviewRouter = createTRPCRouter({
         ...satzWhere,
         translations: { some: { lang: input.targetLang } },
       };
+
+      if (input.practice) {
+        const items = await ctx.db.satz.findMany({
+          where: hasTranslation,
+          take: input.limit,
+          orderBy: { updatedAt: "desc" },
+          include: {
+            translations: { where: { lang: input.targetLang } },
+            domains: { include: { domain: true } },
+          },
+        });
+        return {
+          cards: items.map((satz) => ({
+            satzId: satz.id,
+            mainText: satz.mainText,
+            trigger: satz.trigger,
+            priority: satz.priority,
+            box: MIN_BOX,
+            nextReviewAt: now,
+            mainAudioUrl: satz.mainAudioUrl,
+            mainAudioStatus: satz.mainAudioStatus,
+            updatedAt: satz.updatedAt,
+            translation: satz.translations[0] ?? null,
+            domains: satz.domains.map((d) => d.domain),
+          })),
+          boxCounts: emptyBoxCounts(),
+          due: items.length,
+          newCount: items.length,
+          totalAvailable: items.length,
+        };
+      }
 
       const dueProgresses = await ctx.db.satzProgress.findMany({
         where: {
@@ -218,6 +250,7 @@ export const satzReviewRouter = createTRPCRouter({
         satzId: z.string(),
         targetLang: z.string().min(1),
         isCorrect: z.boolean(),
+        skipProgress: z.boolean().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -249,6 +282,20 @@ export const satzReviewRouter = createTRPCRouter({
       });
 
       const boxBefore = existing?.box ?? MIN_BOX;
+      if (input.skipProgress) {
+        return {
+          satzId: input.satzId,
+          targetLang: input.targetLang,
+          isCorrect: input.isCorrect,
+          expected: translation.text,
+          boxBefore,
+          boxAfter: boxBefore,
+          nextReviewAt: existing?.nextReviewAt ?? new Date(),
+          correctCount: existing?.correctCount ?? 0,
+          wrongCount: existing?.wrongCount ?? 0,
+          gamification: null,
+        };
+      }
       const { boxAfter, nextReviewAt } = applyLeitnerResult(
         boxBefore,
         input.isCorrect,

@@ -15,7 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "~/components/ui/card";
-import { BookOpen, Dumbbell, Headphones, Loader2, Pencil, Plus, Trash2, Upload, Volume2 } from "lucide-react";
+import { BookOpen, Dumbbell, Headphones, LayoutGrid, List, Loader2, Pencil, Plus, Trash2, Upload, Volume2 } from "lucide-react";
 import { SatzAudioButton } from "~/components/satz-audio-button";
 import { Checkbox } from "~/components/ui/checkbox";
 import { useToast } from "~/hooks/use-toast";
@@ -35,6 +35,7 @@ function SentencesPageInner() {
   const { toast } = useToast();
   const { focusLang } = useFocusLang();
   const [query, setQuery] = useState("");
+  const [view, setView] = useState<"cards" | "list">("cards");
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [generatingBulk, setGeneratingBulk] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
@@ -151,7 +152,27 @@ function SentencesPageInner() {
           <h1 className="mb-2 text-4xl font-bold">{t("title")}</h1>
           <p className="text-muted-foreground">{t("subtitle")}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <div className="inline-flex rounded-md border border-input">
+            <Button
+              type="button"
+              size="icon"
+              variant={view === "cards" ? "secondary" : "ghost"}
+              className="rounded-r-none"
+              onClick={() => setView("cards")}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              size="icon"
+              variant={view === "list" ? "secondary" : "ghost"}
+              className="rounded-l-none"
+              onClick={() => setView("list")}
+            >
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
           <Button asChild variant="outline">
             <Link href="/sentences/review">
               <BookOpen className="mr-2 h-4 w-4" />
@@ -256,7 +277,15 @@ function SentencesPageInner() {
           </CardHeader>
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className={view === "list" ? "cahier-section space-y-2" : "space-y-3"}>
+          {view === "list" ? (
+            <div className="hidden px-3 text-xs font-medium text-muted-foreground sm:grid sm:grid-cols-[auto_1fr_1fr_auto] sm:gap-3">
+              <span className="w-6" />
+              <span>{tLang(SOURCE_LANG.code)}</span>
+              <span>{tLang(focusLang)}</span>
+              <span className="w-40" />
+            </div>
+          ) : null}
           {data?.items.map((satz) => {
             const translation = satz.translations.find(
               (tr) => tr.lang === focusLang,
@@ -271,45 +300,7 @@ function SentencesPageInner() {
               translationStatus: translation?.audioStatus,
               translationUpdatedAt: translation?.updatedAt,
             });
-            return (
-              <Card key={satz.id}>
-                <CardHeader className="flex flex-row items-start justify-between space-y-0">
-                  <div className="flex items-start gap-3">
-                    <Checkbox
-                      className="mt-1"
-                      checked={selected.has(satz.id)}
-                      onCheckedChange={() => toggleSelected(satz.id)}
-                      aria-label={satz.mainText}
-                    />
-                    <div className="space-y-1">
-                      <CardTitle className="text-lg">{satz.mainText}</CardTitle>
-                      {translation ? (
-                        <CardDescription>{translation.text}</CardDescription>
-                      ) : null}
-                      {satz.trigger ? (
-                        <p className="text-sm text-muted-foreground">
-                          {t("triggerPrefix")}: {satz.trigger}
-                        </p>
-                      ) : null}
-                      {satz.answerTo ? (
-                        <p className="text-sm text-muted-foreground">
-                          {t("answerToPrefix")}: {satz.answerTo.mainText}
-                        </p>
-                      ) : null}
-                      <div className="flex flex-wrap gap-1 pt-1">
-                        {satz.domains.map((link) => (
-                          <Badge key={link.id} variant="outline">
-                            {link.domain.name}
-                          </Badge>
-                        ))}
-                        {satz.linkedEntries.map((link) => (
-                          <Badge key={link.id} variant="secondary">
-                            {link.entry.mainText}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
+            const actions = (
                   <div className="flex gap-1">
                     <SatzAudioButton
                       urls={mainClips}
@@ -370,6 +361,70 @@ function SentencesPageInner() {
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
+            );
+
+            if (view === "list") {
+              return (
+                <div
+                  key={satz.id}
+                  className="cahier-item grid items-center gap-2 p-3 sm:grid-cols-[auto_1fr_1fr_auto] sm:gap-3"
+                >
+                  <Checkbox
+                    checked={selected.has(satz.id)}
+                    onCheckedChange={() => toggleSelected(satz.id)}
+                    aria-label={satz.mainText}
+                  />
+                  <p className="font-medium">{satz.mainText}</p>
+                  <p className="font-medium">
+                    {translation?.text ?? (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </p>
+                  {actions}
+                </div>
+              );
+            }
+
+            return (
+              <Card key={satz.id}>
+                <CardHeader className="flex flex-row items-start justify-between space-y-0">
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      className="mt-1"
+                      checked={selected.has(satz.id)}
+                      onCheckedChange={() => toggleSelected(satz.id)}
+                      aria-label={satz.mainText}
+                    />
+                    <div className="space-y-1">
+                      <CardTitle className="text-lg">{satz.mainText}</CardTitle>
+                      {translation ? (
+                        <CardDescription>{translation.text}</CardDescription>
+                      ) : null}
+                      {satz.trigger ? (
+                        <p className="text-sm text-muted-foreground">
+                          {t("triggerPrefix")}: {satz.trigger}
+                        </p>
+                      ) : null}
+                      {satz.answerTo ? (
+                        <p className="text-sm text-muted-foreground">
+                          {t("answerToPrefix")}: {satz.answerTo.mainText}
+                        </p>
+                      ) : null}
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {satz.domains.map((link) => (
+                          <Badge key={link.id} variant="outline">
+                            {link.domain.name}
+                          </Badge>
+                        ))}
+                        {satz.linkedEntries.map((link) => (
+                          <Badge key={link.id} variant="secondary">
+                            {link.entry.mainText}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  {actions}
                 </CardHeader>
                 <CardContent className="pt-0 text-xs text-muted-foreground">
                   {t(`source${satz.source}`)} · {t(`priority${satz.priority}`)}

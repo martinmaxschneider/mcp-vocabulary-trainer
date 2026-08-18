@@ -29,9 +29,14 @@ import {
   isTargetLang,
   type LearningLangCode,
 } from "~/lib/languages";
-import { Eye, LayoutGrid, List, Plus } from "lucide-react";
+import { Eye, LayoutGrid, List, Loader2, Plus, Volume2 } from "lucide-react";
 import { ClickableIpa } from "~/components/clickable-ipa";
+import { AudioClipsButton } from "~/components/satz-audio-button";
 import { useFocusLang } from "~/components/focus-lang-provider";
+import { useToast } from "~/hooks/use-toast";
+import { drainAudioQueue } from "~/lib/process-audio-queue";
+import { playbackUrls } from "~/lib/satz-tts";
+import { resolveErrorCode } from "~/lib/trpc-error";
 
 type SortBy = "mainText" | "translation" | "createdAt";
 type SortDir = "asc" | "desc";
@@ -100,6 +105,12 @@ export function VocabularyCategoryList({
   const tLang = useTranslations("languages");
   const tCategories = useTranslations("categories");
   const tNav = useTranslations("nav");
+  const tModes = useTranslations("practiceModes");
+  const tToasts = useTranslations("toasts");
+  const tErrors = useTranslations("errors.codes");
+  const { toast } = useToast();
+  const utils = api.useUtils();
+  const [generating, setGenerating] = useState(false);
 
   const { focusLang: targetLang, setFocusLang } = useFocusLang();
   const setTargetLang = (code: string) => {
@@ -147,6 +158,45 @@ export function VocabularyCategoryList({
   });
   const guideItems = guideQuery.data?.items ?? [];
 
+  const requestAudio = api.entry.requestAudio.useMutation();
+  const processAudio = api.entry.processAudio.useMutation();
+
+  const generateAudio = async (entryIds: string[], regenerate = false) => {
+    if (entryIds.length === 0) return;
+    setGenerating(true);
+    try {
+      await requestAudio.mutateAsync({
+        entryIds,
+        langs: [targetLang],
+        regenerate,
+      });
+      await drainAudioQueue((limit) => processAudio.mutateAsync({ limit }));
+      await utils.entry.listByCategory.invalidate();
+      toast({ title: tToasts("satzAudioDone") });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      const code = resolveErrorCode(message);
+      toast({
+        title: tToasts("satzAudioError"),
+        description: code ? tErrors(code as "NOT_FOUND") : message || undefined,
+        variant: "destructive",
+      });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const missingAudioIds = entries
+    .filter((entry) => {
+      const translation = entry.translations.find((tr) => tr.lang === targetLang);
+      return (
+        entry.mainAudioStatus !== "DONE" ||
+        !translation ||
+        translation.audioStatus !== "DONE"
+      );
+    })
+    .map((entry) => entry.id);
+
   return (
     <div className="max-w-6xl">
       <div className="mb-8">
@@ -186,6 +236,21 @@ export function VocabularyCategoryList({
                 <List className="h-4 w-4" />
               </Button>
             </div>
+            {missingAudioIds.length > 0 ? (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={generating}
+                onClick={() => void generateAudio(missingAudioIds)}
+              >
+                {generating ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Volume2 className="mr-2 h-4 w-4" />
+                )}
+                {tModes("generateMissingAudio")}
+              </Button>
+            ) : null}
             <Link href={addHref}>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
@@ -297,7 +362,7 @@ export function VocabularyCategoryList({
               <div className="hidden px-3 text-xs font-medium text-muted-foreground sm:grid sm:grid-cols-[1fr_1fr_auto] sm:gap-3">
                 <span>{tLang(SOURCE_LANG.code)}</span>
                 <span>{targetLangName}</span>
-                <span className="w-10" />
+                <span className="w-28" />
               </div>
               {entries.map((entry) => {
                 const translation = entry.translations.find(
@@ -349,6 +414,43 @@ export function VocabularyCategoryList({
                       </div>
                     </div>
                     <div className="flex justify-end">
+                      {(() => {
+                        const clips = playbackUrls({
+                          mainUrl: entry.mainAudioUrl,
+                          mainStatus: entry.mainAudioStatus,
+                          mainUpdatedAt: entry.updatedAt,
+                          translationUrl: translation?.audioUrl,
+                          translationStatus: translation?.audioStatus,
+                          translationUpdatedAt: translation?.updatedAt,
+                        });
+                        const missing =
+                          entry.mainAudioStatus !== "DONE" ||
+                          translation?.audioStatus !== "DONE";
+                        return (
+                          <>
+                            <AudioClipsButton
+                              urls={clips}
+                              label={tModes("playAudio")}
+                            />
+                            {missing ? (
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                disabled={generating}
+                                aria-label={tModes("generateAudio")}
+                                onClick={() => void generateAudio([entry.id])}
+                              >
+                                {generating ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Volume2 className="h-4 w-4" />
+                                )}
+                              </Button>
+                            ) : null}
+                          </>
+                        );
+                      })()}
                       <Button size="icon" variant="ghost" asChild>
                         <Link href={detailHref(entry.id)}>
                           <Eye className="h-4 w-4" />
@@ -421,16 +523,55 @@ export function VocabularyCategoryList({
                         </div>
                       )}
 
-                      <Link href={detailHref(entry.id)}>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="mt-2 w-full"
-                        >
-                          <Eye className="mr-2 h-4 w-4" />
-                          {tCommon("details")}
-                        </Button>
-                      </Link>
+                      <div className="flex gap-2">
+                        {(() => {
+                          const clips = playbackUrls({
+                            mainUrl: entry.mainAudioUrl,
+                            mainStatus: entry.mainAudioStatus,
+                            mainUpdatedAt: entry.updatedAt,
+                            translationUrl: translation?.audioUrl,
+                            translationStatus: translation?.audioStatus,
+                            translationUpdatedAt: translation?.updatedAt,
+                          });
+                          const missing =
+                            entry.mainAudioStatus !== "DONE" ||
+                            translation?.audioStatus !== "DONE";
+                          return (
+                            <>
+                              <AudioClipsButton
+                                urls={clips}
+                                label={tModes("playAudio")}
+                              />
+                              {missing ? (
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  variant="ghost"
+                                  disabled={generating}
+                                  aria-label={tModes("generateAudio")}
+                                  onClick={() => void generateAudio([entry.id])}
+                                >
+                                  {generating ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Volume2 className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              ) : null}
+                            </>
+                          );
+                        })()}
+                        <Link href={detailHref(entry.id)} className="flex-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                          >
+                            <Eye className="mr-2 h-4 w-4" />
+                            {tCommon("details")}
+                          </Button>
+                        </Link>
+                      </div>
                     </CardContent>
                   </Card>
                 );

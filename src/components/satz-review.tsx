@@ -17,6 +17,7 @@ import {
 import { Label } from "~/components/ui/label";
 import { SatzAudioButton } from "~/components/satz-audio-button";
 import { SessionSummary } from "~/components/session-summary";
+import { PracticeModeButtons } from "~/components/practice-mode-buttons";
 import {
   remainingBoxCounts,
   ReviewBoxBar,
@@ -64,6 +65,7 @@ export function SatzReview() {
   const searchParams = useSearchParams();
 
   const [state, setState] = useState<ReviewState>("setup");
+  const [practiceMode, setPracticeMode] = useState(false);
   const [domainId, setDomainId] = useState<string>("all");
   const [priority, setPriority] = useState<string>("all");
   const [box, setBox] = useState<string>("all");
@@ -90,13 +92,13 @@ export function SatzReview() {
     enabled: state === "setup",
   });
   const queueQuery = api.satzReview.queue.useQuery(
-    { ...filters, limit: 30 },
+    { ...filters, limit: 30, practice: practiceMode || undefined },
     { enabled: state === "active" },
   );
 
   const gradeMutation = api.satzReview.grade.useMutation({
     onSuccess: (data) => {
-      celebrate(data.gamification);
+      if (data.gamification) celebrate(data.gamification);
       setSession((prev) => ({
         answers: prev.answers + 1,
         correct: prev.correct + (data.isCorrect ? 1 : 0),
@@ -131,7 +133,8 @@ export function SatzReview() {
     setState("summary");
   }, [state, queueQuery.isLoading, card]);
 
-  const start = () => {
+  const start = (practice = false) => {
+    setPracticeMode(practice);
     setIndex(0);
     setRevealed(false);
     setCompletedBoxes([]);
@@ -165,7 +168,7 @@ export function SatzReview() {
   if (state === "setup") {
     const due = statsQuery.data?.due ?? 0;
     return (
-      <div className="mx-auto max-w-3xl">
+      <>
         <header className="mb-8 space-y-3">
           <p className={cn("text-lg text-red-600", caveat.className)}>
             {t("reviewCahierLabel")}
@@ -239,23 +242,17 @@ export function SatzReview() {
           <p className="text-sm text-slate-600">
             {t("reviewDueCount", { count: due, language: tLang(focusLang) })}
           </p>
-          <div className="flex justify-end">
-            <Button
-              type="button"
-              size="lg"
-              disabled={due === 0}
-              onClick={start}
-              className="bg-[#1e3a5f] text-white hover:bg-[#16304d]"
-            >
-              <Play className="mr-2 h-5 w-5" />
-              {t("reviewStart")}
-            </Button>
-          </div>
+          <PracticeModeButtons
+            onReview={() => start(false)}
+            onPractice={() => start(true)}
+            onListen={() => router.push("/sentences/listen")}
+            reviewDisabled={due === 0}
+          />
         </section>
         {themeDomains.length === 0 ? (
           <p className="mt-4 text-sm text-slate-500">{tDomains("kindTHEME")}</p>
         ) : null}
-      </div>
+      </>
     );
   }
 
@@ -429,6 +426,7 @@ export function SatzReview() {
                       satzId: card.satzId,
                       targetLang: focusLang,
                       isCorrect: true,
+                      skipProgress: practiceMode || undefined,
                     })
                   }
                 >
@@ -450,6 +448,7 @@ export function SatzReview() {
                       satzId: card.satzId,
                       targetLang: focusLang,
                       isCorrect: false,
+                      skipProgress: practiceMode || undefined,
                     })
                   }
                 >

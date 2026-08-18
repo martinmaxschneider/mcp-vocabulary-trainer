@@ -52,6 +52,9 @@ model Entry {
   mainLang  String        @default("de")
   mainText  String
   note      String?
+  mainAudioStatus     AudioStatus @default(NONE)
+  mainAudioUrl        String?
+  mainAudioDurationMs Int?
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
@@ -88,7 +91,9 @@ model Translation {
 
   example  String?
   ipa      String?
-  audioUrl String?
+  audioUrl        String?
+  audioStatus     AudioStatus @default(NONE)
+  audioDurationMs Int?
 
   /// Irregular conjugation paradigm for this target language (per-lang flag)
   isIrregular Boolean @default(false)
@@ -97,6 +102,7 @@ model Translation {
   conjugations Json?
 
   conjugationForms ConjugationForm[]
+  tenseAudios      ConjugationTenseAudio[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -117,6 +123,21 @@ model ConjugationForm {
 
   @@unique([translationId, tenseKey, personIndex])
   @@index([translationId, tenseKey])
+}
+
+model ConjugationTenseAudio {
+  id              String      @id @default(cuid())
+  translationId   String
+  translation     Translation @relation(fields: [translationId], references: [id], onDelete: Cascade)
+  tenseKey        String
+  audioUrl        String?
+  audioStatus     AudioStatus @default(NONE)
+  audioDurationMs Int?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@unique([translationId, tenseKey])
+  @@index([audioStatus])
 }
 
 enum CardType {

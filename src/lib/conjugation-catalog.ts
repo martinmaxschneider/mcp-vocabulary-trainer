@@ -159,6 +159,30 @@ export function personLabels(lang: string): string[] {
   return getConjugationProfile(lang)?.persons.map((p) => p.label) ?? [];
 }
 
+export function paradigmSpeakText(
+  lang: string,
+  forms: Array<{ personIndex: number; form: string }>,
+): string {
+  const profile = getConjugationProfile(lang);
+  const byPerson = new Map(
+    forms
+      .filter((row) => row.form.trim())
+      .map((row) => [row.personIndex, row.form.trim()]),
+  );
+  if (!profile) {
+    return [...byPerson.values()].join(", ");
+  }
+  return profile.persons
+    .map((person) => {
+      const form = byPerson.get(person.index);
+      if (!form) return null;
+      const spoken = stripPersonPronoun(lang, form);
+      return `${person.label} ${spoken}`.trim();
+    })
+    .filter((part): part is string => Boolean(part))
+    .join(", ");
+}
+
 export function tenseLabel(lang: string, tenseKey: string): string {
   const tense = getConjugationProfile(lang)?.tenses.find(
     (t) => t.key === tenseKey

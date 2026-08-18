@@ -5,7 +5,7 @@ import { Pause, Play } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { LISTEN_PAUSE_MS } from "~/lib/satz-tts";
 
-export function SatzAudioButton({
+export function AudioClipsButton({
   url,
   urls,
   label,
@@ -83,3 +83,5 @@ export function SatzAudioButton({
     </Button>
   );
 }
+
+export const SatzAudioButton = AudioClipsButton;

@@ -17,6 +17,13 @@ import {
   upsertEntryEmbedding,
   type EntryVectorRow,
 } from "~/server/services/embeddings";
+import {
+  deleteAudioFiles,
+  deleteEntryMainAudioFile,
+  getEntryAudioStatus,
+  processRequestedAudio,
+  requestEntryAudio,
+} from "~/server/services/tts";
 
 const translationInputSchema = z.object({
   lang: z.string(),
@@ -552,6 +559,12 @@ export const entryRouter = createTRPCRouter({
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       await deleteEntryEmbedding(input.id, ctx.db);
+      const translations = await ctx.db.translation.findMany({
+        where: { entryId: input.id },
+        select: { id: true },
+      });
+      await deleteAudioFiles(translations.map((row) => row.id));
+      await deleteEntryMainAudioFile(input.id);
       await ctx.db.entry.delete({
         where: { id: input.id },
       });
@@ -768,5 +781,35 @@ export const entryRouter = createTRPCRouter({
     )
     .mutation(async ({ input }) => {
       return backfillEntryEmbeddings(input.limit);
+    }),
+
+  requestAudio: publicProcedure
+    .input(
+      z.object({
+        entryIds: z.array(z.string()).min(1),
+        langs: z.array(z.string()).optional(),
+        regenerate: z.boolean().optional(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      return requestEntryAudio(input);
+    }),
+
+  processAudio: publicProcedure
+    .input(
+      z
+        .object({
+          limit: z.number().min(1).max(10).default(2),
+        })
+        .optional(),
+    )
+    .mutation(async ({ input }) => {
+      return processRequestedAudio(input?.limit ?? 2);
+    }),
+
+  audioStatus: publicProcedure
+    .input(z.object({ entryIds: z.array(z.string()).optional() }).optional())
+    .query(async ({ input }) => {
+      return getEntryAudioStatus(input?.entryIds);
     }),
 });

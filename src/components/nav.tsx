@@ -56,7 +56,8 @@ export function Nav() {
 
   const isSentencePractice =
     pathname === "/sentences/review" ||
-    pathname.startsWith("/sentences/review/");
+    pathname.startsWith("/sentences/review/") ||
+    pathname.startsWith("/sentences/listen");
   const isVocabularyActive =
     pathname.startsWith("/vocabulary") ||
     pathname === "/sentences" ||
@@ -75,7 +76,12 @@ export function Nav() {
         <Button
           key={link.href}
           asChild
-          variant={isActive(pathname, link.href) ? "default" : "ghost"}
+          variant={
+            isActive(pathname, link.href) ||
+            (link.href === "/sentences/review" && isSentencePractice)
+              ? "default"
+              : "ghost"
+          }
           size="sm"
           className="gap-2"
         >

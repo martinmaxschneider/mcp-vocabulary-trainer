@@ -36,6 +36,22 @@ export function mainAudioPublicPath(satzId: string): string {
   return `/api/audio/main/${satzId}`;
 }
 
+export function entryMainAudioFileName(entryId: string): string {
+  return `entry-main-${entryId}.mp3`;
+}
+
+export function entryMainAudioPublicPath(entryId: string): string {
+  return `/api/audio/entry-main/${entryId}`;
+}
+
+export function conjAudioFileName(audioId: string): string {
+  return `conj-${audioId}.mp3`;
+}
+
+export function conjAudioPublicPath(audioId: string): string {
+  return `/api/audio/conj/${audioId}`;
+}
+
 export function audioUrlWithVersion(
   url: string,
   updatedAt: Date | string | number,

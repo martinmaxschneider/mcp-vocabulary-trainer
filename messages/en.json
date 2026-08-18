@@ -26,6 +26,18 @@
     "focusLangAria": "Set current learning language",
     "achievements": "Achievements"
   },
+  "practiceModes": {
+    "review": "Recall",
+    "practice": "Practice",
+    "listen": "Listen",
+    "reviewHint": "Leitner — due cards only",
+    "practiceHint": "No effect on learning progress",
+    "listenHint": "Listen and shadow",
+    "generateAudio": "Generate audio",
+    "generateMissingAudio": "Generate missing audio",
+    "generatingAudio": "Generating audio…",
+    "playAudio": "Play"
+  },
   "common": {
     "back": "Back",
     "save": "Save",

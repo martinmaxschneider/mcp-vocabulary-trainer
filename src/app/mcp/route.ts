@@ -353,6 +353,48 @@ const handler = createMcpHandler(
     );
 
     server.tool(
+      "request_entry_audio",
+      "Markiert Vokabel-Haupt- und Übersetzungs-Audios für TTS. Danach process_satz_audio (gemeinsame Queue).",
+      {
+        entryIds: z.array(z.string()).min(1),
+        langs: z.array(z.string()).optional(),
+        regenerate: z.boolean().optional(),
+      },
+      async (args) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.entry.requestAudio(args));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "request_paradigm_audio",
+      "Markiert Konjugations-Paradigmen (Verb+Zeit) für TTS. Danach process_satz_audio.",
+      {
+        items: z
+          .array(
+            z.object({
+              translationId: z.string(),
+              tenseKey: z.string().min(1),
+            }),
+          )
+          .min(1),
+        regenerate: z.boolean().optional(),
+      },
+      async (args) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.conjugation.requestParadigmAudio(args));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
       "process_satz_audio",
       "Erzeugt die nächsten angeforderten Satz-Audios (OpenAI TTS) und speichert sie lokal.",
       { limit: z.number().min(1).max(10).default(2) },

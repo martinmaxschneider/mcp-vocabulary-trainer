@@ -34,6 +34,7 @@ import { useFocusLang } from "~/components/focus-lang-provider";
 import { ReviewBoxBar } from "~/components/review-box-bar";
 import { useCelebrate } from "~/components/gamification-provider";
 import { SessionSummary } from "~/components/session-summary";
+import { PracticeModeButtons } from "~/components/practice-mode-buttons";
 import { CELEBRATIONS } from "~/lib/gamification-config";
 
 const caveat = Caveat({
@@ -68,6 +69,7 @@ export function ConjugationDrill() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [drillState, setDrillState] = useState<DrillState>("setup");
+  const [practiceMode, setPracticeMode] = useState(false);
   const [drillMode, setDrillMode] = useState<DrillMode>("single");
   const conjugatableLangs = TARGET_LANGS.filter((l) =>
     (CONJUGATABLE_LANGS as readonly string[]).includes(l.code),
@@ -164,6 +166,7 @@ export function ConjugationDrill() {
       tenseKeys,
       onlyIrregular: onlyIrregular || undefined,
       mode: drillMode,
+      practice: practiceMode || undefined,
     },
     {
       enabled: drillState === "active",
@@ -184,7 +187,7 @@ export function ConjugationDrill() {
 
   const submitMutation = api.conjugation.submitDrillAnswer.useMutation({
     onSuccess: (data) => {
-      celebrate(data.gamification);
+      if (data.gamification) celebrate(data.gamification);
       setSession((prev) => ({
         answers: prev.answers + 1,
         correct: prev.correct + (data.isCorrect ? 1 : 0),
@@ -333,7 +336,8 @@ export function ConjugationDrill() {
     setShowSummary(false);
   };
 
-  const startDrill = () => {
+  const startDrill = (practice = false) => {
+    setPracticeMode(practice);
     setResult(null);
     setAnswer("");
     setParadigmAnswers({});
@@ -367,7 +371,11 @@ export function ConjugationDrill() {
   const handleSingleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!singleCard || !answer.trim() || result) return;
-    submitMutation.mutate({ formId: singleCard.formId, answer: answer.trim() });
+    submitMutation.mutate({
+      formId: singleCard.formId,
+      answer: answer.trim(),
+      skipProgress: practiceMode || undefined,
+    });
   };
 
   const handleParadigmSubmit = (e: React.FormEvent) => {
@@ -380,7 +388,10 @@ export function ConjugationDrill() {
       answer: (paradigmAnswers[slot.formId] ?? "").trim(),
     }));
     if (payload.every((p) => !p.answer)) return;
-    submitParadigmMutation.mutate({ answers: payload });
+    submitParadigmMutation.mutate({
+      answers: payload,
+      skipProgress: practiceMode || undefined,
+    });
   };
 
   const paradigmFilledCount = slots.filter(
@@ -616,16 +627,11 @@ export function ConjugationDrill() {
               <p className="mt-2 text-xs text-slate-500">{t("domainsDesc")}</p>
             </div>
 
-            <div className="flex justify-end">
-              <Button
-                onClick={startDrill}
-                size="lg"
-                className="bg-[#1e3a5f] text-white hover:bg-[#16304d]"
-              >
-                <Play className="mr-2 h-5 w-5" />
-                {t("startDrill")}
-              </Button>
-            </div>
+            <PracticeModeButtons
+              onReview={() => startDrill(false)}
+              onPractice={() => startDrill(true)}
+              onListen={() => router.push("/practice/conjugations/listen")}
+            />
           </div>
         </section>
       </>

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { CardType, WordCategory } from "@prisma/client";
+import { AudioStatus, CardType, WordCategory } from "@prisma/client";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import {
   conjugationAnswerTargets,
@@ -23,6 +23,11 @@ import { matchAnswer } from "~/lib/matching";
 import { upsertConjugationFormRows } from "~/server/services/conjugation-forms";
 import { db } from "~/server/db";
 import { isConjugationPro, recordActivity } from "~/server/gamification";
+import {
+  processRequestedAudio,
+  requestMissingParadigmAudio,
+  requestParadigmAudio,
+} from "~/server/services/tts";
 
 type DbClient = typeof db;
 
@@ -360,6 +365,7 @@ export const conjugationRouter = createTRPCRouter({
         onlyIrregular: z.boolean().optional(),
         /** single = one random form; paradigm = all persons for selected tenses of one verb */
         mode: z.enum(["single", "paradigm"]).default("single"),
+        practice: z.boolean().optional(),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -582,6 +588,7 @@ export const conjugationRouter = createTRPCRouter({
       z.object({
         formId: z.string(),
         answer: z.string(),
+        skipProgress: z.boolean().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -611,38 +618,48 @@ export const conjugationRouter = createTRPCRouter({
         variants,
       });
 
-      const progress = await upsertAndGradeTenseCard(ctx.db, {
-        userId: ctx.userId,
-        entryId: form.translation.entryId,
-        targetLang: form.translation.lang,
-        tenseKey: form.tenseKey,
-        tenseCorrect: match.isCorrect,
-        logs: [
-          {
-            userAnswer: input.answer,
-            expected,
-            isCorrect: match.isCorrect,
-            typo: match.isTypo,
-          },
-        ],
-      });
+      const progress = input.skipProgress
+        ? {
+            boxBefore: MIN_BOX,
+            boxAfter: MIN_BOX,
+            nextReviewAt: new Date(),
+          }
+        : await upsertAndGradeTenseCard(ctx.db, {
+            userId: ctx.userId,
+            entryId: form.translation.entryId,
+            targetLang: form.translation.lang,
+            tenseKey: form.tenseKey,
+            tenseCorrect: match.isCorrect,
+            logs: [
+              {
+                userAnswer: input.answer,
+                expected,
+                isCorrect: match.isCorrect,
+                typo: match.isTypo,
+              },
+            ],
+          });
 
-      const conjugationPro = await isConjugationPro(
+      const conjugationPro = input.skipProgress
+        ? false
+        : await isConjugationPro(
         ctx.db,
         ctx.userId,
         form.translation.entryId,
         form.translation.lang,
       );
-      const gamification = await recordActivity(ctx.db, ctx.userId, {
-        items: [
-          {
-            targetLang: form.translation.lang,
-            isCorrect: match.isCorrect,
-            isTypo: match.isTypo,
-          },
-        ],
-        flags: { conjugationPro },
-      });
+      const gamification = input.skipProgress
+        ? null
+        : await recordActivity(ctx.db, ctx.userId, {
+            items: [
+              {
+                targetLang: form.translation.lang,
+                isCorrect: match.isCorrect,
+                isTypo: match.isTypo,
+              },
+            ],
+            flags: { conjugationPro },
+          });
 
       return {
         isCorrect: match.isCorrect,
@@ -674,6 +691,7 @@ export const conjugationRouter = createTRPCRouter({
           )
           .min(1)
           .max(80),
+        skipProgress: z.boolean().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -759,6 +777,15 @@ export const conjugationRouter = createTRPCRouter({
 
       const tenseResults = [];
       for (const group of byTense.values()) {
+        if (input.skipProgress) {
+          tenseResults.push({
+            tenseKey: group.tenseKey,
+            tenseLabel: tenseLabel(group.targetLang, group.tenseKey),
+            boxBefore: MIN_BOX,
+            boxAfter: MIN_BOX,
+          });
+          continue;
+        }
         tenseResults.push(
           await upsertAndGradeTenseCard(ctx.db, {
             userId: ctx.userId,
@@ -773,7 +800,8 @@ export const conjugationRouter = createTRPCRouter({
 
       const correctCount = results.filter((r) => r.isCorrect).length;
       const firstGroup = [...byTense.values()][0];
-      const conjugationPro = firstGroup
+      const conjugationPro =
+        !input.skipProgress && firstGroup
         ? await isConjugationPro(
             ctx.db,
             ctx.userId,
@@ -781,7 +809,9 @@ export const conjugationRouter = createTRPCRouter({
             firstGroup.targetLang,
           )
         : false;
-      const gamification = await recordActivity(ctx.db, ctx.userId, {
+      const gamification = input.skipProgress
+        ? null
+        : await recordActivity(ctx.db, ctx.userId, {
         items: results
           .filter((result) => result.lang)
           .map((result) => ({
@@ -805,5 +835,99 @@ export const conjugationRouter = createTRPCRouter({
         tenseResults,
         gamification,
       };
+    }),
+
+  listListenClips: publicProcedure
+    .input(
+      z.object({
+        targetLang: z.string(),
+        domainIds: z.array(z.string()).optional(),
+        tenseKeys: z.array(z.string()).optional(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const items = await ctx.db.conjugationTenseAudio.findMany({
+        where: {
+          audioStatus: AudioStatus.DONE,
+          ...(input.tenseKeys?.length
+            ? { tenseKey: { in: input.tenseKeys } }
+            : {}),
+          translation: {
+            lang: input.targetLang,
+            entry: {
+              category: WordCategory.VERB,
+              ...(input.domainIds?.length
+                ? { domains: { some: { domainId: { in: input.domainIds } } } }
+                : {}),
+            },
+          },
+        },
+        include: {
+          translation: {
+            select: {
+              text: true,
+              lang: true,
+              entry: { select: { id: true, mainText: true } },
+            },
+          },
+        },
+        orderBy: { updatedAt: "desc" },
+        take: 200,
+      });
+      return {
+        items: items.map((row) => ({
+          id: row.id,
+          entryId: row.translation.entry.id,
+          mainText: row.translation.entry.mainText,
+          translationText: row.translation.text,
+          tenseKey: row.tenseKey,
+          audioUrl: row.audioUrl,
+          audioDurationMs: row.audioDurationMs,
+          updatedAt: row.updatedAt,
+        })),
+      };
+    }),
+
+  requestMissingParadigmAudio: publicProcedure
+    .input(
+      z.object({
+        targetLang: z.string(),
+        tenseKeys: z.array(z.string()).optional(),
+        domainIds: z.array(z.string()).optional(),
+        regenerate: z.boolean().optional(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      return requestMissingParadigmAudio(input);
+    }),
+
+  requestParadigmAudio: publicProcedure
+    .input(
+      z.object({
+        items: z
+          .array(
+            z.object({
+              translationId: z.string(),
+              tenseKey: z.string().min(1),
+            }),
+          )
+          .min(1),
+        regenerate: z.boolean().optional(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      return requestParadigmAudio(input);
+    }),
+
+  processAudio: publicProcedure
+    .input(
+      z
+        .object({
+          limit: z.number().min(1).max(10).default(2),
+        })
+        .optional(),
+    )
+    .mutation(async ({ input }) => {
+      return processRequestedAudio(input?.limit ?? 2);
     }),
 });

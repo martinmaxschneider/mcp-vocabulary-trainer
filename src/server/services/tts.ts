@@ -3,9 +3,14 @@ import path from "node:path";
 import { AudioStatus, Prisma } from "@prisma/client";
 import { audioDurationMs } from "~/lib/audio-duration";
 import { TARGET_LANG_CODES } from "~/lib/languages";
+import { paradigmSpeakText } from "~/lib/conjugation-catalog";
 import {
   audioFileName,
   audioPublicPath,
+  conjAudioFileName,
+  conjAudioPublicPath,
+  entryMainAudioFileName,
+  entryMainAudioPublicPath,
   mainAudioFileName,
   mainAudioPublicPath,
   voiceForSatz,
@@ -26,6 +31,14 @@ export function audioFilePath(translationId: string): string {
 
 export function mainAudioFilePath(satzId: string): string {
   return path.join(audioDir(), mainAudioFileName(satzId));
+}
+
+export function entryMainAudioFilePath(entryId: string): string {
+  return path.join(audioDir(), entryMainAudioFileName(entryId));
+}
+
+export function conjAudioFilePath(audioId: string): string {
+  return path.join(audioDir(), conjAudioFileName(audioId));
 }
 
 async function ensureAudioDir() {
@@ -56,6 +69,24 @@ export async function deleteMainAudioFile(satzId: string): Promise<void> {
 
 export async function deleteMainAudioFiles(satzIds: string[]): Promise<void> {
   await Promise.all(satzIds.map((id) => deleteMainAudioFile(id)));
+}
+
+export async function deleteEntryMainAudioFile(entryId: string): Promise<void> {
+  try {
+    await unlink(entryMainAudioFilePath(entryId));
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== "ENOENT") throw error;
+  }
+}
+
+export async function deleteConjAudioFile(audioId: string): Promise<void> {
+  try {
+    await unlink(conjAudioFilePath(audioId));
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== "ENOENT") throw error;
+  }
 }
 
 export async function wipeAllSatzAudio(): Promise<void> {
@@ -256,16 +287,356 @@ export async function processRequestedAudio(limit: number): Promise<{
     }
   }
 
-  const [remainingTranslations, remainingMain] = await Promise.all([
-    db.satzTranslation.count({
+  const leftover = Math.max(0, limit - processed - failed);
+  if (leftover > 0) {
+    const extra = await processRequestedEntryAndConjAudio(leftover);
+    processed += extra.processed;
+    failed += extra.failed;
+  }
+
+  const remaining = await countRequestedAudio();
+  return { processed, failed, remaining };
+}
+
+async function countRequestedAudio() {
+  const [satzTr, satzMain, entryTr, entryMain, conj] = await Promise.all([
+    db.satzTranslation.count({ where: { audioStatus: AudioStatus.REQUESTED } }),
+    db.satz.count({ where: { mainAudioStatus: AudioStatus.REQUESTED } }),
+    db.translation.count({ where: { audioStatus: AudioStatus.REQUESTED } }),
+    db.entry.count({ where: { mainAudioStatus: AudioStatus.REQUESTED } }),
+    db.conjugationTenseAudio.count({
       where: { audioStatus: AudioStatus.REQUESTED },
     }),
-    db.satz.count({
-      where: { mainAudioStatus: AudioStatus.REQUESTED },
+  ]);
+  return satzTr + satzMain + entryTr + entryMain + conj;
+}
+
+export async function requestEntryAudio(params: {
+  entryIds: string[];
+  langs?: string[];
+  regenerate?: boolean;
+}): Promise<{ requested: number; entryIds: string[] }> {
+  const langs = params.langs?.length ? params.langs : [...TARGET_LANG_CODES];
+  const entryIds = [...new Set(params.entryIds)];
+  if (entryIds.length === 0) return { requested: 0, entryIds: [] };
+
+  const [translations, mains] = await Promise.all([
+    db.translation.findMany({
+      where: { entryId: { in: entryIds }, lang: { in: langs } },
+      select: { id: true, audioStatus: true },
+    }),
+    db.entry.findMany({
+      where: { id: { in: entryIds } },
+      select: { id: true, mainAudioStatus: true },
     }),
   ]);
 
-  return { processed, failed, remaining: remainingTranslations + remainingMain };
+  const toRequest = translations.filter((row) =>
+    params.regenerate ? true : row.audioStatus !== AudioStatus.DONE,
+  );
+  const mainToRequest = mains.filter((row) =>
+    params.regenerate ? true : row.mainAudioStatus !== AudioStatus.DONE,
+  );
+
+  if (params.regenerate) {
+    await deleteAudioFiles(toRequest.map((row) => row.id));
+    await Promise.all(mainToRequest.map((row) => deleteEntryMainAudioFile(row.id)));
+  }
+
+  if (toRequest.length > 0) {
+    await db.translation.updateMany({
+      where: { id: { in: toRequest.map((row) => row.id) } },
+      data: {
+        audioStatus: AudioStatus.REQUESTED,
+        ...(params.regenerate ? { audioUrl: null, audioDurationMs: null } : {}),
+      },
+    });
+  }
+
+  if (mainToRequest.length > 0) {
+    await db.entry.updateMany({
+      where: { id: { in: mainToRequest.map((row) => row.id) } },
+      data: {
+        mainAudioStatus: AudioStatus.REQUESTED,
+        ...(params.regenerate
+          ? { mainAudioUrl: null, mainAudioDurationMs: null }
+          : {}),
+      },
+    });
+  }
+
+  return {
+    requested: toRequest.length + mainToRequest.length,
+    entryIds,
+  };
+}
+
+export async function requestParadigmAudio(params: {
+  items: Array<{ translationId: string; tenseKey: string }>;
+  regenerate?: boolean;
+}): Promise<{ requested: number }> {
+  const unique = new Map<string, { translationId: string; tenseKey: string }>();
+  for (const item of params.items) {
+    unique.set(`${item.translationId}:${item.tenseKey}`, item);
+  }
+  const items = [...unique.values()];
+  if (items.length === 0) return { requested: 0 };
+
+  const existing = await db.conjugationTenseAudio.findMany({
+    where: {
+      OR: items.map((item) => ({
+        translationId: item.translationId,
+        tenseKey: item.tenseKey,
+      })),
+    },
+  });
+  const existingKey = new Set(
+    existing.map((row) => `${row.translationId}:${row.tenseKey}`),
+  );
+
+  const toCreate = items.filter(
+    (item) => !existingKey.has(`${item.translationId}:${item.tenseKey}`),
+  );
+  if (toCreate.length > 0) {
+    await db.conjugationTenseAudio.createMany({
+      data: toCreate.map((item) => ({
+        translationId: item.translationId,
+        tenseKey: item.tenseKey,
+        audioStatus: AudioStatus.REQUESTED,
+      })),
+    });
+  }
+
+  const toUpdate = existing.filter((row) =>
+    params.regenerate ? true : row.audioStatus !== AudioStatus.DONE,
+  );
+  if (params.regenerate) {
+    await Promise.all(toUpdate.map((row) => deleteConjAudioFile(row.id)));
+  }
+  if (toUpdate.length > 0) {
+    await db.conjugationTenseAudio.updateMany({
+      where: { id: { in: toUpdate.map((row) => row.id) } },
+      data: {
+        audioStatus: AudioStatus.REQUESTED,
+        ...(params.regenerate ? { audioUrl: null, audioDurationMs: null } : {}),
+      },
+    });
+  }
+
+  return { requested: toCreate.length + toUpdate.length };
+}
+
+async function processRequestedEntryAndConjAudio(limit: number): Promise<{
+  processed: number;
+  failed: number;
+}> {
+  let processed = 0;
+  let failed = 0;
+  await ensureAudioDir();
+
+  const pendingMain = await db.entry.findMany({
+    where: { mainAudioStatus: AudioStatus.REQUESTED },
+    take: limit,
+    orderBy: { updatedAt: "asc" },
+    select: { id: true, mainText: true, mainLang: true },
+  });
+
+  for (const entry of pendingMain) {
+    try {
+      const tts = await getTtsSettings(entry.mainLang);
+      const audio = await synthesizeMp3(
+        entry.mainText,
+        tts.voiceAnswer,
+        tts.model,
+        entry.mainLang,
+      );
+      await writeFile(entryMainAudioFilePath(entry.id), audio.buffer);
+      await db.entry.update({
+        where: { id: entry.id },
+        data: {
+          mainAudioStatus: AudioStatus.DONE,
+          mainAudioUrl: entryMainAudioPublicPath(entry.id),
+          mainAudioDurationMs: audioDurationMs(audio.buffer),
+        },
+      });
+      processed += 1;
+    } catch (error) {
+      console.error("Entry main TTS failed:", error);
+      await db.entry.update({
+        where: { id: entry.id },
+        data: {
+          mainAudioStatus: AudioStatus.NONE,
+          mainAudioUrl: null,
+          mainAudioDurationMs: null,
+        },
+      });
+      failed += 1;
+    }
+  }
+
+  const translationLimit = Math.max(0, limit - processed - failed);
+  const pendingTranslations =
+    translationLimit > 0
+      ? await db.translation.findMany({
+          where: { audioStatus: AudioStatus.REQUESTED },
+          take: translationLimit,
+          orderBy: { updatedAt: "asc" },
+          select: { id: true, text: true, lang: true },
+        })
+      : [];
+
+  for (const translation of pendingTranslations) {
+    try {
+      const tts = await getTtsSettings(translation.lang);
+      const audio = await synthesizeMp3(
+        translation.text,
+        tts.voiceAnswer,
+        tts.model,
+        translation.lang,
+      );
+      await writeFile(audioFilePath(translation.id), audio.buffer);
+      await db.translation.update({
+        where: { id: translation.id },
+        data: {
+          audioStatus: AudioStatus.DONE,
+          audioUrl: audioPublicPath(translation.id),
+          audioDurationMs: audioDurationMs(audio.buffer),
+        },
+      });
+      processed += 1;
+    } catch (error) {
+      console.error("Entry translation TTS failed:", error);
+      await db.translation.update({
+        where: { id: translation.id },
+        data: {
+          audioStatus: AudioStatus.NONE,
+          audioUrl: null,
+          audioDurationMs: null,
+        },
+      });
+      failed += 1;
+    }
+  }
+
+  const conjLimit = Math.max(0, limit - processed - failed);
+  const pendingConj =
+    conjLimit > 0
+      ? await db.conjugationTenseAudio.findMany({
+          where: { audioStatus: AudioStatus.REQUESTED },
+          take: conjLimit,
+          orderBy: { updatedAt: "asc" },
+          include: {
+            translation: {
+              select: {
+                lang: true,
+                conjugationForms: {
+                  select: { tenseKey: true, personIndex: true, form: true },
+                },
+              },
+            },
+          },
+        })
+      : [];
+
+  for (const row of pendingConj) {
+    try {
+      const forms = row.translation.conjugationForms.filter(
+        (form) => form.tenseKey === row.tenseKey,
+      );
+      const text = paradigmSpeakText(row.translation.lang, forms);
+      if (!text) throw new Error("Empty paradigm text");
+      const tts = await getTtsSettings(row.translation.lang);
+      const audio = await synthesizeMp3(
+        text,
+        tts.voiceAnswer,
+        tts.model,
+        row.translation.lang,
+      );
+      await writeFile(conjAudioFilePath(row.id), audio.buffer);
+      await db.conjugationTenseAudio.update({
+        where: { id: row.id },
+        data: {
+          audioStatus: AudioStatus.DONE,
+          audioUrl: conjAudioPublicPath(row.id),
+          audioDurationMs: audioDurationMs(audio.buffer),
+        },
+      });
+      processed += 1;
+    } catch (error) {
+      console.error("Paradigm TTS failed:", error);
+      await db.conjugationTenseAudio.update({
+        where: { id: row.id },
+        data: {
+          audioStatus: AudioStatus.NONE,
+          audioUrl: null,
+          audioDurationMs: null,
+        },
+      });
+      failed += 1;
+    }
+  }
+
+  return { processed, failed };
+}
+
+export async function requestMissingParadigmAudio(params: {
+  targetLang: string;
+  tenseKeys?: string[];
+  domainIds?: string[];
+  regenerate?: boolean;
+}): Promise<{ requested: number }> {
+  const translations = await db.translation.findMany({
+    where: {
+      lang: params.targetLang,
+      entry: {
+        category: "VERB",
+        ...(params.domainIds?.length
+          ? { domains: { some: { domainId: { in: params.domainIds } } } }
+          : {}),
+      },
+      conjugationForms: { some: {} },
+    },
+    select: {
+      id: true,
+      conjugationForms: { select: { tenseKey: true } },
+    },
+  });
+  const items = translations.flatMap((translation) => {
+    const tenses = [
+      ...new Set(
+        translation.conjugationForms
+          .map((form) => form.tenseKey)
+          .filter((key) =>
+            params.tenseKeys?.length ? params.tenseKeys.includes(key) : true,
+          ),
+      ),
+    ];
+    return tenses.map((tenseKey) => ({
+      translationId: translation.id,
+      tenseKey,
+    }));
+  });
+  return requestParadigmAudio({ items, regenerate: params.regenerate });
+}
+
+export async function getEntryAudioStatus(entryIds?: string[]) {
+  const where = entryIds?.length
+    ? { entryId: { in: entryIds }, lang: { in: [...TARGET_LANG_CODES] } }
+    : { lang: { in: [...TARGET_LANG_CODES] } };
+
+  const [none, requested, done] = await Promise.all([
+    db.translation.count({
+      where: { ...where, audioStatus: AudioStatus.NONE },
+    }),
+    db.translation.count({
+      where: { ...where, audioStatus: AudioStatus.REQUESTED },
+    }),
+    db.translation.count({
+      where: { ...where, audioStatus: AudioStatus.DONE },
+    }),
+  ]);
+
+  return { none, requested, done, total: none + requested + done };
 }
 
 export async function getSatzAudioStatus(satzIds?: string[]) {

@@ -20,6 +20,7 @@ import { cn } from "~/lib/utils";
 import { useFocusLang } from "~/components/focus-lang-provider";
 import { useCelebrate } from "~/components/gamification-provider";
 import { SessionSummary } from "~/components/session-summary";
+import { PracticeModeButtons } from "~/components/practice-mode-buttons";
 import { CELEBRATIONS } from "~/lib/gamification-config";
 import {
   ReviewBoxBar,
@@ -54,6 +55,7 @@ export function ReviewSession() {
   const searchParams = useSearchParams();
   const { focusLang } = useFocusLang();
   const [reviewState, setReviewState] = useState<ReviewState>("setup");
+  const [practiceMode, setPracticeMode] = useState(false);
   const [mode, setMode] = useState<ReviewMode>("single");
   const selectedLang = mode === "multi" ? null : focusLang;
   const [selectedDomains, setSelectedDomains] = useState<string[]>([]);
@@ -93,6 +95,7 @@ export function ReviewSession() {
       targetLang: selectedLang!,
       domainIds: selectedDomains.length > 0 ? selectedDomains : undefined,
       limit: 20,
+      practice: practiceMode || undefined,
     },
     {
       enabled:
@@ -150,7 +153,7 @@ export function ReviewSession() {
 
   const submitMutation = api.review.submitAnswer.useMutation({
     onSuccess: (data) => {
-      celebrate(data.gamification);
+      if (data.gamification) celebrate(data.gamification);
       setSession((prev) => ({
         answers: prev.answers + 1,
         correct: prev.correct + (data.isCorrect ? 1 : 0),
@@ -174,7 +177,7 @@ export function ReviewSession() {
 
   const submitMultiMutation = api.review.submitMultiAnswers.useMutation({
     onSuccess: (data) => {
-      celebrate(data.gamification);
+      if (data.gamification) celebrate(data.gamification);
       setSession((prev) => ({
         answers: prev.answers + data.results.length,
         correct: prev.correct + data.results.filter((r) => r.isCorrect).length,
@@ -276,6 +279,7 @@ export function ReviewSession() {
       entryId: currentCard.entryId,
       targetLang: selectedLang,
       userAnswer: answer,
+      skipProgress: practiceMode || undefined,
     });
   };
 
@@ -287,6 +291,7 @@ export function ReviewSession() {
       entryId: currentCard.entryId,
       targetLang: selectedLang,
       userAnswer: "",
+      skipProgress: practiceMode || undefined,
     });
   };
 
@@ -319,6 +324,7 @@ export function ReviewSession() {
     submitMultiMutation.mutate({
       entryId: currentCard.entryId,
       answers,
+      skipProgress: practiceMode || undefined,
     });
   };
 
@@ -332,6 +338,7 @@ export function ReviewSession() {
         targetLang: lang.targetLang,
         userAnswer: "",
       })),
+      skipProgress: practiceMode || undefined,
     });
   };
 
@@ -392,7 +399,8 @@ export function ReviewSession() {
     }
   };
 
-  const handleStartReview = () => {
+  const beginSession = (practice: boolean) => {
+    setPracticeMode(practice);
     setMode("single");
     setReviewState("active");
     setCurrentIndex(0);
@@ -400,6 +408,8 @@ export function ReviewSession() {
     setMultiResults(null);
     setSession({ answers: 0, correct: 0, xp: 0, streak: 0 });
   };
+
+  const handleStartReview = () => beginSession(false);
 
   const handleBackToSetup = () => {
     setReviewState("setup");
@@ -540,16 +550,11 @@ export function ReviewSession() {
                 <p className="mt-2 text-xs text-slate-500">{t("leaveEmpty")}</p>
               </div>
 
-              <div className="flex justify-end">
-                <Button
-                  onClick={handleStartReview}
-                  size="lg"
-                  className="bg-[#1e3a5f] text-white hover:bg-[#16304d]"
-                >
-                  <Play className="mr-2 h-5 w-5" />
-                  {t("startSession")}
-                </Button>
-              </div>
+              <PracticeModeButtons
+                onReview={handleStartReview}
+                onPractice={() => beginSession(true)}
+                onListen={() => router.push("/review/listen")}
+              />
             </div>
         </section>
       </>

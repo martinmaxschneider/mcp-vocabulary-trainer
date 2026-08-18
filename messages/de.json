@@ -26,6 +26,18 @@
     "focusLangAria": "Aktuelle Lernsprache festlegen",
     "achievements": "Erfolge"
   },
+  "practiceModes": {
+    "review": "Abfragen",
+    "practice": "Üben",
+    "listen": "Hören",
+    "reviewHint": "Leitner — nur fällige Karten",
+    "practiceHint": "Ohne Einfluss auf den Lernfortschritt",
+    "listenHint": "Hören und mitsprechen",
+    "generateAudio": "Audio erzeugen",
+    "generateMissingAudio": "Fehlende vertonen",
+    "generatingAudio": "Erzeuge Audio…",
+    "playAudio": "Abspielen"
+  },
   "common": {
     "back": "Zurück",
     "save": "Speichern",

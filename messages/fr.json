@@ -26,6 +26,18 @@
     "focusLangAria": "Définir la langue d’apprentissage actuelle",
     "achievements": "Succès"
   },
+  "practiceModes": {
+    "review": "Réviser",
+    "practice": "S’entraîner",
+    "listen": "Écouter",
+    "reviewHint": "Leitner — cartes dues seulement",
+    "practiceHint": "Sans effet sur la progression",
+    "listenHint": "Écouter et répéter",
+    "generateAudio": "Générer l’audio",
+    "generateMissingAudio": "Générer l’audio manquant",
+    "generatingAudio": "Génération audio…",
+    "playAudio": "Lire"
+  },
   "common": {
     "back": "Retour",
     "save": "Enregistrer",
