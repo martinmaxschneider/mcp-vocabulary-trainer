@@ -242,8 +242,10 @@ export function DomainList() {
                           </Button>
                         </div>
                       </div>
-                      <CardDescription className="flex items-center gap-2">
-                        <span>{t("entries", { count: domain.entryCount })}</span>
+                      <CardDescription className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <span>{t("countWords", { count: domain.wordCount })}</span>
+                        <span>{t("countSentences", { count: domain.satzCount })}</span>
+                        <span>{t("countVerbs", { count: domain.verbCount })}</span>
                         {domain.kind !== "THEME" ? (
                           <Badge variant="outline">{kindLabel(domain.kind)}</Badge>
                         ) : null}

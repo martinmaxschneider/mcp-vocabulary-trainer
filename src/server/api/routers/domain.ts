@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CardType, DomainKind } from "@prisma/client";
+import { CardType, DomainKind, WordCategory } from "@prisma/client";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
 import { ensureCanonicalDomainsOnce } from "~/server/services/domains";
@@ -19,14 +19,28 @@ export const domainRouter = createTRPCRouter({
       const userId = ctx.userId;
       const now = new Date();
 
-      const domains = await ctx.db.domain.findMany({
-        orderBy: { name: "asc" },
-        include: {
-          _count: {
-            select: { domainEntries: true },
+      const [domains, verbGroups] = await Promise.all([
+        ctx.db.domain.findMany({
+          orderBy: { name: "asc" },
+          include: {
+            _count: {
+              select: {
+                domainEntries: true,
+                domainSaetze: true,
+              },
+            },
           },
-        },
-      });
+        }),
+        ctx.db.domainEntry.groupBy({
+          by: ["domainId"],
+          where: { entry: { category: WordCategory.VERB } },
+          _count: { _all: true },
+        }),
+      ]);
+
+      const verbCountByDomain = new Map(
+        verbGroups.map((group) => [group.domainId, group._count._all]),
+      );
 
       const results = await Promise.all(
         domains.map(async (domain) => {
@@ -54,13 +68,19 @@ export const domainRouter = createTRPCRouter({
             },
           });
 
+          const entryCount = domain._count.domainEntries;
+          const verbCount = verbCountByDomain.get(domain.id) ?? 0;
+
           return {
             id: domain.id,
             name: domain.name,
             kind: domain.kind,
             createdAt: domain.createdAt,
             updatedAt: domain.updatedAt,
-            entryCount: domain._count.domainEntries,
+            entryCount,
+            wordCount: entryCount - verbCount,
+            verbCount,
+            satzCount: domain._count.domainSaetze,
             dueCount,
             newCount,
           };

@@ -94,8 +94,8 @@ const handler = createMcpHandler(
     // ── Domains ──────────────────────────────────────────────
     server.tool(
       "list_domains",
-      "Listet alle Domains mit kind (THEME | GRAMMAR | SPECIAL), entryCount, dueCount und newCount. " +
-        "THEME = Alltagsthemen (Vokabeln und später Sätze), GRAMMAR = Wortart-/Grammatik-Buckets, SPECIAL = Redewendungen. " +
+      "Listet alle Domains mit kind (THEME | GRAMMAR | SPECIAL), entryCount, wordCount, verbCount, satzCount, dueCount und newCount. " +
+        "THEME = Alltagsthemen (Vokabeln und Sätze), GRAMMAR = Wortart-/Grammatik-Buckets, SPECIAL = Redewendungen. " +
         "dueCount/newCount beziehen sich auf targetLang (default: en).",
       { targetLang: z.string().default("en") },
       async ({ targetLang }) => {
