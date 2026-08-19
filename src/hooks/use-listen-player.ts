@@ -58,6 +58,7 @@ export function useListenPlayer({
   const [clipIndex, setClipIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const [awaitingNext, setAwaitingNext] = useState(false);
+  const [playEpoch, setPlayEpoch] = useState(0);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const practicedRef = useRef(false);
@@ -66,6 +67,7 @@ export function useListenPlayer({
   const pausedRef = useRef(false);
   const settingsRef = useRef(settings);
   const runIdRef = useRef(0);
+  const preparedKeyRef = useRef("");
   settingsRef.current = settings;
 
   useEffect(() => {
@@ -114,51 +116,103 @@ export function useListenPlayer({
     return remainingListenMs(plan, 1, settings.playbackRate);
   }, [readyItems, settings]);
 
-  const stopPlayback = () => {
-    runIdRef.current += 1;
-    audioRef.current?.pause();
-    audioRef.current = null;
-    pausedRef.current = false;
-    remainingUntilRef.current = null;
-    frozenRemainingRef.current = null;
-    setPaused(false);
-    setAwaitingNext(false);
-    setPlaylist(null);
-    setClipIndex(0);
-  };
-
-  const startSession = (ids: string[]) => {
+  const startSession = (
+    ids: string[],
+    options?: { paused?: boolean },
+  ) => {
     const jobs = items
       .filter((item) => ids.includes(item.id) && item.clips.length > 0)
       .map((item) => ({ id: item.id, clips: item.clips }));
-    const nextPlaylist = buildListenPlaylist(jobs, settings);
+    const nextPlaylist = buildListenPlaylist(jobs, settingsRef.current);
     if (nextPlaylist.length === 0) return;
+    const startPaused = options?.paused ?? false;
+    const remaining = remainingListenMs(
+      nextPlaylist,
+      1,
+      settingsRef.current.playbackRate,
+    );
     runIdRef.current += 1;
     audioRef.current?.pause();
     audioRef.current = null;
     practicedRef.current = false;
-    pausedRef.current = false;
-    setPaused(false);
+    setPlayEpoch((value) => value + 1);
+    pausedRef.current = startPaused;
+    setPaused(startPaused);
     setAwaitingNext(false);
     setClipIndex(0);
+    if (startPaused) {
+      remainingUntilRef.current = null;
+      frozenRemainingRef.current = remaining;
+    } else {
+      commitRemaining(remaining);
+    }
     setPlaylist(nextPlaylist);
-    commitRemaining(remainingListenMs(nextPlaylist, 1, settings.playbackRate));
   };
 
-  const jumpTo = (index: number) => {
+  const jumpTo = (index: number, options?: { paused?: boolean }) => {
     if (!playlist) return;
     const nextIndex = Math.max(0, Math.min(index, playlist.length - 1));
+    const startPaused = options?.paused ?? false;
+    const remaining = remainingListenMs(
+      playlist,
+      nextIndex + 1,
+      settingsRef.current.playbackRate,
+    );
     runIdRef.current += 1;
     audioRef.current?.pause();
     audioRef.current = null;
-    pausedRef.current = false;
-    setPaused(false);
+    setPlayEpoch((value) => value + 1);
+    pausedRef.current = startPaused;
+    setPaused(startPaused);
     setAwaitingNext(false);
     setClipIndex(nextIndex);
-    commitRemaining(
-      remainingListenMs(playlist, nextIndex + 1, settingsRef.current.playbackRate),
+    if (startPaused) {
+      remainingUntilRef.current = null;
+      frozenRemainingRef.current = remaining;
+    } else {
+      commitRemaining(remaining);
+    }
+  };
+
+  const resetToStart = () => {
+    if (playlist && playlist.length > 0) {
+      jumpTo(0, { paused: true });
+      return;
+    }
+    startSession(
+      items.filter((item) => item.clips.length > 0).map((item) => item.id),
+      { paused: true },
     );
   };
+
+  const stopPlayback = () => {
+    resetToStart();
+  };
+
+  const readyKey = readyItems.map((item) => item.id).join("\0");
+  useEffect(() => {
+    const ids = readyKey.length > 0 ? readyKey.split("\0") : [];
+    if (ids.length === 0) {
+      if (preparedKeyRef.current === "") return;
+      preparedKeyRef.current = "";
+      runIdRef.current += 1;
+      audioRef.current?.pause();
+      audioRef.current = null;
+      pausedRef.current = true;
+      remainingUntilRef.current = null;
+      frozenRemainingRef.current = null;
+      setPaused(true);
+      setAwaitingNext(false);
+      setPlaylist(null);
+      setClipIndex(0);
+      return;
+    }
+    if (preparedKeyRef.current === readyKey) return;
+    preparedKeyRef.current = readyKey;
+    startSession(ids, { paused: true });
+    // startSession reads the latest items/settings; only the ready-id set should retrigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readyKey]);
 
   const jumpToItem = (itemId: string) => {
     if (!playlist) return;
@@ -179,7 +233,7 @@ export function useListenPlayer({
       jumpTo(bounds.nextStart);
       return;
     }
-    stopPlayback();
+    jumpTo(0, { paused: true });
   };
 
   const repeatSentence = () => {
@@ -228,7 +282,7 @@ export function useListenPlayer({
 
     const sleep = (ms: number) =>
       new Promise<void>((resolve) => {
-        if (controller.signal.aborted || ms <= 0) {
+        if (controller.signal.aborted) {
           resolve();
           return;
         }
@@ -245,6 +299,11 @@ export function useListenPlayer({
           if (pausedRef.current) {
             last = Date.now();
             timer = window.setTimeout(tick, 50);
+            return;
+          }
+          if (left <= 0) {
+            controller.signal.removeEventListener("abort", onAbort);
+            resolve();
             return;
           }
           const now = Date.now();
@@ -358,7 +417,7 @@ export function useListenPlayer({
     };
     // Playlist index drives playback; pause is handled via refs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playlist, clipIndex, awaitingNext]);
+  }, [playlist, clipIndex, awaitingNext, playEpoch]);
 
   const bounds = playlist ? sentenceBounds(playlist, clipIndex) : null;
   const sessionRemainingMs = sessionActive
@@ -388,6 +447,7 @@ export function useListenPlayer({
     sessionTotalMs,
     startSession,
     stopPlayback,
+    resetToStart,
     jumpTo,
     jumpToItem,
     goPrevSentence,

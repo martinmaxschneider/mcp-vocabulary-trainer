@@ -1,9 +1,18 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Headphones, Loader2, Play, Settings, Volume2 } from "lucide-react";
+import {
+  Headphones,
+  Pause,
+  Play,
+  Repeat,
+  Settings,
+  SkipBack,
+  SkipForward,
+  X,
+} from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Label } from "~/components/ui/label";
@@ -15,8 +24,8 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import { Badge } from "~/components/ui/badge";
-import { SatzListenPlayer } from "~/components/satz-listen-player";
-import { formatListenRemaining } from "~/lib/audio-duration";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
+import { formatListenClock } from "~/lib/audio-duration";
 import {
   SATZ_LISTEN_LIST_REPEAT_OPTIONS,
   SATZ_LISTEN_PAUSE_RANGE,
@@ -33,6 +42,8 @@ import { cn } from "~/lib/utils";
 
 export type { ListenItem };
 
+type Panel = "" | "filters" | "queue";
+
 export function ListenSession({
   title,
   subtitle,
@@ -40,8 +51,6 @@ export function ListenSession({
   filters,
   backHref,
   backLabel,
-  generating,
-  onGenerateMissing,
   onFirstPassComplete,
   actions,
 }: {
@@ -57,24 +66,68 @@ export function ListenSession({
   actions?: React.ReactNode;
 }) {
   const t = useTranslations("sentences");
-  const tModes = useTranslations("practiceModes");
   const player = useListenPlayer({ items, onFirstPassComplete });
-  const activeRef = useRef<HTMLDivElement | null>(null);
+  const [panel, setPanel] = useState<Panel>("");
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
-  useEffect(() => {
-    if (!player.sessionActive) return;
-    activeRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [player.currentItemId, player.sessionActive]);
+  const displayItem = player.currentItem ?? items[0] ?? null;
+  const currentTarget = displayItem ? listenTargetText(displayItem) : "";
+  const currentNative = displayItem ? listenNativeText(displayItem) : null;
 
-  const currentTarget = player.currentItem
-    ? listenTargetText(player.currentItem)
-    : "";
-  const currentNative = player.currentItem
-    ? listenNativeText(player.currentItem)
-    : null;
+  const queueItems = useMemo(() => {
+    const source = player.playlist
+      ? (() => {
+          const seen = new Set<string>();
+          const ordered: ListenItem[] = [];
+          for (const clip of player.playlist) {
+            if (seen.has(clip.itemId)) continue;
+            seen.add(clip.itemId);
+            const item = items.find((entry) => entry.id === clip.itemId);
+            if (item) ordered.push(item);
+          }
+          return ordered;
+        })()
+      : items;
+    return source;
+  }, [player.playlist, items]);
+
+  const currentQueueIndex = queueItems.findIndex(
+    (item) => item.id === (player.currentItemId ?? displayItem?.id),
+  );
+
+  const canPrev = Boolean(
+    player.bounds &&
+      (player.bounds.prevStart != null ||
+        player.clipIndex > player.bounds.start),
+  );
+  const canNext = Boolean(
+    player.playlist && player.clipIndex < player.playlist.length - 1,
+  );
+  const waiting = player.awaitingNext && !player.paused;
+  const canPlay = player.readyItems.length > 0;
+  const percent =
+    player.sessionTotalMs > 0
+      ? Math.min(
+          100,
+          Math.max(
+            0,
+            ((player.sessionTotalMs - player.sessionRemainingMs) /
+              player.sessionTotalMs) *
+              100,
+          ),
+        )
+      : 0;
+
+  const togglePanel = (next: Panel) => {
+    setSettingsOpen(false);
+    setPanel((current) => (current === next ? "" : next));
+  };
+
+  const clipTotal = player.playlist?.length ?? 0;
+  const clipDone = clipTotal > 0 ? player.clipIndex + 1 : 0;
 
   return (
-    <div className={`space-y-8 ${player.sessionActive ? "pb-40" : ""}`}>
+    <div className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="mb-2 text-4xl font-bold">{title}</h1>
@@ -83,237 +136,279 @@ export function ListenSession({
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {actions}
           {backHref ? (
             <Button asChild variant="ghost">
               <Link href={backHref}>{backLabel ?? t("importBack")}</Link>
             </Button>
           ) : null}
+          {actions}
         </div>
       </div>
 
-      {filters ? (
-        <section className="cahier-card space-y-4 p-6">
-          <h2 className="text-lg font-semibold">{t("listenFilters")}</h2>
-          {filters}
-        </section>
-      ) : null}
-
-      <section className="cahier-card space-y-5 p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="space-y-1">
-            <h2 className="flex items-center gap-2 text-2xl font-semibold">
-              <Headphones className="h-6 w-6" />
-              {t("listenMode")}
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {t("listenReadyCount", {
-                ready: player.readyItems.length,
-                total: items.length,
-              })}
-              {player.readyItems.length > 0
-                ? ` · ${t("listenEta", {
-                    time: formatListenRemaining(player.sessionRemainingMs),
-                  })}`
-                : null}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {onGenerateMissing ? (
+      <section className="cahier-card overflow-hidden">
+        <div className="space-y-6 p-6 sm:p-10">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-[#3d4f66]">
+            <span className="flex items-center gap-2 font-semibold uppercase tracking-[0.16em]">
+              <Headphones className="h-4 w-4" />
+              {t("listenNowPlaying")}
+              <span className="tabular-nums text-[var(--cahier-red,#d45d5d)]">
+                {clipDone} / {clipTotal}
+              </span>
+            </span>
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#3d4f66]">
+                  {t("listenPlayerLeft")}
+                </p>
+                <p className="font-mono text-2xl font-semibold tabular-nums leading-none text-[#1e3a5f]">
+                  {formatListenClock(player.sessionRemainingMs)}
+                </p>
+              </div>
               <Button
                 type="button"
-                variant="outline"
-                disabled={generating}
-                onClick={onGenerateMissing}
-              >
-                {generating ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Volume2 className="mr-2 h-4 w-4" />
+                size="icon"
+                variant="ghost"
+                className={cn(
+                  "h-8 w-8 rounded-full text-[#3d4f66]",
+                  settingsOpen ? "bg-[#1e3a5f]/8 text-[#1e3a5f]" : "",
                 )}
-                {generating
-                  ? tModes("generatingAudio")
-                  : tModes("generateMissingAudio")}
+                aria-expanded={settingsOpen}
+                aria-label={t("listenSettings")}
+                onClick={() => {
+                  setPanel("");
+                  setSettingsOpen((open) => !open);
+                }}
+              >
+                <Settings className="h-4 w-4" />
               </Button>
-            ) : null}
-            <Button
-              type="button"
-              size="icon"
-              variant={player.settings.settingsOpen ? "secondary" : "ghost"}
-              className="h-11 w-11"
-              aria-expanded={player.settings.settingsOpen}
-              aria-label={t("listenSettings")}
-              onClick={() =>
-                player.updateSettings({
-                  settingsOpen: !player.settings.settingsOpen,
-                })
-              }
-            >
-              <Settings className="h-5 w-5" />
-            </Button>
-            <Button
-              type="button"
-              size="lg"
-              disabled={player.readyItems.length === 0 || player.sessionActive}
-              onClick={() =>
-                player.startSession(player.readyItems.map((item) => item.id))
-              }
-            >
-              <Play className="mr-2 h-5 w-5" />
-              {t("listenStart")}
-            </Button>
+            </div>
           </div>
+
+          {settingsOpen ? (
+            <ListenSettings
+              settings={player.settings}
+              updateSettings={player.updateSettings}
+            />
+          ) : (
+            <>
+              {displayItem?.badges && displayItem.badges.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {displayItem.badges.map((badge) => (
+                    <Badge key={badge} variant="outline">
+                      {badge}
+                    </Badge>
+                  ))}
+                </div>
+              ) : null}
+
+              {displayItem ? (
+                <div className="space-y-4">
+                  {displayItem.questionText ? (
+                    <div className="max-w-[85%] rounded-2xl rounded-bl-md border border-[#1e3a5f]/25 bg-[var(--cahier-paper,#fff)] px-4 py-3">
+                      <p className="text-base font-medium leading-snug text-[#1e3a5f]">
+                        {displayItem.questionText}
+                      </p>
+                      {displayItem.questionTranslation ? (
+                        <p className="mt-1 text-sm text-[#3d4f66]">
+                          {displayItem.questionTranslation}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  <div>
+                    <p className="text-3xl font-semibold leading-snug text-[#1e3a5f] sm:text-5xl">
+                      {currentTarget}
+                    </p>
+                    {currentNative ? (
+                      <p className="mt-2 text-lg text-[#3d4f66] sm:text-xl">
+                        {currentNative}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-lg text-[#3d4f66]">
+                  {t("listenReadyCount", { ready: 0, total: 0 })}
+                </p>
+              )}
+
+              <div className="flex items-center justify-center gap-1.5 border-t border-border/60 pt-5">
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="h-11 w-11 rounded-full"
+                  disabled={!canPrev}
+                  onClick={player.goPrevSentence}
+                  aria-label={t("listenPlayerPrev")}
+                >
+                  <SkipBack className="h-5 w-5" />
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="h-11 w-11 rounded-full"
+                  disabled={!canPlay}
+                  onClick={player.repeatSentence}
+                  aria-label={t("listenPlayerRepeat")}
+                >
+                  <Repeat className="h-5 w-5" />
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  className={`h-14 w-14 rounded-full shadow-lg ${
+                    waiting ? "animate-pulse" : ""
+                  }`}
+                  disabled={!canPlay}
+                  onClick={
+                    waiting ? player.goNextSentence : player.togglePause
+                  }
+                  aria-label={
+                    waiting
+                      ? t("listenPlayerNext")
+                      : player.paused || !player.sessionActive
+                        ? t("listenPlayerPlay")
+                        : t("listenPlayerPause")
+                  }
+                >
+                  {player.paused || waiting || !player.sessionActive ? (
+                    <Play className="h-6 w-6 fill-current" />
+                  ) : (
+                    <Pause className="h-6 w-6 fill-current" />
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="h-11 w-11 rounded-full"
+                  disabled={!canNext && !player.awaitingNext}
+                  onClick={player.goNextSentence}
+                  aria-label={t("listenPlayerNext")}
+                >
+                  <SkipForward className="h-5 w-5" />
+                </Button>
+              </div>
+
+              <div className="flex items-center justify-end gap-4">
+                <div className="min-w-[4.5rem] text-right">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#3d4f66]">
+                    {t("listenPlayerLeft")}
+                  </p>
+                  <p className="font-mono text-2xl font-semibold tabular-nums leading-none text-[#1e3a5f]">
+                    {formatListenClock(player.sessionRemainingMs)}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="h-10 w-10 rounded-full"
+                  disabled={!player.sessionActive}
+                  onClick={player.resetToStart}
+                  aria-label={t("listenPlayerClose")}
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+            </>
+          )}
         </div>
 
-        {player.settings.settingsOpen ? (
-          <ListenSettings
-            settings={player.settings}
-            updateSettings={player.updateSettings}
+        <div
+          className="h-1 bg-[var(--cahier-ink,#1e3a5f)]/8 dark:bg-white/10"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(percent)}
+        >
+          <div
+            className="h-full bg-[var(--cahier-red,#d45d5d)]/80 transition-[width] duration-700 ease-linear"
+            style={{ width: `${percent}%` }}
           />
-        ) : null}
+        </div>
+
+        <div className="border-t border-border/60 px-6 py-5 sm:px-10">
+          <Tabs
+            value={panel || "none"}
+            onValueChange={(value) => togglePanel(value as Panel)}
+          >
+            <TabsList>
+              {filters ? (
+                <TabsTrigger
+                  value="filters"
+                  onPointerDown={(event) => {
+                    if (panel === "filters") {
+                      event.preventDefault();
+                      setPanel("");
+                    }
+                  }}
+                >
+                  {t("listenFilterTab")}
+                </TabsTrigger>
+              ) : null}
+              <TabsTrigger
+                value="queue"
+                onPointerDown={(event) => {
+                  if (panel === "queue") {
+                    event.preventDefault();
+                    setPanel("");
+                  }
+                }}
+              >
+                {t("listenQueue")}
+              </TabsTrigger>
+            </TabsList>
+            {filters ? (
+              <TabsContent value="filters" className="pt-3">
+                {filters}
+              </TabsContent>
+            ) : null}
+            <TabsContent value="queue">
+              <ul className="mt-2 max-h-80 space-y-1 overflow-y-auto pr-1">
+                {queueItems.map((item, index) => {
+                  const active =
+                    item.id === (player.currentItemId ?? displayItem?.id);
+                  const past =
+                    currentQueueIndex >= 0 && index < currentQueueIndex;
+                  return (
+                    <li key={item.id}>
+                      <button
+                        type="button"
+                        onClick={() => player.jumpToItem(item.id)}
+                        disabled={!player.sessionActive}
+                        className={cn(
+                          "flex w-full items-start gap-3 rounded-lg px-3 py-2 text-left transition-colors",
+                          active
+                            ? "bg-[#1e3a5f]/8 ring-1 ring-[#1e3a5f]"
+                            : "hover:bg-muted/60",
+                          past && !active ? "opacity-50" : "",
+                        )}
+                      >
+                        <span className="w-6 shrink-0 pt-0.5 text-xs tabular-nums text-[#3d4f66]">
+                          {index + 1}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-medium text-[#1e3a5f]">
+                            {listenTargetText(item)}
+                          </span>
+                          {listenNativeText(item) ? (
+                            <span className="mt-0.5 block truncate text-sm text-[#3d4f66]">
+                              {listenNativeText(item)}
+                            </span>
+                          ) : null}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </TabsContent>
+          </Tabs>
+        </div>
       </section>
-
-      {player.sessionActive && player.currentItem ? (
-        <>
-          <section className="cahier-card space-y-4 p-6 sm:p-10">
-            <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
-              <span className="flex items-center gap-2 font-semibold uppercase tracking-[0.16em]">
-                <Headphones className="h-4 w-4" />
-                {t("listenNowPlaying")}
-              </span>
-              <span className="tabular-nums">
-                {player.clipIndex + 1} / {player.playlist?.length ?? 0}
-                {` · ${formatListenRemaining(player.sessionRemainingMs)}`}
-              </span>
-            </div>
-            {player.currentItem.badges && player.currentItem.badges.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {player.currentItem.badges.map((badge) => (
-                  <Badge key={badge} variant="outline">
-                    {badge}
-                  </Badge>
-                ))}
-              </div>
-            ) : null}
-            {player.currentItem.questionText ? (
-              <p className="text-lg text-muted-foreground">
-                {player.currentItem.questionText}
-              </p>
-            ) : null}
-            <p className="text-3xl font-semibold leading-snug text-[#1e3a5f] sm:text-5xl">
-              {currentTarget}
-            </p>
-            {currentNative ? (
-              <p className="text-lg text-muted-foreground sm:text-xl">
-                {currentNative}
-              </p>
-            ) : null}
-          </section>
-
-          <section className="cahier-card space-y-4 p-6">
-            <h2 className="text-lg font-semibold">{t("listenTranscript")}</h2>
-            <div className="max-h-[32rem] space-y-4 overflow-y-auto pr-1">
-              {items.map((item) => {
-                const active = item.id === player.currentItemId;
-                return (
-                  <div
-                    key={item.id}
-                    ref={active ? activeRef : undefined}
-                    className="space-y-2"
-                  >
-                    {item.questionText ? (
-                      <button
-                        type="button"
-                        onClick={() => player.jumpToItem(item.id)}
-                        className={cn(
-                          "max-w-[85%] rounded-2xl rounded-bl-md border px-4 py-3 text-left transition-colors",
-                          active
-                            ? "border-[#1e3a5f] bg-[#1e3a5f]/8"
-                            : "border-border bg-muted/40 hover:bg-muted",
-                        )}
-                      >
-                        <p className="text-base font-semibold leading-snug">
-                          {item.questionText}
-                        </p>
-                        {item.questionTranslation ? (
-                          <p className="mt-1 text-sm text-muted-foreground">
-                            {item.questionTranslation}
-                          </p>
-                        ) : null}
-                      </button>
-                    ) : null}
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => player.jumpToItem(item.id)}
-                        className={cn(
-                          "max-w-[85%] rounded-2xl rounded-br-md border px-4 py-3 text-left transition-colors",
-                          active
-                            ? "border-[#1e3a5f] bg-[#1e3a5f] text-white"
-                            : "border-border bg-[var(--cahier-paper,#fff)] hover:bg-muted/50",
-                        )}
-                      >
-                        <p className="text-base font-semibold leading-snug">
-                          {listenTargetText(item)}
-                        </p>
-                        {listenNativeText(item) ? (
-                          <p
-                            className={cn(
-                              "mt-1 text-sm",
-                              active ? "text-white/80" : "text-muted-foreground",
-                            )}
-                          >
-                            {listenNativeText(item)}
-                          </p>
-                        ) : null}
-                        {item.badges && item.badges.length > 0 ? (
-                          <p
-                            className={cn(
-                              "mt-2 text-xs uppercase tracking-wide",
-                              active ? "text-white/70" : "text-muted-foreground",
-                            )}
-                          >
-                            {item.badges.join(" · ")}
-                          </p>
-                        ) : null}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        </>
-      ) : null}
-
-      {player.sessionActive && player.currentClip ? (
-        <SatzListenPlayer
-          mainText={currentTarget}
-          translationText={currentNative}
-          done={player.clipIndex + 1}
-          total={player.playlist?.length ?? 0}
-          remainingMs={player.sessionRemainingMs}
-          totalMs={player.sessionTotalMs}
-          paused={player.paused}
-          awaitingNext={player.awaitingNext}
-          canPrev={Boolean(
-            player.bounds &&
-              (player.bounds.prevStart != null ||
-                player.clipIndex > player.bounds.start),
-          )}
-          canNext={
-            Boolean(
-              player.playlist &&
-                player.clipIndex < player.playlist.length - 1,
-            ) || player.awaitingNext
-          }
-          onPrev={player.goPrevSentence}
-          onNext={player.goNextSentence}
-          onTogglePause={player.togglePause}
-          onRepeat={player.repeatSentence}
-          onClose={player.stopPlayback}
-        />
-      ) : null}
     </div>
   );
 }
@@ -327,12 +422,12 @@ function ListenSettings({
 }) {
   const t = useTranslations("sentences");
   return (
-    <div className="space-y-4 border-t border-border/60 pt-4">
+    <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3">
             <Label htmlFor="listen-pause">{t("listenPause")}</Label>
-            <span className="text-sm tabular-nums text-muted-foreground">
+            <span className="text-sm tabular-nums text-[#3d4f66]">
               {(settings.pauseMs / 1000).toFixed(1)}s
             </span>
           </div>
@@ -354,7 +449,7 @@ function ListenSettings({
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3">
             <Label htmlFor="listen-speed">{t("listenSpeed")}</Label>
-            <span className="text-sm tabular-nums text-muted-foreground">
+            <span className="text-sm tabular-nums text-[#3d4f66]">
               {settings.playbackRate.toFixed(2).replace(/\.?0+$/, "")}×
             </span>
           </div>
@@ -440,10 +535,10 @@ function ListenSettings({
           }
         />
         <span className="space-y-0.5">
-          <span className="block font-medium text-foreground">
+          <span className="block font-medium text-[#1e3a5f]">
             {t("listenMainLangOnce")}
           </span>
-          <span className="block text-muted-foreground">
+          <span className="block text-[#3d4f66]">
             {t("listenMainLangOnceHint")}
           </span>
         </span>

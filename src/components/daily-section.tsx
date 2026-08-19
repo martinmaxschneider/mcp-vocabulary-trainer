@@ -110,7 +110,6 @@ export function DailySection() {
 
   const createPackage = api.daily.createPackage.useMutation();
   const activatePackage = api.daily.activatePackage.useMutation();
-  const startTest = api.daily.startTest.useMutation();
   const submitAnswer = api.daily.submitTestAnswer.useMutation();
   const completePackage = api.daily.completePackage.useMutation();
   const abandonPackage = api.daily.abandonPackage.useMutation();
@@ -346,19 +345,6 @@ export function DailySection() {
                                 <Headphones className="mr-2 h-4 w-4" />
                                 {t("openPlayer")}
                               </Link>
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={startTest.isPending}
-                              onClick={async () => {
-                                setSelectedId(row.id);
-                                await startTest.mutateAsync({ id: row.id });
-                                setRevealed(false);
-                                await invalidate();
-                              }}
-                            >
-                              {t("startTest")}
                             </Button>
                           </>
                         ) : null}

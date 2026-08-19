@@ -738,6 +738,8 @@
     "listenMainLangOnce": "Idioma principal só uma vez",
     "listenMainLangOnceHint": "As repetições tocam só a língua-alvo — poupa tempo.",
     "listenSettings": "Definições",
+    "listenFilterTab": "Filtro",
+    "listenQueue": "Lista",
     "listenNowPlaying": "Agora",
     "listenTranscript": "Diálogo",
     "listenPlayerPrev": "Frase anterior",

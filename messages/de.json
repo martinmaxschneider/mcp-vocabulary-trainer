@@ -738,6 +738,8 @@
     "listenMainLangOnce": "Hauptsprache nur einmal",
     "listenMainLangOnceHint": "Bei Wiederholungen nur noch die Zielsprache — spart Zeit.",
     "listenSettings": "Einstellungen",
+    "listenFilterTab": "Filter",
+    "listenQueue": "Playlist",
     "listenNowPlaying": "Jetzt",
     "listenTranscript": "Dialog",
     "listenPlayerPrev": "Vorheriger Satz",

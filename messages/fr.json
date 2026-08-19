@@ -738,6 +738,8 @@
     "listenMainLangOnce": "Langue de base une seule fois",
     "listenMainLangOnceHint": "Les répétitions ne jouent plus que la langue cible — plus rapide.",
     "listenSettings": "Réglages",
+    "listenFilterTab": "Filtre",
+    "listenQueue": "Playlist",
     "listenNowPlaying": "En cours",
     "listenTranscript": "Dialogue",
     "listenPlayerPrev": "Phrase précédente",

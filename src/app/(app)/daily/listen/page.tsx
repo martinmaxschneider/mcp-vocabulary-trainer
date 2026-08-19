@@ -9,31 +9,23 @@ import { api } from "~/trpc/client";
 import { ListenSession } from "~/components/listen-session";
 import { Button } from "~/components/ui/button";
 import { useFocusLang } from "~/components/focus-lang-provider";
-import { useToast } from "~/hooks/use-toast";
 import { toDailyListenItem } from "~/lib/daily-listen";
-import { drainAudioQueue } from "~/lib/process-audio-queue";
-import { resolveErrorCode } from "~/lib/trpc-error";
 
 type PlayerFilter = "all" | DailyItemType;
 
 export default function DailyListenPage() {
   const t = useTranslations("daily");
   const tCommon = useTranslations("common");
-  const tToasts = useTranslations("toasts");
-  const tErrors = useTranslations("errors.codes");
   const { focusLang } = useFocusLang();
-  const { toast } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
   const utils = api.useUtils();
   const [playerFilter, setPlayerFilter] = useState<PlayerFilter>("all");
-  const [generating, setGenerating] = useState(false);
   const packageId = searchParams.get("id");
 
   const pkgQuery = api.daily.getPackage.useQuery(
     packageId ? { id: packageId } : { targetLang: focusLang },
   );
-  const processAudio = api.daily.processAudio.useMutation();
   const startTest = api.daily.startTest.useMutation();
   const pkg = pkgQuery.data ?? null;
 
@@ -43,30 +35,6 @@ export default function DailyListenPage() {
       .filter((item) => playerFilter === "all" || item.itemType === playerFilter)
       .map(toDailyListenItem);
   }, [pkg?.items, playerFilter]);
-
-  const generateAudio = async () => {
-    setGenerating(true);
-    try {
-      await drainAudioQueue((limit) => processAudio.mutateAsync({ limit }));
-      await Promise.all([
-        utils.daily.today.invalidate({ targetLang: focusLang }),
-        packageId
-          ? utils.daily.getPackage.invalidate({ id: packageId })
-          : Promise.resolve(),
-      ]);
-      toast({ title: tToasts("dailyAudioDone") });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "";
-      const code = resolveErrorCode(message);
-      toast({
-        title: tToasts("dailyAudioError"),
-        description: code ? tErrors(code as "NOT_FOUND") : message || undefined,
-        variant: "destructive",
-      });
-    } finally {
-      setGenerating(false);
-    }
-  };
 
   if (pkgQuery.isLoading) {
     return <p className="text-sm text-muted-foreground">{tCommon("loading")}</p>;
@@ -91,8 +59,6 @@ export default function DailyListenPage() {
       items={items}
       backHref="/daily"
       backLabel={tCommon("back")}
-      generating={generating}
-      onGenerateMissing={generateAudio}
       actions={
         <Button
           onClick={async () => {

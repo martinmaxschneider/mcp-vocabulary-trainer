@@ -738,6 +738,8 @@
     "listenMainLangOnce": "Idioma base solo una vez",
     "listenMainLangOnceHint": "Las repeticiones suenan solo en el idioma meta — ahorra tiempo.",
     "listenSettings": "Ajustes",
+    "listenFilterTab": "Filtro",
+    "listenQueue": "Lista",
     "listenNowPlaying": "Ahora",
     "listenTranscript": "Diálogo",
     "listenPlayerPrev": "Frase anterior",
