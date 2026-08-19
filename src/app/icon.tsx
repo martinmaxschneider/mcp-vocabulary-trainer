@@ -3,7 +3,7 @@ import { ImageResponse } from "next/og";
 export const size = { width: 32, height: 32 };
 export const contentType = "image/png";
 
-/** Favicon: cream speech bubble with a teal play triangle on teal. */
+/** Favicon: ink-blue speech bubble with a white play triangle on cahier paper. */
 export default function Icon() {
   return new ImageResponse(
     (
@@ -14,16 +14,17 @@ export default function Icon() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "linear-gradient(135deg, #14B8A6 0%, #0F766E 100%)",
+          background: "#eef4fa",
           borderRadius: 8,
+          borderLeft: "3px solid #d45d5d",
         }}
       >
         <div
           style={{
-            width: 22,
+            width: 21,
             height: 17,
             borderRadius: 6,
-            background: "#FDF6E9",
+            background: "#1e3a5f",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -35,7 +36,7 @@ export default function Icon() {
               height: 0,
               borderTop: "5px solid transparent",
               borderBottom: "5px solid transparent",
-              borderLeft: "8px solid #0F766E",
+              borderLeft: "8px solid #ffffff",
               marginLeft: 2,
             }}
           />

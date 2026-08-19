@@ -5,8 +5,8 @@
   "start_url": "/daily/offline",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#0F766E",
-  "theme_color": "#0F766E",
+  "background_color": "#eef4fa",
+  "theme_color": "#1e3a5f",
   "icons": [
     {
       "src": "/icons/icon-192.png",
