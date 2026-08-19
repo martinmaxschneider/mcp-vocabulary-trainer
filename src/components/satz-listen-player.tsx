@@ -57,21 +57,21 @@ export function SatzListenPlayer({
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6">
-      <div className="pointer-events-auto relative mx-auto max-w-3xl overflow-hidden rounded-3xl border border-border/70 bg-[var(--cahier-paper,#fff)] text-[var(--cahier-ink,#1e3a5f)] shadow-[0_18px_50px_rgba(30,58,95,0.22)]">
+      <div className="pointer-events-auto relative mx-auto max-w-4xl overflow-hidden rounded-3xl border border-border/70 bg-[var(--cahier-paper,#fff)] text-[var(--cahier-ink,#1e3a5f)] shadow-[0_18px_50px_rgba(30,58,95,0.22)]">
         <div className="absolute bottom-3 left-5 top-3 w-0.5 rounded-full bg-[var(--cahier-red,#d45d5d)]" />
 
-        <div className="flex flex-col gap-4 px-6 py-4 pl-9 sm:flex-row sm:items-center sm:gap-6">
+        <div className="flex flex-col gap-5 px-6 py-5 pl-9 sm:flex-row sm:items-center sm:gap-8">
           <div className="min-w-0 flex-1">
-            <p className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            <p className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
               <Headphones className="h-3.5 w-3.5" />
               {t("listenNowPlaying")}
               <span className="tabular-nums text-[var(--cahier-red,#d45d5d)]">
                 {done} / {total}
               </span>
             </p>
-            <p className="truncate text-lg font-semibold leading-tight">{mainText}</p>
+            <p className="text-xl font-semibold leading-snug sm:text-2xl">{mainText}</p>
             {translationText ? (
-              <p className="truncate text-sm text-muted-foreground">{translationText}</p>
+              <p className="mt-1 text-sm text-muted-foreground sm:text-base">{translationText}</p>
             ) : null}
           </div>
 

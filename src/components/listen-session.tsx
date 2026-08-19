@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Headphones, Loader2, Play, Settings, Volume2 } from "lucide-react";
@@ -14,36 +14,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
+import { Badge } from "~/components/ui/badge";
 import { SatzListenPlayer } from "~/components/satz-listen-player";
-import { useToast } from "~/hooks/use-toast";
 import { formatListenRemaining } from "~/lib/audio-duration";
 import {
-  buildListenPlaylist,
-  remainingListenMs,
-  sentenceBounds,
-  type ListenPlaylistItem,
-} from "~/lib/listen-playlist";
-import type { PlaybackClip } from "~/lib/satz-tts";
-import {
-  DEFAULT_SATZ_LISTEN_SETTINGS,
-  loadSatzListenSettings,
-  saveSatzListenSettings,
   SATZ_LISTEN_LIST_REPEAT_OPTIONS,
   SATZ_LISTEN_PAUSE_RANGE,
   SATZ_LISTEN_RATE_RANGE,
   SATZ_LISTEN_REPEAT_OPTIONS,
-  type SatzListenSettings,
 } from "~/lib/satz-listen-settings";
-import { resolveErrorCode } from "~/lib/trpc-error";
+import {
+  listenNativeText,
+  listenTargetText,
+  useListenPlayer,
+  type ListenItem,
+} from "~/hooks/use-listen-player";
+import { cn } from "~/lib/utils";
 
-export type ListenItem = {
-  id: string;
-  mainText: string;
-  translationText?: string | null;
-  extraText?: string | null;
-  clips: PlaybackClip[];
-  audioStatus?: string;
-};
+export type { ListenItem };
 
 export function ListenSession({
   title,
@@ -55,6 +43,7 @@ export function ListenSession({
   generating,
   onGenerateMissing,
   onFirstPassComplete,
+  actions,
 }: {
   title: string;
   subtitle?: string;
@@ -65,328 +54,27 @@ export function ListenSession({
   generating?: boolean;
   onGenerateMissing?: () => void;
   onFirstPassComplete?: (ids: string[]) => void;
+  actions?: React.ReactNode;
 }) {
   const t = useTranslations("sentences");
   const tModes = useTranslations("practiceModes");
-  const tToasts = useTranslations("toasts");
-  const tErrors = useTranslations("errors.codes");
-  const { toast } = useToast();
-
-  const [settings, setSettings] = useState<SatzListenSettings>(
-    DEFAULT_SATZ_LISTEN_SETTINGS,
-  );
-  const [playlist, setPlaylist] = useState<ListenPlaylistItem[] | null>(null);
-  const [clipIndex, setClipIndex] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const [awaitingNext, setAwaitingNext] = useState(false);
-  const [nowMs, setNowMs] = useState(() => Date.now());
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const practicedRef = useRef(false);
-  const remainingUntilRef = useRef<number | null>(null);
-  const frozenRemainingRef = useRef<number | null>(null);
-  const pausedRef = useRef(false);
-  const settingsRef = useRef(settings);
-  const runIdRef = useRef(0);
-  settingsRef.current = settings;
+  const player = useListenPlayer({ items, onFirstPassComplete });
+  const activeRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    setSettings(loadSatzListenSettings());
-  }, []);
+    if (!player.sessionActive) return;
+    activeRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [player.currentItemId, player.sessionActive]);
 
-  const updateSettings = (patch: Partial<SatzListenSettings>) => {
-    setSettings((prev) => {
-      const next = { ...prev, ...patch };
-      saveSatzListenSettings(next);
-      return next;
-    });
-  };
-
-  const readyItems = items.filter((item) => item.clips.length > 0);
-  const sessionActive = playlist != null && playlist.length > 0;
-  const currentClip = playlist?.[clipIndex] ?? null;
-  const currentItem = currentClip
-    ? items.find((item) => item.id === currentClip.itemId)
-    : undefined;
-
-  const commitRemaining = (remainingMs: number) => {
-    remainingUntilRef.current = Date.now() + remainingMs;
-    frozenRemainingRef.current = remainingMs;
-  };
-
-  useEffect(() => {
-    if (!sessionActive || paused) return;
-    const id = window.setInterval(() => setNowMs(Date.now()), 1000);
-    return () => window.clearInterval(id);
-  }, [sessionActive, paused]);
-
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.playbackRate = settings.playbackRate;
-    }
-  }, [settings.playbackRate]);
-
-  const previewRemainingMs = useMemo(() => {
-    if (readyItems.length === 0) return 0;
-    const plan = buildListenPlaylist(
-      readyItems.map((item) => ({ id: item.id, clips: item.clips })),
-      settings,
-    );
-    return remainingListenMs(plan, 1, settings.playbackRate);
-  }, [readyItems, settings]);
-
-  const stopPlayback = () => {
-    runIdRef.current += 1;
-    audioRef.current?.pause();
-    audioRef.current = null;
-    pausedRef.current = false;
-    remainingUntilRef.current = null;
-    frozenRemainingRef.current = null;
-    setPaused(false);
-    setAwaitingNext(false);
-    setPlaylist(null);
-    setClipIndex(0);
-  };
-
-  const startSession = (ids: string[]) => {
-    const jobs = items
-      .filter((item) => ids.includes(item.id) && item.clips.length > 0)
-      .map((item) => ({ id: item.id, clips: item.clips }));
-    const nextPlaylist = buildListenPlaylist(jobs, settings);
-    if (nextPlaylist.length === 0) return;
-    runIdRef.current += 1;
-    audioRef.current?.pause();
-    audioRef.current = null;
-    practicedRef.current = false;
-    pausedRef.current = false;
-    setPaused(false);
-    setAwaitingNext(false);
-    setClipIndex(0);
-    setPlaylist(nextPlaylist);
-    commitRemaining(remainingListenMs(nextPlaylist, 1, settings.playbackRate));
-  };
-
-  const jumpTo = (index: number) => {
-    if (!playlist) return;
-    const nextIndex = Math.max(0, Math.min(index, playlist.length - 1));
-    runIdRef.current += 1;
-    audioRef.current?.pause();
-    audioRef.current = null;
-    pausedRef.current = false;
-    setPaused(false);
-    setAwaitingNext(false);
-    setClipIndex(nextIndex);
-    commitRemaining(
-      remainingListenMs(playlist, nextIndex + 1, settingsRef.current.playbackRate),
-    );
-  };
-
-  const goPrevSentence = () => {
-    if (!playlist) return;
-    const bounds = sentenceBounds(playlist, clipIndex);
-    jumpTo(bounds.prevStart ?? bounds.start);
-  };
-
-  const goNextSentence = () => {
-    if (!playlist) return;
-    const bounds = sentenceBounds(playlist, clipIndex);
-    if (bounds.nextStart != null) {
-      jumpTo(bounds.nextStart);
-      return;
-    }
-    stopPlayback();
-  };
-
-  const repeatSentence = () => {
-    if (!playlist) return;
-    jumpTo(sentenceBounds(playlist, clipIndex).start);
-  };
-
-  const togglePause = () => {
-    if (!sessionActive) return;
-    if (awaitingNext) {
-      goNextSentence();
-      return;
-    }
-    const next = !pausedRef.current;
-    pausedRef.current = next;
-    setPaused(next);
-    if (next) {
-      audioRef.current?.pause();
-      if (remainingUntilRef.current != null) {
-        frozenRemainingRef.current = Math.max(
-          0,
-          remainingUntilRef.current - Date.now(),
-        );
-      }
-      remainingUntilRef.current = null;
-      return;
-    }
-    const leftover = frozenRemainingRef.current ?? 0;
-    remainingUntilRef.current = Date.now() + leftover;
-    if (audioRef.current && !audioRef.current.ended) {
-      void audioRef.current.play().catch(() => undefined);
-    }
-  };
-
-  useEffect(() => {
-    if (!playlist || awaitingNext) return;
-    const item = playlist[clipIndex];
-    if (!item) {
-      stopPlayback();
-      return;
-    }
-
-    const runId = ++runIdRef.current;
-    const controller = new AbortController();
-    const still = () => runIdRef.current === runId && !controller.signal.aborted;
-
-    const sleep = (ms: number) =>
-      new Promise<void>((resolve) => {
-        if (controller.signal.aborted || ms <= 0) {
-          resolve();
-          return;
-        }
-        let left = ms;
-        let last = Date.now();
-        let timer = 0;
-        const onAbort = () => {
-          window.clearTimeout(timer);
-          resolve();
-        };
-        controller.signal.addEventListener("abort", onAbort);
-        const tick = () => {
-          if (controller.signal.aborted) return;
-          if (pausedRef.current) {
-            last = Date.now();
-            timer = window.setTimeout(tick, 50);
-            return;
-          }
-          const now = Date.now();
-          left -= now - last;
-          last = now;
-          if (left <= 0) {
-            controller.signal.removeEventListener("abort", onAbort);
-            resolve();
-            return;
-          }
-          timer = window.setTimeout(tick, Math.min(50, left));
-        };
-        tick();
-      });
-
-    const playUrl = (url: string) =>
-      new Promise<void>((resolve, reject) => {
-        const audio = new Audio(url);
-        audio.playbackRate = settingsRef.current.playbackRate;
-        audioRef.current = audio;
-        const finish = () => {
-          controller.signal.removeEventListener("abort", onAbort);
-          resolve();
-        };
-        const onAbort = () => {
-          audio.pause();
-          finish();
-        };
-        controller.signal.addEventListener("abort", onAbort);
-        audio.onended = finish;
-        audio.onerror = () => {
-          controller.signal.removeEventListener("abort", onAbort);
-          reject(new Error("AUDIO_PLAY_FAILED"));
-        };
-        if (!still()) {
-          finish();
-          return;
-        }
-        void audio.play().catch(reject);
-      });
-
-    commitRemaining(
-      remainingListenMs(playlist, clipIndex + 1, settingsRef.current.playbackRate),
-    );
-
-    void (async () => {
-      try {
-        await sleep(item.pauseBeforeMs);
-        if (!still()) return;
-        await playUrl(item.url);
-        if (!still()) return;
-
-        if (!practicedRef.current && item.listRound === 0) {
-          let lastOfFirstPass = -1;
-          for (let i = playlist.length - 1; i >= 0; i -= 1) {
-            if (playlist[i]!.listRound === 0) {
-              lastOfFirstPass = i;
-              break;
-            }
-          }
-          if (lastOfFirstPass === clipIndex) {
-            practicedRef.current = true;
-            onFirstPassComplete?.([
-              ...new Set(playlist.map((clip) => clip.itemId)),
-            ]);
-          }
-        }
-
-        const nextIndex = clipIndex + 1;
-        const nextItem = playlist[nextIndex];
-        const lastOfSentence =
-          !nextItem || nextItem.sentenceKey !== item.sentenceKey;
-        if (lastOfSentence && !settingsRef.current.autoAdvance && nextItem) {
-          const leftover = remainingListenMs(
-            playlist,
-            nextIndex + 1,
-            settingsRef.current.playbackRate,
-          );
-          frozenRemainingRef.current = leftover;
-          remainingUntilRef.current = null;
-          setAwaitingNext(true);
-          return;
-        }
-        if (!nextItem) {
-          stopPlayback();
-          return;
-        }
-        setClipIndex(nextIndex);
-      } catch (error) {
-        if (!still()) return;
-        toast({
-          title: tToasts("satzAudioPlayError"),
-          description:
-            error instanceof Error
-              ? resolveErrorCode(error.message)
-                ? tErrors(resolveErrorCode(error.message) as "NOT_FOUND")
-                : error.message
-              : undefined,
-          variant: "destructive",
-        });
-        stopPlayback();
-      }
-    })();
-
-    return () => {
-      controller.abort();
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-    };
-    // Playlist index drives playback; pause is handled via refs.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playlist, clipIndex, awaitingNext]);
-
-  const bounds = playlist ? sentenceBounds(playlist, clipIndex) : null;
-  const sessionRemainingMs = sessionActive
-    ? paused || awaitingNext || remainingUntilRef.current == null
-      ? (frozenRemainingRef.current ?? 0)
-      : Math.max(0, remainingUntilRef.current - nowMs)
-    : previewRemainingMs;
-  const sessionTotalMs =
-    playlist && playlist.length > 0
-      ? remainingListenMs(playlist, 1, settings.playbackRate)
-      : previewRemainingMs;
+  const currentTarget = player.currentItem
+    ? listenTargetText(player.currentItem)
+    : "";
+  const currentNative = player.currentItem
+    ? listenNativeText(player.currentItem)
+    : null;
 
   return (
-    <div className={`space-y-8 ${sessionActive ? "pb-36" : ""}`}>
+    <div className={`space-y-8 ${player.sessionActive ? "pb-40" : ""}`}>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="mb-2 text-4xl font-bold">{title}</h1>
@@ -394,11 +82,14 @@ export function ListenSession({
             <p className="text-muted-foreground">{subtitle}</p>
           ) : null}
         </div>
-        {backHref ? (
-          <Button asChild variant="ghost">
-            <Link href={backHref}>{backLabel ?? t("importBack")}</Link>
-          </Button>
-        ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          {actions}
+          {backHref ? (
+            <Button asChild variant="ghost">
+              <Link href={backHref}>{backLabel ?? t("importBack")}</Link>
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       {filters ? (
@@ -417,12 +108,12 @@ export function ListenSession({
             </h2>
             <p className="text-sm text-muted-foreground">
               {t("listenReadyCount", {
-                ready: readyItems.length,
+                ready: player.readyItems.length,
                 total: items.length,
               })}
-              {readyItems.length > 0
+              {player.readyItems.length > 0
                 ? ` · ${t("listenEta", {
-                    time: formatListenRemaining(sessionRemainingMs),
+                    time: formatListenRemaining(player.sessionRemainingMs),
                   })}`
                 : null}
             </p>
@@ -432,7 +123,7 @@ export function ListenSession({
               <Button
                 type="button"
                 variant="outline"
-                disabled={generating || sessionActive}
+                disabled={generating}
                 onClick={onGenerateMissing}
               >
                 {generating ? (
@@ -448,13 +139,14 @@ export function ListenSession({
             <Button
               type="button"
               size="icon"
-              variant={settings.settingsOpen ? "secondary" : "ghost"}
+              variant={player.settings.settingsOpen ? "secondary" : "ghost"}
               className="h-11 w-11"
-              aria-expanded={settings.settingsOpen}
+              aria-expanded={player.settings.settingsOpen}
               aria-label={t("listenSettings")}
-              disabled={sessionActive}
               onClick={() =>
-                updateSettings({ settingsOpen: !settings.settingsOpen })
+                player.updateSettings({
+                  settingsOpen: !player.settings.settingsOpen,
+                })
               }
             >
               <Settings className="h-5 w-5" />
@@ -462,8 +154,10 @@ export function ListenSession({
             <Button
               type="button"
               size="lg"
-              disabled={readyItems.length === 0 || sessionActive}
-              onClick={() => startSession(readyItems.map((item) => item.id))}
+              disabled={player.readyItems.length === 0 || player.sessionActive}
+              onClick={() =>
+                player.startSession(player.readyItems.map((item) => item.id))
+              }
             >
               <Play className="mr-2 h-5 w-5" />
               {t("listenStart")}
@@ -471,155 +165,289 @@ export function ListenSession({
           </div>
         </div>
 
-        {settings.settingsOpen ? (
-          <div className="space-y-4 border-t border-border/60 pt-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-3">
-                  <Label htmlFor="listen-pause">{t("listenPause")}</Label>
-                  <span className="text-sm tabular-nums text-muted-foreground">
-                    {(settings.pauseMs / 1000).toFixed(1)}s
-                  </span>
-                </div>
-                <input
-                  id="listen-pause"
-                  type="range"
-                  min={SATZ_LISTEN_PAUSE_RANGE.min / 1000}
-                  max={SATZ_LISTEN_PAUSE_RANGE.max / 1000}
-                  step={SATZ_LISTEN_PAUSE_RANGE.step / 1000}
-                  value={settings.pauseMs / 1000}
-                  onChange={(event) =>
-                    updateSettings({
-                      pauseMs: Math.round(Number(event.target.value) * 1000),
-                    })
-                  }
-                  className="h-2 w-full cursor-pointer appearance-none rounded-full bg-secondary accent-primary"
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-3">
-                  <Label htmlFor="listen-speed">{t("listenSpeed")}</Label>
-                  <span className="text-sm tabular-nums text-muted-foreground">
-                    {settings.playbackRate.toFixed(2).replace(/\.?0+$/, "")}×
-                  </span>
-                </div>
-                <input
-                  id="listen-speed"
-                  type="range"
-                  min={SATZ_LISTEN_RATE_RANGE.min}
-                  max={SATZ_LISTEN_RATE_RANGE.max}
-                  step={SATZ_LISTEN_RATE_RANGE.step}
-                  value={settings.playbackRate}
-                  onChange={(event) =>
-                    updateSettings({ playbackRate: Number(event.target.value) })
-                  }
-                  className="h-2 w-full cursor-pointer appearance-none rounded-full bg-secondary accent-primary"
-                />
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="space-y-2">
-                <Label>{t("listenRepeatsSentence")}</Label>
-                <Select
-                  value={String(settings.repeatsPerSentence)}
-                  onValueChange={(value) =>
-                    updateSettings({ repeatsPerSentence: Number(value) })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SATZ_LISTEN_REPEAT_OPTIONS.map((value) => (
-                      <SelectItem key={value} value={String(value)}>
-                        {value}×
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>{t("listenRepeatsList")}</Label>
-                <Select
-                  value={String(settings.listRepeats)}
-                  onValueChange={(value) =>
-                    updateSettings({ listRepeats: Number(value) })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SATZ_LISTEN_LIST_REPEAT_OPTIONS.map((value) => (
-                      <SelectItem key={value} value={String(value)}>
-                        {value}×
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>{t("listenAdvance")}</Label>
-                <Select
-                  value={settings.autoAdvance ? "auto" : "manual"}
-                  onValueChange={(value) =>
-                    updateSettings({ autoAdvance: value === "auto" })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="auto">{t("listenAuto")}</SelectItem>
-                    <SelectItem value="manual">{t("listenManual")}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <label className="flex items-start gap-3 text-sm">
-              <Checkbox
-                className="mt-0.5"
-                checked={settings.mainLangOnce}
-                onCheckedChange={(checked) =>
-                  updateSettings({ mainLangOnce: checked === true })
-                }
-              />
-              <span className="space-y-0.5">
-                <span className="block font-medium text-foreground">
-                  {t("listenMainLangOnce")}
-                </span>
-                <span className="block text-muted-foreground">
-                  {t("listenMainLangOnceHint")}
-                </span>
-              </span>
-            </label>
-          </div>
+        {player.settings.settingsOpen ? (
+          <ListenSettings
+            settings={player.settings}
+            updateSettings={player.updateSettings}
+          />
         ) : null}
       </section>
 
-      {sessionActive && currentClip ? (
+      {player.sessionActive && player.currentItem ? (
+        <>
+          <section className="cahier-card space-y-4 p-6 sm:p-10">
+            <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+              <span className="flex items-center gap-2 font-semibold uppercase tracking-[0.16em]">
+                <Headphones className="h-4 w-4" />
+                {t("listenNowPlaying")}
+              </span>
+              <span className="tabular-nums">
+                {player.clipIndex + 1} / {player.playlist?.length ?? 0}
+                {` · ${formatListenRemaining(player.sessionRemainingMs)}`}
+              </span>
+            </div>
+            {player.currentItem.badges && player.currentItem.badges.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {player.currentItem.badges.map((badge) => (
+                  <Badge key={badge} variant="outline">
+                    {badge}
+                  </Badge>
+                ))}
+              </div>
+            ) : null}
+            {player.currentItem.questionText ? (
+              <p className="text-lg text-muted-foreground">
+                {player.currentItem.questionText}
+              </p>
+            ) : null}
+            <p className="text-3xl font-semibold leading-snug text-[#1e3a5f] sm:text-5xl">
+              {currentTarget}
+            </p>
+            {currentNative ? (
+              <p className="text-lg text-muted-foreground sm:text-xl">
+                {currentNative}
+              </p>
+            ) : null}
+          </section>
+
+          <section className="cahier-card space-y-4 p-6">
+            <h2 className="text-lg font-semibold">{t("listenTranscript")}</h2>
+            <div className="max-h-[32rem] space-y-4 overflow-y-auto pr-1">
+              {items.map((item) => {
+                const active = item.id === player.currentItemId;
+                return (
+                  <div
+                    key={item.id}
+                    ref={active ? activeRef : undefined}
+                    className="space-y-2"
+                  >
+                    {item.questionText ? (
+                      <button
+                        type="button"
+                        onClick={() => player.jumpToItem(item.id)}
+                        className={cn(
+                          "max-w-[85%] rounded-2xl rounded-bl-md border px-4 py-3 text-left transition-colors",
+                          active
+                            ? "border-[#1e3a5f] bg-[#1e3a5f]/8"
+                            : "border-border bg-muted/40 hover:bg-muted",
+                        )}
+                      >
+                        <p className="text-base font-semibold leading-snug">
+                          {item.questionText}
+                        </p>
+                        {item.questionTranslation ? (
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            {item.questionTranslation}
+                          </p>
+                        ) : null}
+                      </button>
+                    ) : null}
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => player.jumpToItem(item.id)}
+                        className={cn(
+                          "max-w-[85%] rounded-2xl rounded-br-md border px-4 py-3 text-left transition-colors",
+                          active
+                            ? "border-[#1e3a5f] bg-[#1e3a5f] text-white"
+                            : "border-border bg-[var(--cahier-paper,#fff)] hover:bg-muted/50",
+                        )}
+                      >
+                        <p className="text-base font-semibold leading-snug">
+                          {listenTargetText(item)}
+                        </p>
+                        {listenNativeText(item) ? (
+                          <p
+                            className={cn(
+                              "mt-1 text-sm",
+                              active ? "text-white/80" : "text-muted-foreground",
+                            )}
+                          >
+                            {listenNativeText(item)}
+                          </p>
+                        ) : null}
+                        {item.badges && item.badges.length > 0 ? (
+                          <p
+                            className={cn(
+                              "mt-2 text-xs uppercase tracking-wide",
+                              active ? "text-white/70" : "text-muted-foreground",
+                            )}
+                          >
+                            {item.badges.join(" · ")}
+                          </p>
+                        ) : null}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        </>
+      ) : null}
+
+      {player.sessionActive && player.currentClip ? (
         <SatzListenPlayer
-          mainText={currentItem?.mainText ?? ""}
-          translationText={currentItem?.translationText}
-          done={clipIndex + 1}
-          total={playlist.length}
-          remainingMs={sessionRemainingMs}
-          totalMs={sessionTotalMs}
-          paused={paused}
-          awaitingNext={awaitingNext}
+          mainText={currentTarget}
+          translationText={currentNative}
+          done={player.clipIndex + 1}
+          total={player.playlist?.length ?? 0}
+          remainingMs={player.sessionRemainingMs}
+          totalMs={player.sessionTotalMs}
+          paused={player.paused}
+          awaitingNext={player.awaitingNext}
           canPrev={Boolean(
-            bounds && (bounds.prevStart != null || clipIndex > bounds.start),
+            player.bounds &&
+              (player.bounds.prevStart != null ||
+                player.clipIndex > player.bounds.start),
           )}
           canNext={
-            Boolean(playlist && clipIndex < playlist.length - 1) || awaitingNext
+            Boolean(
+              player.playlist &&
+                player.clipIndex < player.playlist.length - 1,
+            ) || player.awaitingNext
           }
-          onPrev={goPrevSentence}
-          onNext={goNextSentence}
-          onTogglePause={togglePause}
-          onRepeat={repeatSentence}
-          onClose={stopPlayback}
+          onPrev={player.goPrevSentence}
+          onNext={player.goNextSentence}
+          onTogglePause={player.togglePause}
+          onRepeat={player.repeatSentence}
+          onClose={player.stopPlayback}
         />
       ) : null}
+    </div>
+  );
+}
+
+function ListenSettings({
+  settings,
+  updateSettings,
+}: {
+  settings: ReturnType<typeof useListenPlayer>["settings"];
+  updateSettings: ReturnType<typeof useListenPlayer>["updateSettings"];
+}) {
+  const t = useTranslations("sentences");
+  return (
+    <div className="space-y-4 border-t border-border/60 pt-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <Label htmlFor="listen-pause">{t("listenPause")}</Label>
+            <span className="text-sm tabular-nums text-muted-foreground">
+              {(settings.pauseMs / 1000).toFixed(1)}s
+            </span>
+          </div>
+          <input
+            id="listen-pause"
+            type="range"
+            min={SATZ_LISTEN_PAUSE_RANGE.min / 1000}
+            max={SATZ_LISTEN_PAUSE_RANGE.max / 1000}
+            step={SATZ_LISTEN_PAUSE_RANGE.step / 1000}
+            value={settings.pauseMs / 1000}
+            onChange={(event) =>
+              updateSettings({
+                pauseMs: Math.round(Number(event.target.value) * 1000),
+              })
+            }
+            className="h-2 w-full cursor-pointer appearance-none rounded-full bg-secondary accent-primary"
+          />
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <Label htmlFor="listen-speed">{t("listenSpeed")}</Label>
+            <span className="text-sm tabular-nums text-muted-foreground">
+              {settings.playbackRate.toFixed(2).replace(/\.?0+$/, "")}×
+            </span>
+          </div>
+          <input
+            id="listen-speed"
+            type="range"
+            min={SATZ_LISTEN_RATE_RANGE.min}
+            max={SATZ_LISTEN_RATE_RANGE.max}
+            step={SATZ_LISTEN_RATE_RANGE.step}
+            value={settings.playbackRate}
+            onChange={(event) =>
+              updateSettings({ playbackRate: Number(event.target.value) })
+            }
+            className="h-2 w-full cursor-pointer appearance-none rounded-full bg-secondary accent-primary"
+          />
+        </div>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="space-y-2">
+          <Label>{t("listenRepeatsSentence")}</Label>
+          <Select
+            value={String(settings.repeatsPerSentence)}
+            onValueChange={(value) =>
+              updateSettings({ repeatsPerSentence: Number(value) })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SATZ_LISTEN_REPEAT_OPTIONS.map((value) => (
+                <SelectItem key={value} value={String(value)}>
+                  {value}×
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>{t("listenRepeatsList")}</Label>
+          <Select
+            value={String(settings.listRepeats)}
+            onValueChange={(value) =>
+              updateSettings({ listRepeats: Number(value) })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SATZ_LISTEN_LIST_REPEAT_OPTIONS.map((value) => (
+                <SelectItem key={value} value={String(value)}>
+                  {value}×
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>{t("listenAdvance")}</Label>
+          <Select
+            value={settings.autoAdvance ? "auto" : "manual"}
+            onValueChange={(value) =>
+              updateSettings({ autoAdvance: value === "auto" })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="auto">{t("listenAuto")}</SelectItem>
+              <SelectItem value="manual">{t("listenManual")}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <label className="flex items-start gap-3 text-sm">
+        <Checkbox
+          className="mt-0.5"
+          checked={settings.mainLangOnce}
+          onCheckedChange={(checked) =>
+            updateSettings({ mainLangOnce: checked === true })
+          }
+        />
+        <span className="space-y-0.5">
+          <span className="block font-medium text-foreground">
+            {t("listenMainLangOnce")}
+          </span>
+          <span className="block text-muted-foreground">
+            {t("listenMainLangOnceHint")}
+          </span>
+        </span>
+      </label>
     </div>
   );
 }

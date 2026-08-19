@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
-import { DailyItemType } from "@prisma/client";
+import { useSearchParams } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
+import { DailyItemType, DailyPackageStatus } from "@prisma/client";
 import {
   CalendarDays,
   Flame,
@@ -21,7 +22,13 @@ import { Caveat, Libre_Baskerville } from "next/font/google";
 import { api } from "~/trpc/client";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "~/components/ui/card";
 import { Label } from "~/components/ui/label";
 import { Progress } from "~/components/ui/progress";
 import {
@@ -31,7 +38,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
-import { ListenSession, type ListenItem } from "~/components/listen-session";
 import { SatzAudioButton } from "~/components/satz-audio-button";
 import { StatsWidget } from "~/components/stats-widget";
 import { useFocusLang } from "~/components/focus-lang-provider";
@@ -58,33 +64,45 @@ const libreBaskerville = Libre_Baskerville({
   style: ["normal", "italic"],
 });
 
-type PlayerFilter = "all" | DailyItemType;
-
 function typeIcon(type: DailyItemType) {
   if (type === "SATZ") return Quote;
   if (type === "CONJUGATION") return Repeat;
   return Volume2;
 }
 
+function formatDailyDate(date: string, locale: string) {
+  const [year, month, day] = date.split("-").map(Number);
+  if (!year || !month || !day) return date;
+  return new Date(year, month - 1, day).toLocaleDateString(locale, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 export function DailySection() {
   const t = useTranslations("daily");
   const tCommon = useTranslations("common");
   const tLang = useTranslations("languages");
+  const locale = useLocale();
   const tToasts = useTranslations("toasts");
   const tErrors = useTranslations("errors.codes");
   const { focusLang } = useFocusLang();
   const celebrate = useCelebrate();
   const { toast } = useToast();
   const utils = api.useUtils();
+  const searchParams = useSearchParams();
+  const urlPackageId = searchParams.get("id");
 
   const [satzCount, setSatzCount] = useState<number>(DEFAULT_DAILY_CONFIG.satzCount);
   const [vocabCount, setVocabCount] = useState<number>(DEFAULT_DAILY_CONFIG.vocabCount);
   const [conjCount, setConjCount] = useState<number>(DEFAULT_DAILY_CONFIG.conjCount);
   const [defaultsApplied, setDefaultsApplied] = useState(false);
-  const [playerFilter, setPlayerFilter] = useState<PlayerFilter>("all");
   const [revealed, setRevealed] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [justCompleted, setJustCompleted] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(urlPackageId);
 
   const todayQuery = api.daily.today.useQuery({ targetLang: focusLang });
   const streakQuery = api.gamification.getStatus.useQuery();
@@ -100,17 +118,27 @@ export function DailySection() {
   const processAudio = api.daily.processAudio.useMutation();
 
   const data = todayQuery.data;
-  const pkg = data?.package ?? null;
+  const todayPkg = data?.package ?? null;
+  const packages = data?.packages ?? [];
+  const selectedQuery = api.daily.getPackage.useQuery(
+    { id: selectedId ?? "" },
+    { enabled: Boolean(selectedId) && selectedId !== todayPkg?.id },
+  );
+  const pkg =
+    selectedId && selectedId !== todayPkg?.id
+      ? (selectedQuery.data ?? null)
+      : todayPkg;
   const pool = data?.pool ?? { satz: 0, vocab: 0, conj: 0 };
   const due = data?.due ?? { vocab: 0, satz: 0, conj: 0 };
   const burndown = data?.burndown;
+  const highlightedId = selectedId ?? todayPkg?.id ?? packages[0]?.id ?? null;
 
   useEffect(() => {
     setDefaultsApplied(false);
     setJustCompleted(false);
-    setPlayerFilter("all");
     setRevealed(false);
-  }, [focusLang]);
+    setSelectedId(urlPackageId);
+  }, [focusLang, urlPackageId]);
 
   useEffect(() => {
     if (!data || defaultsApplied) return;
@@ -124,25 +152,11 @@ export function DailySection() {
   const currentTestItem = pendingItems[0];
   const testIndex = pkg ? pkg.answeredCount + 1 : 0;
 
-  const listenItems: ListenItem[] = useMemo(() => {
-    const items = pkg?.items ?? [];
-    return items
-      .filter((item) => playerFilter === "all" || item.itemType === playerFilter)
-      .map((item) => ({
-        id: item.id,
-        mainText:
-          item.itemType === "CONJUGATION"
-            ? `${item.targetText}${item.tenseLabel ? ` · ${item.tenseLabel}` : ""}`
-            : item.targetText,
-        translationText: item.nativeText,
-        extraText: item.domain?.name ?? null,
-        clips: item.clips,
-        audioStatus: item.audioStatus,
-      }));
-  }, [pkg?.items, playerFilter]);
-
   const invalidate = () => {
     void utils.daily.today.invalidate({ targetLang: focusLang });
+    if (selectedId) {
+      void utils.daily.getPackage.invalidate({ id: selectedId });
+    }
     void utils.stats.dashboard.invalidate();
   };
 
@@ -269,27 +283,105 @@ export function DailySection() {
         />
       ) : null}
 
-      {pkg?.status === "PRODUCTIVE" && !justCompleted ? (
+      {packages.length > 0 ? (
         <Card>
-          <CardContent className="py-8 text-center">
-            <Sparkles className="mx-auto mb-3 h-8 w-8 text-orange-500" />
-            <p className="text-lg font-semibold">{t("todayDone")}</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {t("todayDoneScore", {
-                correct: pkg.correctCount,
-                total: pkg.items.length,
+          <CardHeader>
+            <CardTitle className="text-lg">{t("listTitle")}</CardTitle>
+            <CardDescription>{t("listHint")}</CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <ul className="divide-y">
+              {packages.map((row) => {
+                const isToday = row.date === data?.date;
+                const isSelected = row.id === highlightedId;
+                return (
+                  <li key={row.id}>
+                    <div
+                      className={cn(
+                        "flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between",
+                        isSelected ? "bg-muted/50" : "hover:bg-muted/30",
+                      )}
+                    >
+                      <button
+                        type="button"
+                        className="min-w-0 flex-1 text-left"
+                        onClick={() => setSelectedId(row.id)}
+                      >
+                        <p className="flex flex-wrap items-center gap-2 font-medium">
+                          <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          <span>{formatDailyDate(row.date, locale)}</span>
+                          {isToday ? (
+                            <Badge variant="secondary">{t("todayBadge")}</Badge>
+                          ) : null}
+                          <Badge
+                            variant={
+                              row.status === DailyPackageStatus.PRODUCTIVE
+                                ? "secondary"
+                                : "outline"
+                            }
+                          >
+                            {t(`status${row.status}`)}
+                          </Badge>
+                        </p>
+                        <p className="mt-1 pl-6 text-sm text-muted-foreground">
+                          {t("itemCount", { count: row.itemCount })}
+                          {row.status === DailyPackageStatus.PRODUCTIVE
+                            ? ` · ${t("todayDoneScore", {
+                                correct: row.correctCount,
+                                total: row.itemCount,
+                              })}`
+                            : row.answeredCount > 0
+                              ? ` · ${t("testProgress", {
+                                  current: row.answeredCount,
+                                  total: row.itemCount,
+                                })}`
+                              : ""}
+                        </p>
+                      </button>
+                      <div className="flex flex-wrap gap-2 sm:justify-end">
+                        {row.status === DailyPackageStatus.ACTIVE ? (
+                          <>
+                            <Button asChild size="sm">
+                              <Link href={`/daily/listen?id=${row.id}`}>
+                                <Headphones className="mr-2 h-4 w-4" />
+                                {t("openPlayer")}
+                              </Link>
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={startTest.isPending}
+                              onClick={async () => {
+                                setSelectedId(row.id);
+                                await startTest.mutateAsync({ id: row.id });
+                                setRevealed(false);
+                                await invalidate();
+                              }}
+                            >
+                              {t("startTest")}
+                            </Button>
+                          </>
+                        ) : null}
+                        {row.status === DailyPackageStatus.TESTING ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setSelectedId(row.id)}
+                          >
+                            {t("continueTest")}
+                          </Button>
+                        ) : null}
+                      </div>
+                    </div>
+                  </li>
+                );
               })}
-            </p>
-            {burndown?.estimatedDays.total != null ? (
-              <p className="mt-3 text-sm text-muted-foreground">
-                {t("burndownEstimate", { days: burndown.estimatedDays.total })}
-              </p>
-            ) : null}
+            </ul>
           </CardContent>
         </Card>
       ) : null}
 
-      {!pkg ? (
+      {!todayPkg ? (
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">{t("configTitle")}</CardTitle>
@@ -372,6 +464,7 @@ export function DailySection() {
                       vocabCount,
                       conjCount,
                     });
+                    setSelectedId(null);
                     await invalidate();
                   } catch (error) {
                     showError(error, t("createError"));
@@ -406,6 +499,7 @@ export function DailySection() {
               onClick={async () => {
                 await abandonPackage.mutateAsync({ id: pkg.id });
                 setDefaultsApplied(false);
+                setSelectedId(null);
                 await invalidate();
               }}
             >
@@ -472,7 +566,7 @@ export function DailySection() {
                         <Star className="h-3.5 w-3.5 text-orange-500" />
                       ) : null}
                       <span className="text-xs text-muted-foreground">
-                        {item.clips.length > 0 ? "🔊 ✓" : "🔊 …"}
+                        {item.answerClips.length > 0 ? "🔊 ✓" : "🔊 …"}
                       </span>
                     </div>
                   </li>
@@ -499,49 +593,6 @@ export function DailySection() {
             </div>
           </CardContent>
         </Card>
-      ) : null}
-
-      {pkg?.status === "ACTIVE" ? (
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap gap-2">
-              {(
-                [
-                  ["all", t("filterAll")],
-                  ["SATZ", t("filterSatz")],
-                  ["ENTRY", t("filterVocab")],
-                  ["CONJUGATION", t("filterConj")],
-                ] as const
-              ).map(([value, label]) => (
-                <Button
-                  key={value}
-                  size="sm"
-                  variant={playerFilter === value ? "default" : "outline"}
-                  onClick={() => setPlayerFilter(value)}
-                >
-                  {label}
-                </Button>
-              ))}
-            </div>
-            <Button
-              onClick={async () => {
-                await startTest.mutateAsync({ id: pkg.id });
-                setRevealed(false);
-                await invalidate();
-              }}
-              disabled={startTest.isPending}
-            >
-              {t("startTest")}
-            </Button>
-          </div>
-          <ListenSession
-            title={t("playerTitle")}
-            subtitle={t("playerHint")}
-            items={listenItems}
-            generating={generating}
-            onGenerateMissing={generateAudio}
-          />
-        </div>
       ) : null}
 
       {pkg?.status === "TESTING" && currentTestItem ? (
@@ -665,8 +716,7 @@ export function DailySection() {
   );
 
   async function maybeComplete(id: string) {
-    const latest = await utils.daily.today.fetch({ targetLang: focusLang });
-    const current = latest.package;
+    const current = await utils.daily.getPackage.fetch({ id });
     if (!current || current.status !== "TESTING") return;
     if (current.items.some((item) => item.testResult === "PENDING")) {
       await invalidate();

@@ -30,8 +30,11 @@ export default function ConjugationListenPage() {
     () =>
       (data?.items ?? []).map((item) => ({
         id: item.id,
-        mainText: item.mainText,
-        translationText: `${item.translationText} · ${item.tenseKey}`,
+        mainText: item.translationText,
+        translationText: item.mainText,
+        targetText: item.translationText,
+        nativeText: item.mainText,
+        badges: [item.tenseKey],
         clips: item.audioUrl
           ? [
               {

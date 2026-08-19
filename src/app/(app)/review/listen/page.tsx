@@ -43,8 +43,10 @@ export default function VocabListenPage() {
         const translation = entry.translations.find((tr) => tr.lang === focusLang);
         return {
           id: entry.id,
-          mainText: entry.mainText,
-          translationText: translation?.text ?? null,
+          mainText: translation?.text ?? entry.mainText,
+          translationText: entry.mainText,
+          targetText: translation?.text ?? entry.mainText,
+          nativeText: entry.mainText,
           clips: playbackClips({
             mainUrl: entry.mainAudioUrl,
             mainStatus: entry.mainAudioStatus,

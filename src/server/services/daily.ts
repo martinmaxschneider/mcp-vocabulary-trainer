@@ -68,6 +68,10 @@ export type HydratedDailyItem = {
   audioStatus: AudioStatus;
   audioUrl: string | null;
   audioDurationMs: number | null;
+  questionText: string | null;
+  questionTranslation: string | null;
+  questionClips: ReturnType<typeof playbackClips>;
+  answerClips: ReturnType<typeof playbackClips>;
   clips: ReturnType<typeof playbackClips>;
 };
 
@@ -524,7 +528,11 @@ export async function requestDailyAudio(
 
   await Promise.all([
     satzIds.length > 0
-      ? requestSatzAudio({ satzIds, langs: [targetLang] })
+      ? requestSatzAudio({
+          satzIds,
+          langs: [targetLang],
+          includeQuestions: true,
+        })
       : Promise.resolve(),
     entryIds.length > 0
       ? requestEntryAudio({ entryIds, langs: [targetLang] })
@@ -566,6 +574,11 @@ export async function hydrateDailyItems(
           include: {
             translations: { where: { lang: targetLang } },
             domains: { include: { domain: true } },
+            answerTo: {
+              include: {
+                translations: { where: { lang: targetLang } },
+              },
+            },
           },
         })
       : Promise.resolve([]),
@@ -611,7 +624,7 @@ export async function hydrateDailyItems(
       const translation = satz ? firstTranslation(satz.translations) : undefined;
       const domain =
         snapDomain ?? satz?.domains[0]?.domain ?? null;
-      const clips = playbackClips({
+      const answerClips = playbackClips({
         mainUrl: satz?.mainAudioUrl,
         mainStatus: satz?.mainAudioStatus,
         mainUpdatedAt: satz?.updatedAt,
@@ -621,6 +634,21 @@ export async function hydrateDailyItems(
         translationUpdatedAt: translation?.updatedAt,
         translationDurationMs: translation?.audioDurationMs,
       });
+      const question = satz?.answerTo
+        ? firstTranslation(satz.answerTo.translations)
+        : undefined;
+      const questionClips = satz?.answerTo
+        ? playbackClips({
+            mainUrl: satz.answerTo.mainAudioUrl,
+            mainStatus: satz.answerTo.mainAudioStatus,
+            mainUpdatedAt: satz.answerTo.updatedAt,
+            mainDurationMs: satz.answerTo.mainAudioDurationMs,
+            translationUrl: question?.audioUrl,
+            translationStatus: question?.audioStatus,
+            translationUpdatedAt: question?.updatedAt,
+            translationDurationMs: question?.audioDurationMs,
+          })
+        : [];
       return {
         id: item.id,
         itemType: item.itemType,
@@ -638,7 +666,11 @@ export async function hydrateDailyItems(
         audioUrl: translation?.audioUrl ?? satz?.mainAudioUrl ?? null,
         audioDurationMs:
           translation?.audioDurationMs ?? satz?.mainAudioDurationMs ?? null,
-        clips,
+        questionText: question?.text ?? satz?.answerTo?.mainText ?? null,
+        questionTranslation: satz?.answerTo?.mainText ?? null,
+        questionClips,
+        answerClips,
+        clips: [...questionClips, ...answerClips],
       };
     }
 
@@ -672,6 +704,10 @@ export async function hydrateDailyItems(
         audioStatus: translation?.audioStatus ?? AudioStatus.NONE,
         audioUrl: translation?.audioUrl ?? null,
         audioDurationMs: translation?.audioDurationMs ?? null,
+        questionText: null,
+        questionTranslation: null,
+        questionClips: [],
+        answerClips: clips,
         clips,
       };
     }
@@ -727,13 +763,17 @@ export async function hydrateDailyItems(
       audioStatus: tenseAudio?.audioStatus ?? AudioStatus.NONE,
       audioUrl: clips[0]?.url ?? null,
       audioDurationMs: tenseAudio?.audioDurationMs ?? null,
+      questionText: null,
+      questionTranslation: null,
+      questionClips: [],
+      answerClips: clips,
       clips,
     };
   });
 }
 
 export function itemsAudioReady(items: HydratedDailyItem[]): boolean {
-  return items.length > 0 && items.every((item) => item.clips.length > 0);
+  return items.length > 0 && items.every((item) => item.answerClips.length > 0);
 }
 
 export async function toHydratedPackage(
@@ -746,7 +786,7 @@ export async function toHydratedPackage(
     pkg.targetLang,
   );
   const audioReady = itemsAudioReady(items);
-  const audioDone = items.filter((item) => item.clips.length > 0).length;
+  const audioDone = items.filter((item) => item.answerClips.length > 0).length;
   return {
     id: pkg.id,
     targetLang: pkg.targetLang,
@@ -783,6 +823,60 @@ export async function findOpenPackage(
     include: { items: true },
     orderBy: { createdAt: "desc" },
   });
+}
+
+export type DailyPackageSummary = {
+  id: string;
+  date: string;
+  status: DailyPackageStatus;
+  itemCount: number;
+  satzCount: number;
+  vocabCount: number;
+  conjCount: number;
+  correctCount: number;
+  answeredCount: number;
+};
+
+export async function listPackages(
+  prisma: Db,
+  userId: string,
+  targetLang: string,
+  limit = 30,
+): Promise<DailyPackageSummary[]> {
+  const packages = await prisma.dailyPackage.findMany({
+    where: {
+      userId,
+      targetLang,
+      status: { not: DailyPackageStatus.ABANDONED },
+    },
+    orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+    take: limit,
+    include: {
+      items: {
+        select: { itemType: true, testResult: true },
+      },
+    },
+  });
+
+  return packages.map((pkg) => ({
+    id: pkg.id,
+    date: pkg.date,
+    status: pkg.status,
+    itemCount: pkg.items.length,
+    satzCount: pkg.items.filter((item) => item.itemType === DailyItemType.SATZ)
+      .length,
+    vocabCount: pkg.items.filter((item) => item.itemType === DailyItemType.ENTRY)
+      .length,
+    conjCount: pkg.items.filter(
+      (item) => item.itemType === DailyItemType.CONJUGATION,
+    ).length,
+    correctCount: pkg.items.filter(
+      (item) => item.testResult === DailyTestResult.CORRECT,
+    ).length,
+    answeredCount: pkg.items.filter(
+      (item) => item.testResult !== DailyTestResult.PENDING,
+    ).length,
+  }));
 }
 
 export async function completeDailyToLeitner(

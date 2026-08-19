@@ -117,8 +117,12 @@ export function SatzListen() {
         });
         return {
           id: satz.id,
-          mainText: satz.mainText,
-          translationText: answer?.text ?? null,
+          mainText: answer?.text ?? satz.mainText,
+          translationText: satz.mainText,
+          targetText: answer?.text ?? satz.mainText,
+          nativeText: satz.mainText,
+          questionText: question?.text ?? satz.answerTo?.mainText ?? null,
+          questionTranslation: satz.answerTo?.mainText ?? null,
           extraText: satz.answerTo
             ? `${t("answerToPrefix")}: ${satz.answerTo.mainText}`
             : null,

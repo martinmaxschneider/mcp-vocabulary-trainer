@@ -22,6 +22,7 @@ import {
   countNewPools,
   findOpenPackage,
   itemsAudioReady,
+  listPackages,
   requestDailyAudio,
   toHydratedPackage,
 } from "~/server/services/daily";
@@ -48,7 +49,7 @@ export const dailyRouter = createTRPCRouter({
     .input(z.object({ targetLang: z.string().min(1) }))
     .query(async ({ ctx, input }) => {
       const date = localDateString();
-      const [pkg, settings, pool, burndown] = await Promise.all([
+      const [pkg, settings, pool, burndown, packages] = await Promise.all([
         findOpenPackage(ctx.db, ctx.userId, input.targetLang, date),
         ctx.db.dailySettings.findUnique({
           where: {
@@ -60,6 +61,7 @@ export const dailyRouter = createTRPCRouter({
         }),
         countNewPools(ctx.db, ctx.userId, input.targetLang),
         computeBurndown(ctx.db, ctx.userId, input.targetLang),
+        listPackages(ctx.db, ctx.userId, input.targetLang),
       ]);
 
       const now = new Date();
@@ -101,7 +103,24 @@ export const dailyRouter = createTRPCRouter({
         pool,
         due: { vocab: dueVocab, satz: dueSatz, conj: dueConj },
         burndown,
+        packages,
       };
+    }),
+
+  list: publicProcedure
+    .input(
+      z.object({
+        targetLang: z.string().min(1),
+        limit: z.number().int().min(1).max(90).optional(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      return listPackages(
+        ctx.db,
+        ctx.userId,
+        input.targetLang,
+        input.limit ?? 30,
+      );
     }),
 
   getPackage: publicProcedure

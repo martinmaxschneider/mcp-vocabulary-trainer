@@ -1372,6 +1372,23 @@ const handler = createMcpHandler(
     );
 
     server.tool(
+      "list_daily_packages",
+      "Listet Tagespakete einer Zielsprache (neueste zuerst, ohne ABANDONED).",
+      {
+        targetLang: z.string(),
+        limit: z.number().int().min(1).max(90).optional(),
+      },
+      async (args) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.daily.list(args));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
       "get_daily_package",
       "Lädt ein Tagespaket per id oder über targetLang + date (YYYY-MM-DD, default: heute).",
       {
