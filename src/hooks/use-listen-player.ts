@@ -68,6 +68,7 @@ export function useListenPlayer({
   const settingsRef = useRef(settings);
   const runIdRef = useRef(0);
   const preparedKeyRef = useRef("");
+  const currentItemIdRef = useRef<string | null>(null);
   settingsRef.current = settings;
 
   const ensureAudio = () => {
@@ -118,6 +119,7 @@ export function useListenPlayer({
     ? items.find((item) => item.id === currentClip.itemId)
     : undefined;
   const currentItemId = currentItem?.id ?? null;
+  currentItemIdRef.current = currentItemId;
 
   const commitRemaining = (remainingMs: number) => {
     remainingUntilRef.current = Date.now() + remainingMs;
@@ -147,7 +149,7 @@ export function useListenPlayer({
 
   const startSession = (
     ids: string[],
-    options?: { paused?: boolean },
+    options?: { paused?: boolean; resumeItemId?: string | null },
   ) => {
     const jobs = items
       .filter((item) => ids.includes(item.id) && item.clips.length > 0)
@@ -155,9 +157,16 @@ export function useListenPlayer({
     const nextPlaylist = buildListenPlaylist(jobs, settingsRef.current);
     if (nextPlaylist.length === 0) return;
     const startPaused = options?.paused ?? false;
+    let startIndex = 0;
+    if (options?.resumeItemId) {
+      const found = nextPlaylist.findIndex(
+        (clip) => clip.itemId === options.resumeItemId,
+      );
+      if (found >= 0) startIndex = found;
+    }
     const remaining = remainingListenMs(
       nextPlaylist,
-      1,
+      startIndex + 1,
       settingsRef.current.playbackRate,
     );
     runIdRef.current += 1;
@@ -167,7 +176,7 @@ export function useListenPlayer({
     pausedRef.current = startPaused;
     setPaused(startPaused);
     setAwaitingNext(false);
-    setClipIndex(0);
+    setClipIndex(startIndex);
     if (startPaused) {
       remainingUntilRef.current = null;
       frozenRemainingRef.current = remaining;
@@ -226,6 +235,12 @@ export function useListenPlayer({
   };
 
   const readyKey = readyItems.map((item) => item.id).join("\0");
+  const structureKey = [
+    settings.repeatsPerSentence,
+    settings.listRepeats,
+    settings.mainLangOnce ? 1 : 0,
+    settings.pauseMs,
+  ].join(":");
   useEffect(() => {
     const ids = readyKey.length > 0 ? readyKey.split("\0") : [];
     if (ids.length === 0) {
@@ -242,12 +257,15 @@ export function useListenPlayer({
       setClipIndex(0);
       return;
     }
-    if (preparedKeyRef.current === readyKey) return;
+    const sameItems = preparedKeyRef.current === readyKey;
     preparedKeyRef.current = readyKey;
-    startSession(ids, { paused: true });
-    // startSession reads the latest items/settings; only the ready-id set should retrigger.
+    startSession(ids, {
+      paused: sameItems ? pausedRef.current : true,
+      resumeItemId: sameItems ? currentItemIdRef.current : null,
+    });
+    // Rebuild when the item set or playlist-shaping settings change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [readyKey]);
+  }, [readyKey, structureKey]);
 
   const jumpToItem = (itemId: string, options?: { paused?: boolean }) => {
     if (!playlist) return;
