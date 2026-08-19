@@ -105,6 +105,7 @@
     "openOffline": "Offline-Player",
     "pwaLangLabel": "Zielsprache",
     "pwaDownload": "Aktuelles Paket laden",
+    "pwaRefreshApp": "App aktualisieren",
     "pwaNeedActive": "Kein gestartetes Paket für diese Sprache. Am Mac Daily starten, dann hier laden.",
     "pwaEmptyHint": "Sprache wählen und aktuelles Paket laden – danach geht der Player ohne Mac."
   },

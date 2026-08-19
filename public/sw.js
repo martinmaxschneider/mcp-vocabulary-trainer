@@ -29,6 +29,17 @@ self.addEventListener("message", (event) => {
   if (event.data?.type === "CACHE_SHELL") {
     event.waitUntil(cacheShell());
   }
+  if (event.data?.type === "FLUSH_SHELL") {
+    event.waitUntil(
+      (async () => {
+        await Promise.all([
+          caches.delete(SHELL_CACHE),
+          caches.delete(STATIC_CACHE),
+        ]);
+        event.ports[0]?.postMessage({ ok: true });
+      })(),
+    );
+  }
 });
 
 self.addEventListener("fetch", (event) => {

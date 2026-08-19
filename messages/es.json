@@ -105,6 +105,7 @@
     "openOffline": "Reproductor offline",
     "pwaLangLabel": "Idioma objetivo",
     "pwaDownload": "Descargar el paquete actual",
+    "pwaRefreshApp": "Actualizar la app",
     "pwaNeedActive": "No hay un paquete iniciado para este idioma. Inicia Daily en el Mac y luego descarga aquí.",
     "pwaEmptyHint": "Elige el idioma y descarga el paquete actual: después el reproductor funciona sin el Mac."
   },

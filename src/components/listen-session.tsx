@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Libre_Baskerville } from "next/font/google";
@@ -75,13 +75,39 @@ export function ListenSession({
   const t = useTranslations("sentences");
   const player = useListenPlayer({ items, onFirstPassComplete });
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [queueOpen, setQueueOpen] = useState(true);
+  const [queueOpen, setQueueOpen] = useState(!compact);
   const activeRowRef = useRef<HTMLButtonElement | null>(null);
+  const dockRef = useRef<HTMLDivElement | null>(null);
+  const chromeTopRef = useRef<HTMLDivElement | null>(null);
+  const chromeBottomRef = useRef<HTMLDivElement | null>(null);
+  const [dockHeight, setDockHeight] = useState(0);
 
   useEffect(() => {
     if (!queueOpen) return;
     activeRowRef.current?.scrollIntoView({ block: "nearest" });
   }, [player.currentItemId, queueOpen]);
+
+  useLayoutEffect(() => {
+    if (!compact) return;
+    const top = chromeTopRef.current;
+    const bottom = chromeBottomRef.current;
+    if (!top || !bottom) return;
+    const update = () => {
+      const safe = dockRef.current
+        ? parseFloat(getComputedStyle(dockRef.current).paddingBottom) || 0
+        : 0;
+      setDockHeight(
+        top.getBoundingClientRect().height +
+          bottom.getBoundingClientRect().height +
+          safe,
+      );
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(top);
+    observer.observe(bottom);
+    return () => observer.disconnect();
+  }, [compact]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -182,7 +208,7 @@ export function ListenSession({
   const clipDone = clipTotal > 0 ? player.clipIndex + 1 : 0;
 
   return (
-    <div className={compact ? "space-y-0" : "space-y-8"}>
+    <div className={compact ? "flex min-h-0 flex-1 flex-col" : "space-y-8"}>
       {compact ? null : (
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -204,11 +230,16 @@ export function ListenSession({
 
       <section
         className={cn(
-          "overflow-hidden",
-          compact ? "text-foreground" : "cahier-card",
+          compact
+            ? "flex min-h-0 flex-1 flex-col text-foreground"
+            : "cahier-card overflow-hidden",
         )}
       >
-        <div className={cn(compact ? "p-4" : "space-y-6 p-6 sm:p-10")}>
+        <div
+          className={cn(
+            compact ? "flex min-h-0 flex-1 flex-col p-4" : "space-y-6 p-6 sm:p-10",
+          )}
+        >
           <div
             className={cn(
               "flex flex-wrap items-center justify-between text-sm",
@@ -249,9 +280,14 @@ export function ListenSession({
             </div>
           </div>
 
-          <div className={compact ? "mt-4" : undefined}>
-            <div className="relative">
-              <div className={settingsOpen ? "invisible" : undefined}>
+          <div className={compact ? "mt-4 flex min-h-0 flex-1 flex-col" : undefined}>
+            <div className={cn("relative", compact && "flex min-h-0 flex-1 flex-col")}>
+              <div
+                className={cn(
+                  settingsOpen && "invisible",
+                  compact && "flex flex-1 flex-col justify-center",
+                )}
+              >
                 {displayItem?.badges && displayItem.badges.length > 0 ? (
                   <div className={cn("flex flex-wrap gap-2", compact && "mb-3")}>
                     {displayItem.badges.map((badge) => (
@@ -266,10 +302,13 @@ export function ListenSession({
                   <div
                     className={cn(
                       "flex flex-col",
-                      compact ? "gap-4 min-h-[8.5rem]" : "gap-4 min-h-[13.5rem] sm:min-h-[16rem]",
-                      displayItem.questionText
-                        ? "justify-start"
-                        : "justify-center",
+                      compact
+                        ? "gap-4"
+                        : "min-h-[13.5rem] gap-4 sm:min-h-[16rem]",
+                      !compact &&
+                        (displayItem.questionText
+                          ? "justify-start"
+                          : "justify-center"),
                     )}
                   >
                     {displayItem.questionText ? (
@@ -358,247 +397,449 @@ export function ListenSession({
               ) : null}
             </div>
 
-            <div
-              className={cn(
-                "grid grid-cols-3 items-center border-t border-border/60 [touch-action:manipulation]",
-                compact ? "mt-4 pt-5" : "pt-5",
-              )}
-            >
-              <div className="flex items-center justify-end gap-1">
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="h-12 w-12 rounded-full"
-                  disabled={!canPlay}
-                  onClick={player.repeatSentence}
-                  aria-label={t("listenPlayerRepeat")}
-                >
-                  <Repeat className="h-5 w-5" />
-                </Button>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="h-12 w-12 rounded-full"
-                  disabled={!canPrev}
-                  onClick={player.goPrevSentence}
-                  aria-label={t("listenPlayerPrev")}
-                >
-                  <SkipBack className="h-5 w-5" />
-                </Button>
-              </div>
-              <div className="flex justify-center">
-                <Button
-                  type="button"
-                  size="icon"
-                  className={`rounded-full shadow-lg ${
-                    compact ? "h-16 w-16" : "h-14 w-14"
-                  } ${waiting ? "animate-pulse" : ""}`}
-                  disabled={!canPlay}
-                  onClick={
-                    waiting ? player.goNextSentence : player.togglePause
-                  }
-                  aria-label={
-                    waiting
-                      ? t("listenPlayerNext")
-                      : player.paused || !player.sessionActive
-                        ? t("listenPlayerPlay")
-                        : t("listenPlayerPause")
-                  }
-                >
-                  {player.paused || waiting || !player.sessionActive ? (
-                    <Play className="h-6 w-6 fill-current" />
-                  ) : (
-                    <Pause className="h-6 w-6 fill-current" />
-                  )}
-                </Button>
-              </div>
-              <div className="flex items-center justify-start gap-1">
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="h-12 w-12 rounded-full"
-                  disabled={!canNext && !player.awaitingNext}
-                  onClick={player.goNextSentence}
-                  aria-label={t("listenPlayerNext")}
-                >
-                  <SkipForward className="h-5 w-5" />
-                </Button>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className={cn(
-                    "h-12 w-12 rounded-full",
-                    settingsOpen ? "bg-accent text-accent-foreground" : "",
-                  )}
-                  aria-expanded={settingsOpen}
-                  aria-label={t("listenSettings")}
-                  onClick={toggleSettings}
-                >
-                  <Settings className="h-5 w-5" />
-                </Button>
-              </div>
-            </div>
+            {compact ? null : (
+              <ListenTransportControls
+                canPlay={canPlay}
+                canPrev={canPrev}
+                canNext={canNext}
+                waiting={waiting}
+                awaitingNext={player.awaitingNext}
+                paused={player.paused}
+                sessionActive={player.sessionActive}
+                settingsOpen={settingsOpen}
+                onRepeat={player.repeatSentence}
+                onPrev={player.goPrevSentence}
+                onToggle={
+                  waiting ? player.goNextSentence : player.togglePause
+                }
+                onNext={player.goNextSentence}
+                onSettings={toggleSettings}
+              />
+            )}
           </div>
         </div>
+
+        {compact ? (
+          <div
+            aria-hidden
+            className="shrink-0"
+            style={{ height: dockHeight }}
+          />
+        ) : null}
 
         <div
+          ref={dockRef}
           className={cn(
-            "h-1",
-            compact
-              ? "bg-muted"
-              : "bg-[var(--cahier-ink,#1e3a5f)]/8 dark:bg-white/10",
+            compact &&
+              "fixed inset-x-0 bottom-0 z-30 mx-auto flex w-full max-w-lg flex-col overflow-hidden bg-background pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_28px_rgba(0,0,0,0.08)] transition-[height] duration-300 ease-out",
           )}
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={Math.round(percent)}
+          style={
+            compact
+              ? {
+                  height: queueOpen
+                    ? "calc(100dvh - var(--pwa-nav-bottom, calc(env(safe-area-inset-top) + 3.75rem)))"
+                    : dockHeight || undefined,
+                }
+              : undefined
+          }
         >
-          <div
-            className={cn(
-              "h-full transition-[width] duration-700 ease-linear",
-              compact
-                ? "bg-primary"
-                : "bg-[var(--cahier-red,#d45d5d)]/80",
-            )}
-            style={{ width: `${percent}%` }}
-          />
-        </div>
-
-        <div className="border-t border-border/60">
-          <div
-            className={cn(
-              "flex flex-wrap items-center justify-between gap-3",
-              compact ? "px-4 py-2.5" : "px-6 py-3 sm:px-10",
-            )}
-          >
-            <span
-              className={cn(
-                "flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em]",
-                compact ? "text-muted-foreground" : "text-[#3d4f66]",
-              )}
-            >
-              {t("listenQueue")}
-              <span
-                className={cn(
-                  "tabular-nums",
+          {compact ? (
+            <>
+              <div ref={chromeTopRef}>
+                <ListenQueueHeader
                   compact
-                    ? "text-primary"
-                    : "text-[var(--cahier-red,#d45d5d)]",
-                )}
-              >
-                {currentQueueIndex >= 0 ? currentQueueIndex + 1 : 0} /{" "}
-                {queueItems.length}
-              </span>
-            </span>
-            <div className="flex items-center gap-2">
-              {filters ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  <SlidersHorizontal
-                    className={cn(
-                      "h-3.5 w-3.5",
-                      compact ? "text-muted-foreground" : "text-[#3d4f66]",
-                    )}
-                  />
-                  {filters}
-                </div>
-              ) : null}
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                className={cn(
-                  "h-8 w-8 rounded-full",
-                  compact ? "text-muted-foreground" : "text-[#3d4f66]",
-                )}
-                aria-expanded={queueOpen}
-                aria-label={t("listenQueue")}
-                onClick={() => setQueueOpen((open) => !open)}
-              >
-                <X
-                  className={cn(
-                    "h-4 w-4 transition-transform",
-                    queueOpen ? "rotate-0" : "rotate-45",
-                  )}
+                  currentIndex={currentQueueIndex}
+                  total={queueItems.length}
+                  filters={filters}
+                  open={queueOpen}
+                  onToggle={() => setQueueOpen((open) => !open)}
                 />
-              </Button>
-            </div>
-          </div>
-          {queueOpen ? (
-            <ul
-              className={cn(
-                "overflow-y-auto border-t border-border/60",
-                compact
-                  ? "space-y-0.5 max-h-[45dvh] px-3 pr-4 pb-3 pt-1.5"
-                  : "space-y-1 max-h-80 px-6 pr-7 pb-4 pt-2 sm:px-10 sm:pr-11",
-              )}
-            >
-              {queueItems.map((item, index) => {
-                const active =
-                  item.id === (player.currentItemId ?? displayItem?.id);
-                const past =
-                  currentQueueIndex >= 0 && index < currentQueueIndex;
-                return (
-                  <li key={item.id}>
-                    <button
-                      type="button"
-                      ref={active ? activeRowRef : undefined}
-                      onClick={() =>
-                        player.jumpToItem(item.id, { paused: player.paused })
-                      }
-                      disabled={!player.sessionActive}
-                      className={cn(
-                        "flex w-full items-start gap-3 rounded-lg border-2 text-left transition-colors",
-                        compact ? "px-2.5 py-1.5" : "px-3 py-2",
-                        active
-                          ? compact
-                            ? "border-primary bg-primary/10"
-                            : "border-[#1e3a5f] bg-[#1e3a5f]/10"
-                          : "border-transparent hover:bg-muted/60",
-                        past && !active ? "opacity-50" : "",
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "w-6 shrink-0 pt-0.5 text-xs tabular-nums",
-                          compact ? "text-muted-foreground" : "text-[#3d4f66]",
-                        )}
-                      >
-                        {index + 1}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span
-                          className={cn(
-                            "block truncate font-medium",
-                            compact ? "text-foreground" : "text-[#1e3a5f]",
-                          )}
-                        >
-                          {listenTargetText(item)}
-                        </span>
-                        {listenNativeText(item) ? (
-                          <span
-                            className={cn(
-                              "mt-0.5 block truncate text-sm",
-                              compact
-                                ? "text-muted-foreground"
-                                : "text-[#3d4f66]",
-                            )}
-                          >
-                            {listenNativeText(item)}
-                          </span>
-                        ) : null}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : null}
+              </div>
+              <div
+                className="grid min-h-0 flex-1 transition-[grid-template-rows] duration-300 ease-out"
+                style={{ gridTemplateRows: queueOpen ? "1fr" : "0fr" }}
+              >
+                <div className="min-h-0 overflow-hidden">
+                  <ListenQueueList
+                    compact
+                    items={queueItems}
+                    currentItemId={player.currentItemId ?? displayItem?.id}
+                    currentIndex={currentQueueIndex}
+                    sessionActive={player.sessionActive}
+                    activeRowRef={activeRowRef}
+                    onJump={(id) =>
+                      player.jumpToItem(id, { paused: player.paused })
+                    }
+                  />
+                </div>
+              </div>
+              <div ref={chromeBottomRef}>
+                <ListenProgress compact percent={percent} />
+                <ListenTransportControls
+                  compact
+                  canPlay={canPlay}
+                  canPrev={canPrev}
+                  canNext={canNext}
+                  waiting={waiting}
+                  awaitingNext={player.awaitingNext}
+                  paused={player.paused}
+                  sessionActive={player.sessionActive}
+                  settingsOpen={settingsOpen}
+                  onRepeat={player.repeatSentence}
+                  onPrev={player.goPrevSentence}
+                  onToggle={
+                    waiting ? player.goNextSentence : player.togglePause
+                  }
+                  onNext={player.goNextSentence}
+                  onSettings={toggleSettings}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <ListenProgress percent={percent} />
+              <div className="border-t border-border/60">
+                <ListenQueueHeader
+                  currentIndex={currentQueueIndex}
+                  total={queueItems.length}
+                  filters={filters}
+                  open={queueOpen}
+                  onToggle={() => setQueueOpen((open) => !open)}
+                />
+                {queueOpen ? (
+                  <ListenQueueList
+                    items={queueItems}
+                    currentItemId={player.currentItemId ?? displayItem?.id}
+                    currentIndex={currentQueueIndex}
+                    sessionActive={player.sessionActive}
+                    activeRowRef={activeRowRef}
+                    onJump={(id) =>
+                      player.jumpToItem(id, { paused: player.paused })
+                    }
+                  />
+                ) : null}
+              </div>
+            </>
+          )}
         </div>
       </section>
+    </div>
+  );
+}
+
+function ListenProgress({
+  compact = false,
+  percent,
+}: {
+  compact?: boolean;
+  percent: number;
+}) {
+  return (
+    <div
+      className={cn(
+        "h-1",
+        compact
+          ? "bg-muted"
+          : "bg-[var(--cahier-ink,#1e3a5f)]/8 dark:bg-white/10",
+      )}
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(percent)}
+    >
+      <div
+        className={cn(
+          "h-full transition-[width] duration-700 ease-linear",
+          compact ? "bg-primary" : "bg-[var(--cahier-red,#d45d5d)]/80",
+        )}
+        style={{ width: `${percent}%` }}
+      />
+    </div>
+  );
+}
+
+function ListenQueueHeader({
+  compact = false,
+  currentIndex,
+  total,
+  filters,
+  open,
+  onToggle,
+}: {
+  compact?: boolean;
+  currentIndex: number;
+  total: number;
+  filters?: React.ReactNode;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const t = useTranslations("sentences");
+  return (
+    <div
+      className={cn(
+        "flex flex-wrap items-center justify-between gap-3",
+        compact ? "px-4 py-2.5" : "px-6 py-3 sm:px-10",
+        compact && "border-t border-border/60",
+      )}
+    >
+      <span
+        className={cn(
+          "flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em]",
+          compact ? "text-muted-foreground" : "text-[#3d4f66]",
+        )}
+      >
+        {t("listenQueue")}
+        <span
+          className={cn(
+            "tabular-nums",
+            compact ? "text-primary" : "text-[var(--cahier-red,#d45d5d)]",
+          )}
+        >
+          {currentIndex >= 0 ? currentIndex + 1 : 0} / {total}
+        </span>
+      </span>
+      <div className="flex items-center gap-2">
+        {filters ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <SlidersHorizontal
+              className={cn(
+                "h-3.5 w-3.5",
+                compact ? "text-muted-foreground" : "text-[#3d4f66]",
+              )}
+            />
+            {filters}
+          </div>
+        ) : null}
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className={cn(
+            "h-8 w-8 rounded-full",
+            compact ? "text-muted-foreground" : "text-[#3d4f66]",
+          )}
+          aria-expanded={open}
+          aria-label={t("listenQueue")}
+          onClick={onToggle}
+        >
+          <X
+            className={cn(
+              "h-4 w-4 transition-transform",
+              open ? "rotate-0" : "rotate-45",
+            )}
+          />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function ListenQueueList({
+  compact = false,
+  items,
+  currentItemId,
+  currentIndex,
+  sessionActive,
+  activeRowRef,
+  onJump,
+}: {
+  compact?: boolean;
+  items: ListenItem[];
+  currentItemId?: string;
+  currentIndex: number;
+  sessionActive: boolean;
+  activeRowRef: React.RefObject<HTMLButtonElement | null>;
+  onJump: (id: string) => void;
+}) {
+  return (
+    <ul
+      className={cn(
+        "border-t border-border/60",
+        compact
+          ? "h-full space-y-0.5 overflow-y-auto px-3 pr-4 pb-2 pt-1.5"
+          : "max-h-80 space-y-1 overflow-y-auto px-6 pr-7 pb-4 pt-2 sm:px-10 sm:pr-11",
+      )}
+    >
+      {items.map((item, index) => {
+        const active = item.id === currentItemId;
+        const past = currentIndex >= 0 && index < currentIndex;
+        return (
+          <li key={item.id}>
+            <button
+              type="button"
+              ref={active ? activeRowRef : undefined}
+              onClick={() => onJump(item.id)}
+              disabled={!sessionActive}
+              className={cn(
+                "flex w-full items-start gap-3 rounded-lg border-2 text-left transition-colors",
+                compact ? "px-2.5 py-1.5" : "px-3 py-2",
+                active
+                  ? compact
+                    ? "border-primary bg-primary/10"
+                    : "border-[#1e3a5f] bg-[#1e3a5f]/10"
+                  : "border-transparent hover:bg-muted/60",
+                past && !active ? "opacity-50" : "",
+              )}
+            >
+              <span
+                className={cn(
+                  "w-6 shrink-0 pt-0.5 text-xs tabular-nums",
+                  compact ? "text-muted-foreground" : "text-[#3d4f66]",
+                )}
+              >
+                {index + 1}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span
+                  className={cn(
+                    "block truncate font-medium",
+                    compact ? "text-foreground" : "text-[#1e3a5f]",
+                  )}
+                >
+                  {listenTargetText(item)}
+                </span>
+                {listenNativeText(item) ? (
+                  <span
+                    className={cn(
+                      "mt-0.5 block truncate text-sm",
+                      compact ? "text-muted-foreground" : "text-[#3d4f66]",
+                    )}
+                  >
+                    {listenNativeText(item)}
+                  </span>
+                ) : null}
+              </span>
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function ListenTransportControls({
+  compact = false,
+  canPlay,
+  canPrev,
+  canNext,
+  waiting,
+  awaitingNext,
+  paused,
+  sessionActive,
+  settingsOpen,
+  onRepeat,
+  onPrev,
+  onToggle,
+  onNext,
+  onSettings,
+}: {
+  compact?: boolean;
+  canPlay: boolean;
+  canPrev: boolean;
+  canNext: boolean;
+  waiting: boolean;
+  awaitingNext: boolean;
+  paused: boolean;
+  sessionActive: boolean;
+  settingsOpen: boolean;
+  onRepeat: () => void;
+  onPrev: () => void;
+  onToggle: () => void;
+  onNext: () => void;
+  onSettings: () => void;
+}) {
+  const t = useTranslations("sentences");
+  const sideBtn = compact
+    ? "h-14 w-14 rounded-full [&_svg]:size-6"
+    : "h-12 w-12 rounded-full [&_svg]:size-5";
+  return (
+    <div
+      className={cn(
+        "grid grid-cols-3 items-center [touch-action:manipulation]",
+        compact
+          ? "border-t border-border/60 px-1 pb-2 pt-3"
+          : "border-t border-border/60 pt-5",
+      )}
+    >
+      <div className="flex items-center justify-end gap-0.5">
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className={sideBtn}
+          disabled={!canPlay}
+          onClick={onRepeat}
+          aria-label={t("listenPlayerRepeat")}
+        >
+          <Repeat />
+        </Button>
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className={sideBtn}
+          disabled={!canPrev}
+          onClick={onPrev}
+          aria-label={t("listenPlayerPrev")}
+        >
+          <SkipBack />
+        </Button>
+      </div>
+      <div className="flex justify-center">
+        <Button
+          type="button"
+          size="icon"
+          className={cn(
+            "rounded-full shadow-lg",
+            compact
+              ? "h-20 w-20 [&_svg]:size-8"
+              : "h-14 w-14 [&_svg]:size-6",
+            waiting && "animate-pulse",
+          )}
+          disabled={!canPlay}
+          onClick={onToggle}
+          aria-label={
+            waiting
+              ? t("listenPlayerNext")
+              : paused || !sessionActive
+                ? t("listenPlayerPlay")
+                : t("listenPlayerPause")
+          }
+        >
+          {paused || waiting || !sessionActive ? (
+            <Play className="fill-current" />
+          ) : (
+            <Pause className="fill-current" />
+          )}
+        </Button>
+      </div>
+      <div className="flex items-center justify-start gap-0.5">
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className={sideBtn}
+          disabled={!canNext && !awaitingNext}
+          onClick={onNext}
+          aria-label={t("listenPlayerNext")}
+        >
+          <SkipForward />
+        </Button>
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className={cn(
+            sideBtn,
+            settingsOpen ? "bg-accent text-accent-foreground" : "",
+          )}
+          aria-expanded={settingsOpen}
+          aria-label={t("listenSettings")}
+          onClick={onSettings}
+        >
+          <Settings />
+        </Button>
+      </div>
     </div>
   );
 }

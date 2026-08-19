@@ -105,6 +105,7 @@
     "openOffline": "Offline player",
     "pwaLangLabel": "Target language",
     "pwaDownload": "Download current pack",
+    "pwaRefreshApp": "Update app",
     "pwaNeedActive": "No started pack for this language. Start Daily on the Mac, then download here.",
     "pwaEmptyHint": "Pick a language and download the current pack — then the player works without the Mac."
   },

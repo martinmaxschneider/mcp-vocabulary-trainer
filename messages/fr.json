@@ -105,6 +105,7 @@
     "openOffline": "Lecteur hors ligne",
     "pwaLangLabel": "Langue cible",
     "pwaDownload": "Télécharger le paquet actuel",
+    "pwaRefreshApp": "Mettre à jour l'app",
     "pwaNeedActive": "Aucun paquet démarré pour cette langue. Lance Daily sur le Mac, puis télécharge ici.",
     "pwaEmptyHint": "Choisis la langue et télécharge le paquet actuel — ensuite le lecteur marche sans le Mac."
   },

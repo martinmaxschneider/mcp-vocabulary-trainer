@@ -6,6 +6,8 @@ export const OFFLINE_DB_VERSION = 1;
 export const OFFLINE_STORE = "daily";
 export const OFFLINE_RECORD_ID = "current";
 export const OFFLINE_AUDIO_CACHE = "sprachen-daily-audio-v1";
+export const PWA_SHELL_CACHE = "sprachen-shell-v1";
+export const PWA_STATIC_CACHE = "sprachen-static-v1";
 
 export type OfflineDailyRecord = {
   id: typeof OFFLINE_RECORD_ID;
@@ -138,6 +140,31 @@ export function requestShellCache(): void {
   void navigator.serviceWorker.ready.then((registration) => {
     registration.active?.postMessage({ type: "CACHE_SHELL" });
   });
+}
+
+export async function flushPwaShell(): Promise<void> {
+  if (typeof window === "undefined") return;
+
+  await Promise.allSettled([
+    caches.delete(PWA_SHELL_CACHE),
+    caches.delete(PWA_STATIC_CACHE),
+  ]);
+
+  if ("serviceWorker" in navigator) {
+    const registration = await navigator.serviceWorker.ready.catch(() => null);
+    if (registration?.active) {
+      await new Promise<void>((resolve) => {
+        const channel = new MessageChannel();
+        const finish = () => resolve();
+        channel.port1.onmessage = finish;
+        window.setTimeout(finish, 1500);
+        registration.active.postMessage({ type: "FLUSH_SHELL" }, [channel.port2]);
+      });
+      await registration.update().catch(() => undefined);
+    }
+  }
+
+  window.location.reload();
 }
 
 export async function saveDailyOffline(

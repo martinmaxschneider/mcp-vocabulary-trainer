@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
   Check,
@@ -9,6 +16,7 @@ import {
   Download,
   Headphones,
   Loader2,
+  RefreshCw,
 } from "lucide-react";
 import { DailyPackageStatus } from "@prisma/client";
 import { api } from "~/trpc/client";
@@ -25,6 +33,7 @@ import { useToast } from "~/hooks/use-toast";
 import { TARGET_LANGS, getTargetLang } from "~/lib/languages";
 import { toDailyListenItem } from "~/lib/daily-listen";
 import {
+  flushPwaShell,
   hydrateOfflineItems,
   loadOfflineDaily,
   revokeBlobUrls,
@@ -76,6 +85,7 @@ export function DailyPwa() {
   const [downloadState, setDownloadState] = useState<DownloadState>({
     phase: "idle",
   });
+  const [refreshing, setRefreshing] = useState(false);
   const [ready, setReady] = useState(true);
   const [record, setRecord] = useState<OfflineDailyRecord | null>(
     MOCK_OFFLINE_RECORD,
@@ -85,6 +95,28 @@ export function DailyPwa() {
   );
   const blobUrlsRef = useRef<string[]>([]);
   const doneTimerRef = useRef<number | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    const header = headerRef.current;
+    if (!root || !header) return;
+    const update = () => {
+      root.style.setProperty(
+        "--pwa-nav-bottom",
+        `${Math.round(header.getBoundingClientRect().bottom)}px`,
+      );
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(header);
+    window.addEventListener("resize", update);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, []);
 
   const applyRecord = useCallback(async (stored: OfflineDailyRecord | null) => {
     revokeBlobUrls(blobUrlsRef.current);
@@ -186,9 +218,15 @@ export function DailyPwa() {
       })}`;
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col">
-      <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur">
-        <div className="flex items-center gap-2 px-3 py-2">
+    <div
+      ref={rootRef}
+      className="mx-auto flex min-h-dvh w-full max-w-lg flex-col"
+    >
+      <header
+        ref={headerRef}
+        className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur"
+      >
+        <div className="flex items-center gap-1.5 px-3 py-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -237,9 +275,24 @@ export function DailyPwa() {
             type="button"
             size="icon"
             variant="ghost"
+            className="h-11 w-11 shrink-0 rounded-full [touch-action:manipulation]"
+            onClick={() => {
+              if (refreshing) return;
+              setRefreshing(true);
+              void flushPwaShell().finally(() => setRefreshing(false));
+            }}
+            disabled={refreshing || saving}
+            aria-label={t("pwaRefreshApp")}
+          >
+            <RefreshCw className={cn("h-5 w-5", refreshing && "animate-spin")} />
+          </Button>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
             className="relative h-11 w-11 shrink-0 rounded-full [touch-action:manipulation]"
             onClick={() => void download()}
-            disabled={saving}
+            disabled={saving || refreshing}
             aria-label={t("pwaDownload")}
           >
             {downloadState.phase === "saving" ? (
@@ -261,7 +314,7 @@ export function DailyPwa() {
         ) : null}
       </header>
 
-      <main className="flex-1 pb-4">
+      <main className="flex min-h-0 flex-1 flex-col pb-3">
         {!ready ? (
           <p className="px-4 py-10 text-sm text-muted-foreground">
             {tCommon("loading")}
