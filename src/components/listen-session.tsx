@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { Libre_Baskerville } from "next/font/google";
 import {
   Headphones,
   Pause,
@@ -11,6 +12,7 @@ import {
   Settings,
   SkipBack,
   SkipForward,
+  SlidersHorizontal,
   X,
 } from "lucide-react";
 import { Button } from "~/components/ui/button";
@@ -24,7 +26,6 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import { Badge } from "~/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { formatListenClock } from "~/lib/audio-duration";
 import {
   SATZ_LISTEN_LIST_REPEAT_OPTIONS,
@@ -42,7 +43,11 @@ import { cn } from "~/lib/utils";
 
 export type { ListenItem };
 
-type Panel = "" | "filters" | "queue";
+const libreBaskerville = Libre_Baskerville({
+  subsets: ["latin", "latin-ext"],
+  weight: ["400", "700"],
+  style: ["normal", "italic"],
+});
 
 export function ListenSession({
   title,
@@ -67,8 +72,57 @@ export function ListenSession({
 }) {
   const t = useTranslations("sentences");
   const player = useListenPlayer({ items, onFirstPassComplete });
-  const [panel, setPanel] = useState<Panel>("");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [queueOpen, setQueueOpen] = useState(true);
+  const activeRowRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (!queueOpen) return;
+    activeRowRef.current?.scrollIntoView({ block: "nearest" });
+  }, [player.currentItemId, queueOpen]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (event.key === " " || event.key === "k") {
+        event.preventDefault();
+        if (player.awaitingNext) player.goNextSentence();
+        else player.togglePause();
+        return;
+      }
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        player.goNextSentence();
+        return;
+      }
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        player.goPrevSentence();
+        return;
+      }
+      if (event.key === "r") {
+        event.preventDefault();
+        player.repeatSentence();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [
+    player.togglePause,
+    player.goNextSentence,
+    player.goPrevSentence,
+    player.repeatSentence,
+    player.awaitingNext,
+  ]);
 
   const displayItem = player.currentItem ?? items[0] ?? null;
   const currentTarget = displayItem ? listenTargetText(displayItem) : "";
@@ -118,9 +172,8 @@ export function ListenSession({
         )
       : 0;
 
-  const togglePanel = (next: Panel) => {
-    setSettingsOpen(false);
-    setPanel((current) => (current === next ? "" : next));
+  const toggleSettings = () => {
+    setSettingsOpen((open) => !open);
   };
 
   const clipTotal = player.playlist?.length ?? 0;
@@ -174,10 +227,7 @@ export function ListenSession({
                 )}
                 aria-expanded={settingsOpen}
                 aria-label={t("listenSettings")}
-                onClick={() => {
-                  setPanel("");
-                  setSettingsOpen((open) => !open);
-                }}
+                onClick={toggleSettings}
               >
                 <Settings className="h-4 w-4" />
               </Button>
@@ -202,28 +252,43 @@ export function ListenSession({
               ) : null}
 
               {displayItem ? (
-                <div className="space-y-4">
+                <div
+                  className={cn(
+                    "flex min-h-[13.5rem] flex-col gap-4 sm:min-h-[16rem]",
+                    displayItem.questionText
+                      ? "justify-start"
+                      : "justify-center",
+                  )}
+                >
                   {displayItem.questionText ? (
-                    <div className="max-w-[85%] rounded-2xl rounded-bl-md border border-[#1e3a5f]/25 bg-[var(--cahier-paper,#fff)] px-4 py-3">
-                      <p className="text-base font-medium leading-snug text-[#1e3a5f]">
-                        {displayItem.questionText}
+                    <div className="max-w-[85%] rounded-xl border border-[#3d4f66]/35 bg-[#3d4f66]/10 px-4 py-3">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#3d4f66]">
+                        {t("listenIntro")}
                       </p>
                       {displayItem.questionTranslation ? (
-                        <p className="mt-1 text-sm text-[#3d4f66]">
+                        <p className="mt-1.5 text-sm font-medium text-orange-500/80">
                           {displayItem.questionTranslation}
                         </p>
                       ) : null}
+                      <p className="mt-1 text-base font-medium leading-snug text-[#1e3a5f]">
+                        {displayItem.questionText}
+                      </p>
                     </div>
                   ) : null}
                   <div>
-                    <p className="text-3xl font-semibold leading-snug text-[#1e3a5f] sm:text-5xl">
-                      {currentTarget}
-                    </p>
                     {currentNative ? (
-                      <p className="mt-2 text-lg text-[#3d4f66] sm:text-xl">
+                      <p className="mb-2 text-lg font-medium text-orange-500/80 sm:text-xl">
                         {currentNative}
                       </p>
                     ) : null}
+                    <p
+                      className={cn(
+                        "text-3xl font-semibold leading-snug text-[#1e3a5f] sm:text-5xl",
+                        libreBaskerville.className,
+                      )}
+                    >
+                      {currentTarget}
+                    </p>
                   </div>
                 </div>
               ) : (
@@ -291,28 +356,6 @@ export function ListenSession({
                   <SkipForward className="h-5 w-5" />
                 </Button>
               </div>
-
-              <div className="flex items-center justify-end gap-4">
-                <div className="min-w-[4.5rem] text-right">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#3d4f66]">
-                    {t("listenPlayerLeft")}
-                  </p>
-                  <p className="font-mono text-2xl font-semibold tabular-nums leading-none text-[#1e3a5f]">
-                    {formatListenClock(player.sessionRemainingMs)}
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="h-10 w-10 rounded-full"
-                  disabled={!player.sessionActive}
-                  onClick={player.resetToStart}
-                  aria-label={t("listenPlayerClose")}
-                >
-                  <X className="h-5 w-5" />
-                </Button>
-              </div>
             </>
           )}
         </div>
@@ -330,83 +373,83 @@ export function ListenSession({
           />
         </div>
 
-        <div className="border-t border-border/60 px-6 py-5 sm:px-10">
-          <Tabs
-            value={panel || "none"}
-            onValueChange={(value) => togglePanel(value as Panel)}
-          >
-            <TabsList>
+        <div className="border-t border-border/60">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3 sm:px-10">
+            <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#3d4f66]">
+              {t("listenQueue")}
+              <span className="tabular-nums text-[var(--cahier-red,#d45d5d)]">
+                {currentQueueIndex >= 0 ? currentQueueIndex + 1 : 0} /{" "}
+                {queueItems.length}
+              </span>
+            </span>
+            <div className="flex items-center gap-2">
               {filters ? (
-                <TabsTrigger
-                  value="filters"
-                  onPointerDown={(event) => {
-                    if (panel === "filters") {
-                      event.preventDefault();
-                      setPanel("");
-                    }
-                  }}
-                >
-                  {t("listenFilterTab")}
-                </TabsTrigger>
+                <div className="flex flex-wrap items-center gap-2">
+                  <SlidersHorizontal className="h-3.5 w-3.5 text-[#3d4f66]" />
+                  {filters}
+                </div>
               ) : null}
-              <TabsTrigger
-                value="queue"
-                onPointerDown={(event) => {
-                  if (panel === "queue") {
-                    event.preventDefault();
-                    setPanel("");
-                  }
-                }}
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 rounded-full text-[#3d4f66]"
+                aria-expanded={queueOpen}
+                aria-label={t("listenQueue")}
+                onClick={() => setQueueOpen((open) => !open)}
               >
-                {t("listenQueue")}
-              </TabsTrigger>
-            </TabsList>
-            {filters ? (
-              <TabsContent value="filters" className="pt-3">
-                {filters}
-              </TabsContent>
-            ) : null}
-            <TabsContent value="queue">
-              <ul className="mt-2 max-h-80 space-y-1 overflow-y-auto pr-1">
-                {queueItems.map((item, index) => {
-                  const active =
-                    item.id === (player.currentItemId ?? displayItem?.id);
-                  const past =
-                    currentQueueIndex >= 0 && index < currentQueueIndex;
-                  return (
-                    <li key={item.id}>
-                      <button
-                        type="button"
-                        onClick={() => player.jumpToItem(item.id)}
-                        disabled={!player.sessionActive}
-                        className={cn(
-                          "flex w-full items-start gap-3 rounded-lg px-3 py-2 text-left transition-colors",
-                          active
-                            ? "bg-[#1e3a5f]/8 ring-1 ring-[#1e3a5f]"
-                            : "hover:bg-muted/60",
-                          past && !active ? "opacity-50" : "",
-                        )}
-                      >
-                        <span className="w-6 shrink-0 pt-0.5 text-xs tabular-nums text-[#3d4f66]">
-                          {index + 1}
+                <X
+                  className={cn(
+                    "h-4 w-4 transition-transform",
+                    queueOpen ? "rotate-0" : "rotate-45",
+                  )}
+                />
+              </Button>
+            </div>
+          </div>
+          {queueOpen ? (
+            <ul className="max-h-80 space-y-1 overflow-y-auto border-t border-border/60 px-6 pb-4 pt-2 pr-7 sm:px-10 sm:pr-11">
+              {queueItems.map((item, index) => {
+                const active =
+                  item.id === (player.currentItemId ?? displayItem?.id);
+                const past =
+                  currentQueueIndex >= 0 && index < currentQueueIndex;
+                return (
+                  <li key={item.id}>
+                    <button
+                      type="button"
+                      ref={active ? activeRowRef : undefined}
+                      onClick={() =>
+                        player.jumpToItem(item.id, { paused: player.paused })
+                      }
+                      disabled={!player.sessionActive}
+                      className={cn(
+                        "flex w-full items-start gap-3 rounded-lg border-2 px-3 py-2 text-left transition-colors",
+                        active
+                          ? "border-[#1e3a5f] bg-[#1e3a5f]/10"
+                          : "border-transparent hover:bg-muted/60",
+                        past && !active ? "opacity-50" : "",
+                      )}
+                    >
+                      <span className="w-6 shrink-0 pt-0.5 text-xs tabular-nums text-[#3d4f66]">
+                        {index + 1}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium text-[#1e3a5f]">
+                          {listenTargetText(item)}
                         </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate font-medium text-[#1e3a5f]">
-                            {listenTargetText(item)}
+                        {listenNativeText(item) ? (
+                          <span className="mt-0.5 block truncate text-sm text-[#3d4f66]">
+                            {listenNativeText(item)}
                           </span>
-                          {listenNativeText(item) ? (
-                            <span className="mt-0.5 block truncate text-sm text-[#3d4f66]">
-                              {listenNativeText(item)}
-                            </span>
-                          ) : null}
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </TabsContent>
-          </Tabs>
+                        ) : null}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
         </div>
       </section>
     </div>

@@ -739,6 +739,7 @@
     "listenMainLangOnceHint": "Repeats play the target language only — saves time.",
     "listenSettings": "Settings",
     "listenFilterTab": "Filter",
+    "listenIntro": "Intro",
     "listenQueue": "Playlist",
     "listenNowPlaying": "Now playing",
     "listenTranscript": "Dialogue",

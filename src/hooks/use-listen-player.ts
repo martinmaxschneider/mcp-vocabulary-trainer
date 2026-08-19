@@ -214,10 +214,10 @@ export function useListenPlayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readyKey]);
 
-  const jumpToItem = (itemId: string) => {
+  const jumpToItem = (itemId: string, options?: { paused?: boolean }) => {
     if (!playlist) return;
     const index = playlist.findIndex((clip) => clip.itemId === itemId);
-    if (index >= 0) jumpTo(index);
+    if (index >= 0) jumpTo(index, options);
   };
 
   const goPrevSentence = () => {
@@ -265,7 +265,11 @@ export function useListenPlayer({
     remainingUntilRef.current = Date.now() + leftover;
     if (audioRef.current && !audioRef.current.ended) {
       void audioRef.current.play().catch(() => undefined);
+      return;
     }
+    // No live audio element (freshly prepared or clip finished): restart the
+    // playback effect for the current clip.
+    setPlayEpoch((value) => value + 1);
   };
 
   useEffect(() => {
