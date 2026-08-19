@@ -106,6 +106,10 @@
     "pwaLangLabel": "Langue cible",
     "pwaDownload": "Télécharger le paquet actuel",
     "pwaRefreshApp": "Mettre à jour l'app",
+    "pwaInstall": "Ajouter à l'écran d'accueil",
+    "pwaInstallDone": "Déjà sur l'écran d'accueil",
+    "pwaInstallIos": "Dans Safari, appuie sur Partager, puis sur Sur l'écran d'accueil.",
+    "pwaInstallHow": "Utilise le menu du navigateur pour installer l'app ou l'ajouter à l'écran d'accueil.",
     "pwaNeedActive": "Aucun paquet démarré pour cette langue. Lance Daily sur le Mac, puis télécharge ici.",
     "pwaEmptyHint": "Choisis la langue et télécharge le paquet actuel — ensuite le lecteur marche sans le Mac."
   },

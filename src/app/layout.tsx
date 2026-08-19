@@ -31,7 +31,7 @@ export async function generateMetadata(): Promise<Metadata> {
     icons: [
       { rel: "icon", url: "/favicon.svg", type: "image/svg+xml" },
       { rel: "icon", url: "/icon", type: "image/png", sizes: "32x32" },
-      { rel: "apple-touch-icon", url: "/apple-icon", sizes: "180x180" },
+      { rel: "apple-touch-icon", url: "/apple-touch-icon.png", sizes: "180x180" },
     ],
   };
 }

@@ -106,6 +106,10 @@
     "pwaLangLabel": "Idioma objetivo",
     "pwaDownload": "Descargar el paquete actual",
     "pwaRefreshApp": "Actualizar la app",
+    "pwaInstall": "Añadir a la pantalla de inicio",
+    "pwaInstallDone": "Ya está en la pantalla de inicio",
+    "pwaInstallIos": "En Safari, toca Compartir y luego Añadir a pantalla de inicio.",
+    "pwaInstallHow": "Usa el menú del navegador para instalar la app o añadirla a la pantalla de inicio.",
     "pwaNeedActive": "No hay un paquete iniciado para este idioma. Inicia Daily en el Mac y luego descarga aquí.",
     "pwaEmptyHint": "Elige el idioma y descarga el paquete actual: después el reproductor funciona sin el Mac."
   },

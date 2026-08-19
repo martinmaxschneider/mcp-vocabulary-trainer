@@ -106,6 +106,10 @@
     "pwaLangLabel": "Língua-alvo",
     "pwaDownload": "Descarregar o pacote atual",
     "pwaRefreshApp": "Atualizar a app",
+    "pwaInstall": "Adicionar ao ecrã inicial",
+    "pwaInstallDone": "Já está no ecrã inicial",
+    "pwaInstallIos": "No Safari, toca em Partilhar e depois em Adicionar ao ecrã inicial.",
+    "pwaInstallHow": "Usa o menu do browser para instalar a app ou adicioná-la ao ecrã inicial.",
     "pwaNeedActive": "Não há um pacote iniciado para esta língua. Inicia o Daily no Mac e depois descarrega aqui.",
     "pwaEmptyHint": "Escolhe a língua e descarrega o pacote atual — depois o leitor funciona sem o Mac."
   },

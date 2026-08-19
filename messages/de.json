@@ -106,6 +106,10 @@
     "pwaLangLabel": "Zielsprache",
     "pwaDownload": "Aktuelles Paket laden",
     "pwaRefreshApp": "App aktualisieren",
+    "pwaInstall": "Auf den Home-Bildschirm",
+    "pwaInstallDone": "Liegt auf dem Home-Bildschirm",
+    "pwaInstallIos": "In Safari unten auf Teilen tippen, dann „Zum Home-Bildschirm“.",
+    "pwaInstallHow": "Im Browser-Menü „App installieren“ oder „Zum Home-Bildschirm“ wählen.",
     "pwaNeedActive": "Kein gestartetes Paket für diese Sprache. Am Mac Daily starten, dann hier laden.",
     "pwaEmptyHint": "Sprache wählen und aktuelles Paket laden – danach geht der Player ohne Mac."
   },

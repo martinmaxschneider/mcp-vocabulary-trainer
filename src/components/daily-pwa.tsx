@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
@@ -17,6 +18,7 @@ import {
   Headphones,
   Loader2,
   RefreshCw,
+  Smartphone,
 } from "lucide-react";
 import { DailyPackageStatus } from "@prisma/client";
 import { api } from "~/trpc/client";
@@ -46,6 +48,12 @@ import {
 } from "~/lib/offline-daily-mock";
 import { cn } from "~/lib/utils";
 
+function formatDailyDateNumeric(date: string) {
+  const [year, month, day] = date.split("-");
+  if (!year || !month || !day) return date;
+  return `${day}.${month}.${year}`;
+}
+
 function formatDailyDate(date: string, locale: string) {
   const [year, month, day] = date.split("-").map(Number);
   if (!year || !month || !day) return date;
@@ -54,6 +62,14 @@ function formatDailyDate(date: string, locale: string) {
     day: "numeric",
     month: "short",
   });
+}
+
+function useIsClient() {
+  return useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
 }
 
 function canStorePackage(pkg: {
@@ -71,6 +87,101 @@ type DownloadState =
   | { phase: "idle" }
   | { phase: "saving"; done: number; total: number }
   | { phase: "done" };
+
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+};
+
+function isStandaloneDisplay() {
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
+  );
+}
+
+function isAppleMobile() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+}
+
+function PwaSettingsActions({
+  refreshing,
+  onRefresh,
+}: {
+  refreshing: boolean;
+  onRefresh: () => void;
+}) {
+  const t = useTranslations("daily");
+  const [installPrompt, setInstallPrompt] =
+    useState<BeforeInstallPromptEvent | null>(null);
+  const [installed, setInstalled] = useState(false);
+  const [installHint, setInstallHint] = useState<"ios" | "other" | null>(null);
+
+  useEffect(() => {
+    setInstalled(isStandaloneDisplay());
+    const onPrompt = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event as BeforeInstallPromptEvent);
+    };
+    const onInstalled = () => {
+      setInstallPrompt(null);
+      setInstalled(true);
+      setInstallHint(null);
+    };
+    window.addEventListener("beforeinstallprompt", onPrompt);
+    window.addEventListener("appinstalled", onInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onPrompt);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
+  }, []);
+
+  const installApp = async () => {
+    if (installed) return;
+    if (installPrompt) {
+      await installPrompt.prompt();
+      const choice = await installPrompt.userChoice;
+      if (choice.outcome === "accepted") setInstalled(true);
+      setInstallPrompt(null);
+      return;
+    }
+    setInstallHint(isAppleMobile() ? "ios" : "other");
+  };
+
+  return (
+    <div className="space-y-2">
+      <Button
+        type="button"
+        variant="outline"
+        className="h-12 w-full justify-start gap-3 [touch-action:manipulation]"
+        disabled={installed}
+        onClick={() => void installApp()}
+      >
+        {installed ? (
+          <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+        ) : (
+          <Smartphone className="h-5 w-5" />
+        )}
+        {installed ? t("pwaInstallDone") : t("pwaInstall")}
+      </Button>
+      {installHint ? (
+        <p className="px-1 text-sm text-muted-foreground">
+          {installHint === "ios" ? t("pwaInstallIos") : t("pwaInstallHow")}
+        </p>
+      ) : null}
+      <Button
+        type="button"
+        variant="outline"
+        className="h-12 w-full justify-start gap-3 [touch-action:manipulation]"
+        disabled={refreshing}
+        onClick={onRefresh}
+      >
+        <RefreshCw className={cn("h-5 w-5", refreshing && "animate-spin")} />
+        {t("pwaRefreshApp")}
+      </Button>
+    </div>
+  );
+}
 
 export function DailyPwa() {
   const t = useTranslations("daily");
@@ -204,6 +315,7 @@ export function DailyPwa() {
     }
   };
 
+  const isClient = useIsClient();
   const currentLang = getTargetLang(focusLang);
   const isMock = record?.packageId === "mock-daily";
   const savingPercent =
@@ -214,7 +326,9 @@ export function DailyPwa() {
   const statusLine = !record
     ? t("pwaEmptyHint")
     : `${isMock ? "Demo · " : ""}${t("offlineHint", {
-        date: formatDailyDate(record.date, locale),
+        date: isClient
+          ? formatDailyDate(record.date, locale)
+          : formatDailyDateNumeric(record.date),
       })}`;
 
   return (
@@ -275,21 +389,6 @@ export function DailyPwa() {
             type="button"
             size="icon"
             variant="ghost"
-            className="h-11 w-11 shrink-0 rounded-full [touch-action:manipulation]"
-            onClick={() => {
-              if (refreshing) return;
-              setRefreshing(true);
-              void flushPwaShell().finally(() => setRefreshing(false));
-            }}
-            disabled={refreshing || saving}
-            aria-label={t("pwaRefreshApp")}
-          >
-            <RefreshCw className={cn("h-5 w-5", refreshing && "animate-spin")} />
-          </Button>
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
             className="relative h-11 w-11 shrink-0 rounded-full [touch-action:manipulation]"
             onClick={() => void download()}
             disabled={saving || refreshing}
@@ -320,7 +419,21 @@ export function DailyPwa() {
             {tCommon("loading")}
           </p>
         ) : items.length > 0 ? (
-          <ListenSession title={t("offlineTitle")} items={items} compact />
+          <ListenSession
+            title={t("offlineTitle")}
+            items={items}
+            compact
+            settingsExtra={
+              <PwaSettingsActions
+                refreshing={refreshing}
+                onRefresh={() => {
+                  if (refreshing) return;
+                  setRefreshing(true);
+                  void flushPwaShell().finally(() => setRefreshing(false));
+                }}
+              />
+            }
+          />
         ) : (
           <div className="flex flex-col items-center gap-4 px-6 py-16 text-center">
             <Headphones className="h-10 w-10 text-muted-foreground/50" />

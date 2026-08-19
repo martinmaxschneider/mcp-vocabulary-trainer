@@ -106,6 +106,10 @@
     "pwaLangLabel": "Target language",
     "pwaDownload": "Download current pack",
     "pwaRefreshApp": "Update app",
+    "pwaInstall": "Add to Home Screen",
+    "pwaInstallDone": "Already on the Home Screen",
+    "pwaInstallIos": "In Safari, tap Share, then Add to Home Screen.",
+    "pwaInstallHow": "Use the browser menu to install the app or add it to the home screen.",
     "pwaNeedActive": "No started pack for this language. Start Daily on the Mac, then download here.",
     "pwaEmptyHint": "Pick a language and download the current pack — then the player works without the Mac."
   },

@@ -58,6 +58,7 @@ export function ListenSession({
   backLabel,
   onFirstPassComplete,
   actions,
+  settingsExtra,
   compact = false,
 }: {
   title: string;
@@ -70,6 +71,7 @@ export function ListenSession({
   onGenerateMissing?: () => void;
   onFirstPassComplete?: (ids: string[]) => void;
   actions?: React.ReactNode;
+  settingsExtra?: React.ReactNode;
   compact?: boolean;
 }) {
   const t = useTranslations("sentences");
@@ -390,8 +392,10 @@ export function ListenSession({
               {settingsOpen ? (
                 <div className="absolute inset-0 overflow-y-auto">
                   <ListenSettings
+                    compact={compact}
                     settings={player.settings}
                     updateSettings={player.updateSettings}
+                    extra={settingsExtra}
                   />
                 </div>
               ) : null}
@@ -845,20 +849,26 @@ function ListenTransportControls({
 }
 
 function ListenSettings({
+  compact = false,
   settings,
   updateSettings,
+  extra,
 }: {
+  compact?: boolean;
   settings: ReturnType<typeof useListenPlayer>["settings"];
   updateSettings: ReturnType<typeof useListenPlayer>["updateSettings"];
+  extra?: React.ReactNode;
 }) {
   const t = useTranslations("sentences");
+  const valueText = compact ? "text-muted-foreground" : "text-[#3d4f66]";
+  const strongText = compact ? "text-foreground" : "text-[#1e3a5f]";
   return (
-    <div className="space-y-4">
+    <div className={cn("space-y-4", compact && "text-foreground")}>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3">
             <Label htmlFor="listen-pause">{t("listenPause")}</Label>
-            <span className="text-sm tabular-nums text-[#3d4f66]">
+            <span className={cn("text-sm tabular-nums", valueText)}>
               {(settings.pauseMs / 1000).toFixed(1)}s
             </span>
           </div>
@@ -880,7 +890,7 @@ function ListenSettings({
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3">
             <Label htmlFor="listen-speed">{t("listenSpeed")}</Label>
-            <span className="text-sm tabular-nums text-[#3d4f66]">
+            <span className={cn("text-sm tabular-nums", valueText)}>
               {settings.playbackRate.toFixed(2).replace(/\.?0+$/, "")}×
             </span>
           </div>
@@ -966,14 +976,19 @@ function ListenSettings({
           }
         />
         <span className="space-y-0.5">
-          <span className="block font-medium text-[#1e3a5f]">
+          <span className={cn("block font-medium", strongText)}>
             {t("listenMainLangOnce")}
           </span>
-          <span className="block text-[#3d4f66]">
+          <span className={cn("block", valueText)}>
             {t("listenMainLangOnceHint")}
           </span>
         </span>
       </label>
+      {extra ? (
+        <div className="space-y-2 border-t border-border/60 pt-4">
+          {extra}
+        </div>
+      ) : null}
     </div>
   );
 }
