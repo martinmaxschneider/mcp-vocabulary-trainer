@@ -62,11 +62,13 @@ Applies Prisma migrations under `prisma/migrations/`. If `data/sprachen.db` alre
 npm run dev
 ```
 
-Starts the Next.js app (incl. MCP at `/mcp`) **and** the OpenAI MCP tunnel in parallel.
+Starts the Next.js app (incl. MCP at `/mcp`), the OpenAI MCP tunnel, and the HTTPS proxy in parallel.
 
 - App: [http://localhost:4810](http://localhost:4810)
+- iPhone PWA: `https://<mac>.local:4843`
 - Web only: `npm run dev:web`
 - Tunnel only: `npm run mcp:tunnel` (requires `CONTROL_PLANE_API_KEY`)
+- HTTPS proxy only: `npm run https:proxy`
 
 Without `CONTROL_PLANE_API_KEY` / `tunnel-client`, the webapp still starts; ChatGPT connectivity is skipped with a warning.
 
@@ -137,11 +139,11 @@ Use `127.0.0.1` (not `localhost`) so the client does not dial IPv6 `[::1]`. `npm
 ### Start
 
 ```bash
-npm run dev          # Next (port 4810, /mcp) + OpenAI tunnel
+npm run dev          # Next (4810) + OpenAI tunnel + HTTPS proxy (4843)
 npm run dev:web      # Next only
 npm run mcp:tunnel   # Tunnel only (strict: fails without key)
 npm run https:setup  # once: local HTTPS cert for the iPhone PWA
-npm run dev:https    # Next + HTTPS proxy (port 4843)
+npm run https:proxy  # HTTPS proxy only
 ```
 
 iPhone offline Daily (no cloud): [docs/offline-iphone.md](docs/offline-iphone.md).

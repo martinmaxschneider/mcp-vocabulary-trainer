@@ -7,7 +7,6 @@ import { useLocale, useTranslations } from "next-intl";
 import { DailyItemType, DailyPackageStatus } from "@prisma/client";
 import {
   CalendarDays,
-  Flame,
   Headphones,
   Loader2,
   Quote,
@@ -38,7 +37,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
-import { DailyOfflineCard } from "~/components/daily-offline-card";
 import { SatzAudioButton } from "~/components/satz-audio-button";
 import { StatsWidget } from "~/components/stats-widget";
 import { useFocusLang } from "~/components/focus-lang-provider";
@@ -106,7 +104,6 @@ export function DailySection() {
   const [selectedId, setSelectedId] = useState<string | null>(urlPackageId);
 
   const todayQuery = api.daily.today.useQuery({ targetLang: focusLang });
-  const streakQuery = api.gamification.getStatus.useQuery();
   const grammarQuery = api.grammar.listByLang.useQuery({ targetLang: focusLang });
 
   const createPackage = api.daily.createPackage.useMutation();
@@ -223,7 +220,7 @@ export function DailySection() {
         </p>
       </header>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatsWidget
           title={t("dueToday")}
           value={due.vocab + due.satz + due.conj}
@@ -243,11 +240,6 @@ export function DailySection() {
           title={t("newVocabConj")}
           value={`${pool.vocab} / ${pool.conj}`}
           icon={<Volume2 className="h-4 w-4 text-muted-foreground" />}
-        />
-        <StatsWidget
-          title={t("streak")}
-          value={streakQuery.data?.streak ?? 0}
-          icon={<Flame className="h-4 w-4 text-orange-500" />}
         />
       </div>
 
@@ -282,8 +274,6 @@ export function DailySection() {
           onReset={() => setJustCompleted(false)}
         />
       ) : null}
-
-      <DailyOfflineCard pkg={pkg} />
 
       {packages.length > 0 ? (
         <Card>

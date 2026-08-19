@@ -82,7 +82,7 @@ echo
 echo "On the iPhone:"
 echo "  1. Open the AirDropped rootCA.pem and install the profile"
 echo "  2. Settings → General → About → Certificate Trust Settings → enable full trust"
-echo "  3. Start the app, then: npm run https:proxy"
+echo "  3. Start the app: npm run dev   (Next + MCP + HTTPS proxy)"
 echo "  4. Open https://${short_name}.local:4843 (or the LAN IP) in Safari"
 echo
 echo "Details: docs/offline-iphone.md"

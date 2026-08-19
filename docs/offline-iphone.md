@@ -28,19 +28,14 @@ Without that last step Safari will warn and the PWA will not go offline.
 
 ## Start the app with HTTPS
 
-Keep the usual app process (dev or production) and add the proxy:
+`npm run dev` and `npm run start` already start Next.js, the MCP tunnel, and the HTTPS proxy together.
 
 ```bash
-npm run dev:web          # or: npm run start:web  after `npm run build`
-npm run https:proxy
+npm run dev              # Next + MCP + HTTPS proxy
+npm run start            # production: same three processes
 ```
 
-Or both together:
-
-```bash
-npm run dev:https        # Next.js + HTTPS proxy
-npm run start:https      # production server + HTTPS proxy
-```
+Web only without proxy: `npm run dev:web` / `npm run start:web`. Proxy only: `npm run https:proxy`.
 
 The proxy prints URLs such as `https://<mac-name>.local:4843` and `https://192.168.x.x:4843`.
 
@@ -60,7 +55,7 @@ A new LAN IP (another network, DHCP) needs a new certificate:
 
 ```bash
 npm run https:setup
-npm run https:proxy
+npm run dev
 ```
 
 If the iPhone already trusts `rootCA.pem`, you do not install the profile again.
