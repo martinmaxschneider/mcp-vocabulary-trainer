@@ -17,6 +17,11 @@ import {
   type SatzListenSettings,
 } from "~/lib/satz-listen-settings";
 import { resolveErrorCode } from "~/lib/trpc-error";
+import {
+  buildListenTape,
+  markerAtTime,
+  type TapeMarker,
+} from "~/lib/listen-tape";
 
 export type ListenItem = {
   id: string;
@@ -58,7 +63,7 @@ export function useListenPlayer({
   const [clipIndex, setClipIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const [awaitingNext, setAwaitingNext] = useState(false);
-  const [playEpoch, setPlayEpoch] = useState(0);
+  const [buffering, setBuffering] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const practicedRef = useRef(false);
@@ -69,12 +74,22 @@ export function useListenPlayer({
   const runIdRef = useRef(0);
   const preparedKeyRef = useRef("");
   const currentItemIdRef = useRef<string | null>(null);
+  const playlistRef = useRef<ListenPlaylistItem[] | null>(null);
+  const clipIndexRef = useRef(0);
+  const tapeRef = useRef<{
+    url: string;
+    durationSec: number;
+    markers: TapeMarker[];
+  } | null>(null);
+  const awaitingNextRef = useRef(false);
+  const onEndedRef = useRef<() => void>(() => undefined);
+  const onPlayErrorRef = useRef<(error: unknown) => void>(() => undefined);
+  const onTimeRef = useRef<() => void>(() => undefined);
   settingsRef.current = settings;
 
   const ensureAudio = () => {
     if (audioRef.current) return audioRef.current;
     const audio = new Audio();
-    audio.playsInline = true;
     audio.setAttribute("playsinline", "");
     audio.setAttribute("webkit-playsinline", "");
     audio.preload = "auto";
@@ -86,9 +101,127 @@ export function useListenPlayer({
       opacity: "0",
       pointerEvents: "none",
     });
+    const session = (
+      navigator as Navigator & { audioSession?: { type: string } }
+    ).audioSession;
+    if (session) session.type = "playback";
+    audio.onended = () => onEndedRef.current();
+    audio.onerror = () =>
+      onPlayErrorRef.current(new Error("AUDIO_PLAY_FAILED"));
+    audio.ontimeupdate = () => onTimeRef.current();
     document.body.appendChild(audio);
     audioRef.current = audio;
     return audio;
+  };
+
+  const revokeTape = () => {
+    if (!tapeRef.current) return;
+    URL.revokeObjectURL(tapeRef.current.url);
+    tapeRef.current = null;
+  };
+
+  const seekTapeToClip = (index: number) => {
+    const tape = tapeRef.current;
+    const audio = audioRef.current;
+    const marker = tape?.markers.find((item) => item.clipIndex === index);
+    if (!tape || !audio || !marker) return false;
+    audio.currentTime = marker.startSec;
+    clipIndexRef.current = index;
+    setClipIndex(index);
+    return true;
+  };
+
+  const maybeCompleteFirstPass = (finishedIndex: number) => {
+    if (practicedRef.current) return;
+    const list = playlistRef.current;
+    const item = list?.[finishedIndex];
+    if (!list || !item || item.listRound !== 0) return;
+    let lastOfFirstPass = -1;
+    for (let i = list.length - 1; i >= 0; i -= 1) {
+      if (list[i]!.listRound === 0) {
+        lastOfFirstPass = i;
+        break;
+      }
+    }
+    if (lastOfFirstPass !== finishedIndex) return;
+    practicedRef.current = true;
+    onFirstPassComplete?.([...new Set(list.map((clip) => clip.itemId))]);
+  };
+
+  const syncRemainingFromTape = () => {
+    const tape = tapeRef.current;
+    const audio = audioRef.current;
+    const list = playlistRef.current;
+    if (!tape || !audio || !list) return;
+    const last = tape.markers[tape.markers.length - 1];
+    const leftoverTapeMs =
+      (Math.max(0, (Number.isFinite(audio.duration) ? audio.duration : tape.durationSec) -
+        audio.currentTime) *
+        1000) /
+      settingsRef.current.playbackRate;
+    const afterTape = last
+      ? remainingListenMs(
+          list,
+          last.clipIndex + 1,
+          settingsRef.current.playbackRate,
+        )
+      : 0;
+    commitRemaining(leftoverTapeMs + afterTape);
+  };
+
+  const playTapeFrom = async (
+    index: number,
+    options?: { skipPause?: boolean },
+  ) => {
+    const list = playlistRef.current;
+    if (!list?.[index]) return;
+    const runId = ++runIdRef.current;
+    const sentenceKey = list[index]!.sentenceKey;
+    let end = list.length;
+    if (!settingsRef.current.autoAdvance) {
+      end = index + 1;
+      while (end < list.length && list[end]!.sentenceKey === sentenceKey) {
+        end += 1;
+      }
+    }
+    const slice = list.slice(index, end);
+    const audio = ensureAudio();
+    setBuffering(true);
+    try {
+      const tape = await buildListenTape(
+        slice.map((clip) => ({
+          url: clip.url,
+          pauseBeforeMs: clip.pauseBeforeMs,
+        })),
+        { skipFirstPause: options?.skipPause ?? false },
+      );
+      if (runId !== runIdRef.current) return;
+      revokeTape();
+      const url = URL.createObjectURL(tape.blob);
+      tapeRef.current = {
+        url,
+        durationSec: tape.durationSec,
+        markers: tape.markers.map((marker) => ({
+          ...marker,
+          clipIndex: marker.clipIndex + index,
+        })),
+      };
+      audio.playbackRate = settingsRef.current.playbackRate;
+      audio.src = url;
+      if (pausedRef.current) return;
+      await audio.play();
+    } catch (error) {
+      if (runId !== runIdRef.current) return;
+      revokeTape();
+      const clip = list[index];
+      if (!clip) throw error;
+      audio.playbackRate = settingsRef.current.playbackRate;
+      audio.src = clip.url;
+      if (pausedRef.current) return;
+      await audio.play();
+    } finally {
+      if (runId === runIdRef.current) setBuffering(false);
+    }
   };
 
   useEffect(() => {
@@ -97,6 +230,35 @@ export function useListenPlayer({
       audio?.pause();
       audio?.remove();
       audioRef.current = null;
+      revokeTape();
+    };
+  }, []);
+
+  useEffect(() => {
+    const resumeIfNeeded = () => {
+      if (pausedRef.current || awaitingNextRef.current) return;
+      const audio = audioRef.current;
+      if (!audio?.src || audio.ended) return;
+      if (audio.paused) void audio.play().catch(() => undefined);
+      syncRemainingFromTape();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        if (!pausedRef.current && audioRef.current?.paused === false) return;
+        if (!pausedRef.current) {
+          void audioRef.current?.play().catch(() => undefined);
+        }
+        return;
+      }
+      resumeIfNeeded();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pageshow", resumeIfNeeded);
+    window.addEventListener("focus", resumeIfNeeded);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pageshow", resumeIfNeeded);
+      window.removeEventListener("focus", resumeIfNeeded);
     };
   }, []);
 
@@ -171,11 +333,17 @@ export function useListenPlayer({
     );
     runIdRef.current += 1;
     audioRef.current?.pause();
+    revokeTape();
+    if (audioRef.current) {
+      audioRef.current.removeAttribute("src");
+    }
     practicedRef.current = false;
-    setPlayEpoch((value) => value + 1);
     pausedRef.current = startPaused;
     setPaused(startPaused);
+    awaitingNextRef.current = false;
     setAwaitingNext(false);
+    clipIndexRef.current = startIndex;
+    playlistRef.current = nextPlaylist;
     setClipIndex(startIndex);
     if (startPaused) {
       remainingUntilRef.current = null;
@@ -184,6 +352,11 @@ export function useListenPlayer({
       commitRemaining(remaining);
     }
     setPlaylist(nextPlaylist);
+    if (!startPaused) {
+      void playTapeFrom(startIndex, { skipPause: true }).catch((error) =>
+        onPlayErrorRef.current(error),
+      );
+    }
   };
 
   const jumpTo = (index: number, options?: { paused?: boolean }) => {
@@ -197,18 +370,21 @@ export function useListenPlayer({
     );
     runIdRef.current += 1;
     audioRef.current?.pause();
-    setPlayEpoch((value) => value + 1);
     pausedRef.current = startPaused;
     setPaused(startPaused);
+    awaitingNextRef.current = false;
     setAwaitingNext(false);
+    clipIndexRef.current = nextIndex;
     setClipIndex(nextIndex);
-    if (!startPaused) {
-      const clip = playlist[nextIndex];
-      if (clip) {
-        const audio = ensureAudio();
-        audio.src = clip.url;
-        audio.playbackRate = settingsRef.current.playbackRate;
-        void audio.play().catch(() => undefined);
+    if (seekTapeToClip(nextIndex)) {
+      if (!startPaused) void audioRef.current?.play().catch(() => undefined);
+    } else {
+      revokeTape();
+      if (audioRef.current) audioRef.current.removeAttribute("src");
+      if (!startPaused) {
+        void playTapeFrom(nextIndex, { skipPause: true }).catch((error) =>
+          onPlayErrorRef.current(error),
+        );
       }
     }
     if (startPaused) {
@@ -252,8 +428,12 @@ export function useListenPlayer({
       remainingUntilRef.current = null;
       frozenRemainingRef.current = null;
       setPaused(true);
+      awaitingNextRef.current = false;
       setAwaitingNext(false);
       setPlaylist(null);
+      playlistRef.current = null;
+      revokeTape();
+      clipIndexRef.current = 0;
       setClipIndex(0);
       return;
     }
@@ -317,177 +497,144 @@ export function useListenPlayer({
     const leftover = frozenRemainingRef.current ?? 0;
     remainingUntilRef.current = Date.now() + leftover;
     const audio = ensureAudio();
-    if (audio.src && !audio.ended) {
-      void audio.play().catch(() => {
-        setPlayEpoch((value) => value + 1);
-      });
+    if (audio.src && !audio.ended && tapeRef.current) {
+      void audio.play().catch(() => undefined);
       return;
     }
-    const clip = playlist?.[clipIndex];
-    if (clip) {
-      audio.src = clip.url;
-      audio.playbackRate = settingsRef.current.playbackRate;
-      void audio.play().catch(() => undefined);
-    }
-    setPlayEpoch((value) => value + 1);
+    void playTapeFrom(clipIndexRef.current, { skipPause: true }).catch((error) =>
+      onPlayErrorRef.current(error),
+    );
   };
 
-  useEffect(() => {
-    if (!playlist || awaitingNext) return;
+  onPlayErrorRef.current = (error: unknown) => {
     if (pausedRef.current) return;
-    const item = playlist[clipIndex];
-    if (!item) {
+    toast({
+      title: tToasts("satzAudioPlayError"),
+      description:
+        error instanceof Error
+          ? resolveErrorCode(error.message)
+            ? tErrors(resolveErrorCode(error.message) as "NOT_FOUND")
+            : error.message
+          : undefined,
+      variant: "destructive",
+    });
+    stopPlayback();
+  };
+
+  onTimeRef.current = () => {
+    const tape = tapeRef.current;
+    const audio = audioRef.current;
+    if (!tape || !audio) return;
+    const marker = markerAtTime(tape.markers, audio.currentTime);
+    if (!marker) return;
+    if (marker.clipIndex !== clipIndexRef.current) {
+      const previous = clipIndexRef.current;
+      clipIndexRef.current = marker.clipIndex;
+      setClipIndex(marker.clipIndex);
+      if (previous < marker.clipIndex) {
+        maybeCompleteFirstPass(previous);
+      }
+      syncRemainingFromTape();
+    }
+    const session = navigator.mediaSession;
+    if (!session || !Number.isFinite(audio.duration) || audio.duration <= 0) {
+      return;
+    }
+    try {
+      session.setPositionState({
+        duration: audio.duration,
+        playbackRate: audio.playbackRate,
+        position: audio.currentTime,
+      });
+    } catch {
+      // iOS throws when duration is not ready yet.
+    }
+  };
+
+  onEndedRef.current = () => {
+    if (pausedRef.current) return;
+    if (!audioRef.current?.src) return;
+    const list = playlistRef.current;
+    if (!list) return;
+    const tape = tapeRef.current;
+    const index = tape?.markers[tape.markers.length - 1]?.clipIndex
+      ?? clipIndexRef.current;
+    const item = list[index];
+    if (!item) return;
+
+    maybeCompleteFirstPass(index);
+    clipIndexRef.current = index;
+    setClipIndex(index);
+
+    const nextIndex = index + 1;
+    const nextItem = list[nextIndex];
+    const lastOfSentence =
+      !nextItem || nextItem.sentenceKey !== item.sentenceKey;
+    if (lastOfSentence && !settingsRef.current.autoAdvance && nextItem) {
+      const leftover = remainingListenMs(
+        list,
+        nextIndex + 1,
+        settingsRef.current.playbackRate,
+      );
+      frozenRemainingRef.current = leftover;
+      remainingUntilRef.current = null;
+      awaitingNextRef.current = true;
+      setAwaitingNext(true);
+      return;
+    }
+    if (!nextItem) {
       stopPlayback();
       return;
     }
-
-    const runId = ++runIdRef.current;
-    const controller = new AbortController();
-    const still = () => runIdRef.current === runId && !controller.signal.aborted;
-
-    const sleep = (ms: number) =>
-      new Promise<void>((resolve) => {
-        if (controller.signal.aborted) {
-          resolve();
-          return;
-        }
-        let left = ms;
-        let last = Date.now();
-        let timer = 0;
-        const onAbort = () => {
-          window.clearTimeout(timer);
-          resolve();
-        };
-        controller.signal.addEventListener("abort", onAbort);
-        const tick = () => {
-          if (controller.signal.aborted) return;
-          if (pausedRef.current) {
-            last = Date.now();
-            timer = window.setTimeout(tick, 50);
-            return;
-          }
-          if (left <= 0) {
-            controller.signal.removeEventListener("abort", onAbort);
-            resolve();
-            return;
-          }
-          const now = Date.now();
-          left -= now - last;
-          last = now;
-          if (left <= 0) {
-            controller.signal.removeEventListener("abort", onAbort);
-            resolve();
-            return;
-          }
-          timer = window.setTimeout(tick, Math.min(50, left));
-        };
-        tick();
-      });
-
-    const playUrl = (url: string) =>
-      new Promise<void>((resolve, reject) => {
-        const audio = ensureAudio();
-        audio.playbackRate = settingsRef.current.playbackRate;
-        const finish = () => {
-          controller.signal.removeEventListener("abort", onAbort);
-          resolve();
-        };
-        const onAbort = () => {
-          audio.pause();
-          finish();
-        };
-        controller.signal.addEventListener("abort", onAbort);
-        audio.onended = finish;
-        audio.onerror = () => {
-          controller.signal.removeEventListener("abort", onAbort);
-          reject(new Error("AUDIO_PLAY_FAILED"));
-        };
-        if (!still()) {
-          finish();
-          return;
-        }
-        if (audio.getAttribute("src") !== url && audio.src !== url) {
-          audio.src = url;
-        }
-        if (audio.paused || audio.ended) {
-          void audio.play().catch(reject);
-        }
-      });
-
+    clipIndexRef.current = nextIndex;
+    setClipIndex(nextIndex);
     commitRemaining(
-      remainingListenMs(playlist, clipIndex + 1, settingsRef.current.playbackRate),
+      remainingListenMs(list, nextIndex + 1, settingsRef.current.playbackRate),
     );
+    void playTapeFrom(nextIndex).catch((error) =>
+      onPlayErrorRef.current(error),
+    );
+  };
 
-    void (async () => {
-      try {
-        await sleep(item.pauseBeforeMs);
-        if (!still()) return;
-        await playUrl(item.url);
-        if (!still()) return;
-
-        if (!practicedRef.current && item.listRound === 0) {
-          let lastOfFirstPass = -1;
-          for (let i = playlist.length - 1; i >= 0; i -= 1) {
-            if (playlist[i]!.listRound === 0) {
-              lastOfFirstPass = i;
-              break;
-            }
-          }
-          if (lastOfFirstPass === clipIndex) {
-            practicedRef.current = true;
-            onFirstPassComplete?.([
-              ...new Set(playlist.map((clip) => clip.itemId)),
-            ]);
-          }
-        }
-
-        const nextIndex = clipIndex + 1;
-        const nextItem = playlist[nextIndex];
-        const lastOfSentence =
-          !nextItem || nextItem.sentenceKey !== item.sentenceKey;
-        if (lastOfSentence && !settingsRef.current.autoAdvance && nextItem) {
-          const leftover = remainingListenMs(
-            playlist,
-            nextIndex + 1,
-            settingsRef.current.playbackRate,
-          );
-          frozenRemainingRef.current = leftover;
-          remainingUntilRef.current = null;
-          setAwaitingNext(true);
-          return;
-        }
-        if (!nextItem) {
-          stopPlayback();
-          return;
-        }
-        setClipIndex(nextIndex);
-      } catch (error) {
-        if (!still()) return;
-        toast({
-          title: tToasts("satzAudioPlayError"),
-          description:
-            error instanceof Error
-              ? resolveErrorCode(error.message)
-                ? tErrors(resolveErrorCode(error.message) as "NOT_FOUND")
-                : error.message
-              : undefined,
-          variant: "destructive",
-        });
-        stopPlayback();
-      }
-    })();
-
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+    if (!sessionActive) {
+      navigator.mediaSession.playbackState = "none";
+      navigator.mediaSession.metadata = null;
+      return;
+    }
+    const title = currentItem
+      ? listenTargetText(currentItem)
+      : "Sprachen Daily";
+    const artist = currentItem
+      ? (listenNativeText(currentItem) ?? "Daily")
+      : "Daily";
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title,
+      artist,
+      album: "Sprachen Daily",
+      artwork: [{ src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+    });
+    navigator.mediaSession.playbackState = paused ? "paused" : "playing";
+    navigator.mediaSession.setActionHandler("play", () => {
+      if (pausedRef.current) togglePause();
+    });
+    navigator.mediaSession.setActionHandler("pause", () => {
+      if (!pausedRef.current) togglePause();
+    });
+    navigator.mediaSession.setActionHandler("nexttrack", () => {
+      goNextSentence();
+    });
+    navigator.mediaSession.setActionHandler("previoustrack", () => {
+      goPrevSentence();
+    });
     return () => {
-      controller.abort();
-      const audio = audioRef.current;
-      if (audio) {
-        audio.onended = null;
-        audio.onerror = null;
-      }
+      navigator.mediaSession.setActionHandler("play", null);
+      navigator.mediaSession.setActionHandler("pause", null);
+      navigator.mediaSession.setActionHandler("nexttrack", null);
+      navigator.mediaSession.setActionHandler("previoustrack", null);
     };
-    // Playlist index drives playback; pause is handled via refs.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playlist, clipIndex, awaitingNext, playEpoch]);
+  }, [sessionActive, paused, currentItem]);
 
   const bounds = playlist ? sentenceBounds(playlist, clipIndex) : null;
   const sessionRemainingMs = sessionActive
@@ -512,6 +659,7 @@ export function useListenPlayer({
     currentItemId,
     paused,
     awaitingNext,
+    buffering,
     bounds,
     sessionRemainingMs,
     sessionTotalMs,

@@ -407,6 +407,7 @@ export function ListenSession({
                 canPrev={canPrev}
                 canNext={canNext}
                 waiting={waiting}
+                buffering={player.buffering}
                 awaitingNext={player.awaitingNext}
                 paused={player.paused}
                 sessionActive={player.sessionActive}
@@ -485,6 +486,7 @@ export function ListenSession({
                   canPrev={canPrev}
                   canNext={canNext}
                   waiting={waiting}
+                  buffering={player.buffering}
                   awaitingNext={player.awaitingNext}
                   paused={player.paused}
                   sessionActive={player.sessionActive}
@@ -727,6 +729,7 @@ function ListenTransportControls({
   canPrev,
   canNext,
   waiting,
+  buffering = false,
   awaitingNext,
   paused,
   sessionActive,
@@ -742,6 +745,7 @@ function ListenTransportControls({
   canPrev: boolean;
   canNext: boolean;
   waiting: boolean;
+  buffering?: boolean;
   awaitingNext: boolean;
   paused: boolean;
   sessionActive: boolean;
@@ -798,7 +802,7 @@ function ListenTransportControls({
             compact
               ? "h-20 w-20 [&_svg]:size-8"
               : "h-14 w-14 [&_svg]:size-6",
-            waiting && "animate-pulse",
+            (waiting || buffering) && "animate-pulse",
           )}
           disabled={!canPlay}
           onClick={onToggle}
