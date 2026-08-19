@@ -42,10 +42,6 @@ import {
   saveDailyOffline,
   type OfflineDailyRecord,
 } from "~/lib/offline-daily";
-import {
-  MOCK_OFFLINE_ITEMS,
-  MOCK_OFFLINE_RECORD,
-} from "~/lib/offline-daily-mock";
 import { cn } from "~/lib/utils";
 
 function formatDailyDateNumeric(date: string) {
@@ -197,12 +193,10 @@ export function DailyPwa() {
     phase: "idle",
   });
   const [refreshing, setRefreshing] = useState(false);
-  const [ready, setReady] = useState(true);
-  const [record, setRecord] = useState<OfflineDailyRecord | null>(
-    MOCK_OFFLINE_RECORD,
-  );
+  const [ready, setReady] = useState(false);
+  const [record, setRecord] = useState<OfflineDailyRecord | null>(null);
   const [hydrated, setHydrated] = useState<OfflineDailyRecord["items"] | null>(
-    MOCK_OFFLINE_ITEMS,
+    null,
   );
   const blobUrlsRef = useRef<string[]>([]);
   const doneTimerRef = useRef<number | null>(null);
@@ -232,14 +226,9 @@ export function DailyPwa() {
   const applyRecord = useCallback(async (stored: OfflineDailyRecord | null) => {
     revokeBlobUrls(blobUrlsRef.current);
     blobUrlsRef.current = [];
-    if (!stored) {
+    if (!stored || stored.packageId === "mock-daily") {
       setRecord(null);
       setHydrated(null);
-      return;
-    }
-    if (stored.packageId === "mock-daily") {
-      setRecord(stored);
-      setHydrated(stored.items);
       return;
     }
     const result = await hydrateOfflineItems(stored.items);
@@ -252,11 +241,11 @@ export function DailyPwa() {
     let cancelled = false;
     void (async () => {
       try {
-        const stored = (await loadOfflineDaily()) ?? MOCK_OFFLINE_RECORD;
+        const stored = await loadOfflineDaily();
         if (cancelled) return;
         await applyRecord(stored);
       } catch {
-        if (!cancelled) await applyRecord(MOCK_OFFLINE_RECORD);
+        if (!cancelled) await applyRecord(null);
       } finally {
         if (!cancelled) setReady(true);
       }
@@ -317,7 +306,6 @@ export function DailyPwa() {
 
   const isClient = useIsClient();
   const currentLang = getTargetLang(focusLang);
-  const isMock = record?.packageId === "mock-daily";
   const savingPercent =
     downloadState.phase === "saving" && downloadState.total > 0
       ? Math.round((downloadState.done / downloadState.total) * 100)
@@ -325,11 +313,11 @@ export function DailyPwa() {
 
   const statusLine = !record
     ? t("pwaEmptyHint")
-    : `${isMock ? "Demo · " : ""}${t("offlineHint", {
+    : t("offlineHint", {
         date: isClient
           ? formatDailyDate(record.date, locale)
           : formatDailyDateNumeric(record.date),
-      })}`;
+      });
 
   return (
     <div
