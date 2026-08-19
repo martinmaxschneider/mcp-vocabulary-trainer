@@ -58,6 +58,7 @@ export function ListenSession({
   backLabel,
   onFirstPassComplete,
   actions,
+  compact = false,
 }: {
   title: string;
   subtitle?: string;
@@ -69,11 +70,12 @@ export function ListenSession({
   onGenerateMissing?: () => void;
   onFirstPassComplete?: (ids: string[]) => void;
   actions?: React.ReactNode;
+  compact?: boolean;
 }) {
   const t = useTranslations("sentences");
   const player = useListenPlayer({ items, onFirstPassComplete });
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [queueOpen, setQueueOpen] = useState(true);
+  const [queueOpen, setQueueOpen] = useState(!compact);
   const activeRowRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
@@ -180,26 +182,28 @@ export function ListenSession({
   const clipDone = clipTotal > 0 ? player.clipIndex + 1 : 0;
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="mb-2 text-4xl font-bold">{title}</h1>
-          {subtitle ? (
-            <p className="text-muted-foreground">{subtitle}</p>
-          ) : null}
+    <div className={compact ? "space-y-0" : "space-y-8"}>
+      {compact ? null : (
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 className="mb-2 text-4xl font-bold">{title}</h1>
+            {subtitle ? (
+              <p className="text-muted-foreground">{subtitle}</p>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {backHref ? (
+              <Button asChild variant="ghost">
+                <Link href={backHref}>{backLabel ?? t("importBack")}</Link>
+              </Button>
+            ) : null}
+            {actions}
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {backHref ? (
-            <Button asChild variant="ghost">
-              <Link href={backHref}>{backLabel ?? t("importBack")}</Link>
-            </Button>
-          ) : null}
-          {actions}
-        </div>
-      </div>
+      )}
 
-      <section className="cahier-card overflow-hidden">
-        <div className="space-y-6 p-6 sm:p-10">
+      <section className={cn("overflow-hidden", compact ? "" : "cahier-card")}>
+        <div className={cn("space-y-6", compact ? "p-4" : "p-6 sm:p-10")}>
           <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-[#3d4f66]">
             <span className="flex items-center gap-2 font-semibold uppercase tracking-[0.16em]">
               <Headphones className="h-4 w-4" />
@@ -249,7 +253,10 @@ export function ListenSession({
               {displayItem ? (
                 <div
                   className={cn(
-                    "flex min-h-[13.5rem] flex-col gap-4 sm:min-h-[16rem]",
+                    "flex flex-col gap-4",
+                    compact
+                      ? "min-h-[8.5rem]"
+                      : "min-h-[13.5rem] sm:min-h-[16rem]",
                     displayItem.questionText
                       ? "justify-start"
                       : "justify-center",
@@ -272,13 +279,19 @@ export function ListenSession({
                   ) : null}
                   <div>
                     {currentNative ? (
-                      <p className="mb-2 text-lg font-medium text-orange-500/80 sm:text-xl">
+                      <p
+                        className={cn(
+                          "mb-2 font-medium text-orange-500/80",
+                          compact ? "text-base" : "text-lg sm:text-xl",
+                        )}
+                      >
                         {currentNative}
                       </p>
                     ) : null}
                     <p
                       className={cn(
-                        "text-3xl font-semibold leading-snug text-[#1e3a5f] sm:text-5xl",
+                        "font-semibold leading-snug text-[#1e3a5f]",
+                        compact ? "text-2xl" : "text-3xl sm:text-5xl",
                         libreBaskerville.className,
                       )}
                     >
@@ -292,12 +305,12 @@ export function ListenSession({
                 </p>
               )}
 
-              <div className="flex items-center justify-center gap-1.5 border-t border-border/60 pt-5">
+              <div className="flex items-center justify-center gap-1.5 border-t border-border/60 pt-5 [touch-action:manipulation]">
                 <Button
                   type="button"
                   size="icon"
                   variant="ghost"
-                  className="h-11 w-11 rounded-full"
+                  className="h-12 w-12 rounded-full"
                   disabled={!canPrev}
                   onClick={player.goPrevSentence}
                   aria-label={t("listenPlayerPrev")}
@@ -308,7 +321,7 @@ export function ListenSession({
                   type="button"
                   size="icon"
                   variant="ghost"
-                  className="h-11 w-11 rounded-full"
+                  className="h-12 w-12 rounded-full"
                   disabled={!canPlay}
                   onClick={player.repeatSentence}
                   aria-label={t("listenPlayerRepeat")}
@@ -318,9 +331,9 @@ export function ListenSession({
                 <Button
                   type="button"
                   size="icon"
-                  className={`h-14 w-14 rounded-full shadow-lg ${
-                    waiting ? "animate-pulse" : ""
-                  }`}
+                  className={`rounded-full shadow-lg ${
+                    compact ? "h-16 w-16" : "h-14 w-14"
+                  } ${waiting ? "animate-pulse" : ""}`}
                   disabled={!canPlay}
                   onClick={
                     waiting ? player.goNextSentence : player.togglePause
@@ -343,7 +356,7 @@ export function ListenSession({
                   type="button"
                   size="icon"
                   variant="ghost"
-                  className="h-11 w-11 rounded-full"
+                  className="h-12 w-12 rounded-full"
                   disabled={!canNext && !player.awaitingNext}
                   onClick={player.goNextSentence}
                   aria-label={t("listenPlayerNext")}
@@ -377,7 +390,12 @@ export function ListenSession({
         </div>
 
         <div className="border-t border-border/60">
-          <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3 sm:px-10">
+          <div
+            className={cn(
+              "flex flex-wrap items-center justify-between gap-3 py-3",
+              compact ? "px-4" : "px-6 sm:px-10",
+            )}
+          >
             <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#3d4f66]">
               {t("listenQueue")}
               <span className="tabular-nums text-[var(--cahier-red,#d45d5d)]">
@@ -411,7 +429,14 @@ export function ListenSession({
             </div>
           </div>
           {queueOpen ? (
-            <ul className="max-h-80 space-y-1 overflow-y-auto border-t border-border/60 px-6 pb-4 pt-2 pr-7 sm:px-10 sm:pr-11">
+            <ul
+              className={cn(
+                "space-y-1 overflow-y-auto border-t border-border/60 pb-4 pt-2",
+                compact
+                  ? "max-h-48 px-4 pr-5"
+                  : "max-h-80 px-6 pr-7 sm:px-10 sm:pr-11",
+              )}
+            >
               {queueItems.map((item, index) => {
                 const active =
                   item.id === (player.currentItemId ?? displayItem?.id);

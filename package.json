@@ -6,9 +6,13 @@
   "scripts": {
     "dev": "concurrently -n web,mcp -c cyan,magenta \"next dev -p 4810\" \"node scripts/mcp-tunnel.mjs --optional\"",
     "dev:web": "next dev -p 4810",
+    "dev:https": "concurrently -n web,https -c cyan,green \"next dev -p 4810\" \"node scripts/https-proxy.mjs\"",
     "build": "NODE_ENV=production next build",
     "start": "concurrently -n web,mcp -c cyan,magenta \"node scripts/start-web.mjs\" \"node scripts/mcp-tunnel.mjs --optional\"",
     "start:web": "node scripts/start-web.mjs",
+    "start:https": "concurrently -n web,https -c cyan,green \"node scripts/start-web.mjs\" \"node scripts/https-proxy.mjs\"",
+    "https:setup": "bash scripts/setup-https.sh",
+    "https:proxy": "node scripts/https-proxy.mjs",
     "lint": "next lint",
     "db:push": "prisma db push",
     "db:backup": "node scripts/db-backup.mjs",

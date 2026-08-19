@@ -76,6 +76,17 @@ Open [http://localhost:4810](http://localhost:4810).
 
 `npm run dev` starts Next.js on port **4810** (MCP at `/mcp`) and the optional OpenAI MCP tunnel (health **4811**). Web only: `npm run dev:web`.
 
+## Daily on iPhone (offline, no cloud)
+
+The listen player can run as a home-screen PWA on your iPhone. You save one Daily pack (text + MP3s) over home Wi-Fi; after that the player works with the Mac off.
+
+```bash
+npm run https:setup      # once: mkcert + LAN certificate
+npm run dev:https        # or start:https after a production build
+```
+
+Open the printed `https://<mac>.local:4843` URL in iPhone Safari → Add to Home Screen. The PWA is language + download + player only. Details: [docs/offline-iphone.md](docs/offline-iphone.md).
+
 ## Environment
 
 Copy from [`.env.example`](.env.example):

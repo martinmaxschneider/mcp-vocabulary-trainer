@@ -140,7 +140,11 @@ Use `127.0.0.1` (not `localhost`) so the client does not dial IPv6 `[::1]`. `npm
 npm run dev          # Next (port 4810, /mcp) + OpenAI tunnel
 npm run dev:web      # Next only
 npm run mcp:tunnel   # Tunnel only (strict: fails without key)
+npm run https:setup  # once: local HTTPS cert for the iPhone PWA
+npm run dev:https    # Next + HTTPS proxy (port 4843)
 ```
+
+iPhone offline Daily (no cloud): [docs/offline-iphone.md](docs/offline-iphone.md).
 
 ### ChatGPT
 

@@ -38,6 +38,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
+import { DailyOfflineCard } from "~/components/daily-offline-card";
 import { SatzAudioButton } from "~/components/satz-audio-button";
 import { StatsWidget } from "~/components/stats-widget";
 import { useFocusLang } from "~/components/focus-lang-provider";
@@ -281,6 +282,8 @@ export function DailySection() {
           onReset={() => setJustCompleted(false)}
         />
       ) : null}
+
+      <DailyOfflineCard pkg={pkg} />
 
       {packages.length > 0 ? (
         <Card>

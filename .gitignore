@@ -46,6 +46,7 @@ data/update.log
 data/postgres/
 data/*.gz
 data/*Backup*
+data/certs/
 backups/
 
 # local SQL dumps

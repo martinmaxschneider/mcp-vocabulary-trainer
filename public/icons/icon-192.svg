@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-label="Sprachen">
+  <rect width="192" height="192" rx="40" fill="#0F766E"/>
+  <text
+    x="96"
+    y="132"
+    text-anchor="middle"
+    font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif"
+    font-size="118"
+    font-weight="700"
+    letter-spacing="-0.04em"
+    fill="#FFFFFF"
+  >S</text>
+</svg>
