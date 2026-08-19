@@ -234,13 +234,8 @@ export function ListenSession({
             </div>
           </div>
 
-          {settingsOpen ? (
-            <ListenSettings
-              settings={player.settings}
-              updateSettings={player.updateSettings}
-            />
-          ) : (
-            <>
+          <div className="relative">
+            <div className={settingsOpen ? "invisible" : undefined}>
               {displayItem?.badges && displayItem.badges.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {displayItem.badges.map((badge) => (
@@ -356,8 +351,16 @@ export function ListenSession({
                   <SkipForward className="h-5 w-5" />
                 </Button>
               </div>
-            </>
-          )}
+            </div>
+            {settingsOpen ? (
+              <div className="absolute inset-0 overflow-y-auto">
+                <ListenSettings
+                  settings={player.settings}
+                  updateSettings={player.updateSettings}
+                />
+              </div>
+            ) : null}
+          </div>
         </div>
 
         <div
