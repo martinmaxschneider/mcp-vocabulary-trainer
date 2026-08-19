@@ -75,7 +75,7 @@ export function ListenSession({
   const t = useTranslations("sentences");
   const player = useListenPlayer({ items, onFirstPassComplete });
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [queueOpen, setQueueOpen] = useState(!compact);
+  const [queueOpen, setQueueOpen] = useState(true);
   const activeRowRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
@@ -202,121 +202,169 @@ export function ListenSession({
         </div>
       )}
 
-      <section className={cn("overflow-hidden", compact ? "" : "cahier-card")}>
-        <div className={cn("space-y-6", compact ? "p-4" : "p-6 sm:p-10")}>
-          <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-[#3d4f66]">
+      <section
+        className={cn(
+          "overflow-hidden",
+          compact ? "text-foreground" : "cahier-card",
+        )}
+      >
+        <div className={cn(compact ? "p-4" : "space-y-6 p-6 sm:p-10")}>
+          <div
+            className={cn(
+              "flex flex-wrap items-center justify-between text-sm",
+              compact ? "gap-2 text-muted-foreground" : "gap-3 text-[#3d4f66]",
+            )}
+          >
             <span className="flex items-center gap-2 font-semibold uppercase tracking-[0.16em]">
               <Headphones className="h-4 w-4" />
               {t("listenNowPlaying")}
-              <span className="tabular-nums text-[var(--cahier-red,#d45d5d)]">
+              <span
+                className={cn(
+                  "tabular-nums",
+                  compact
+                    ? "text-primary"
+                    : "text-[var(--cahier-red,#d45d5d)]",
+                )}
+              >
                 {clipDone} / {clipTotal}
               </span>
             </span>
-            <div className="flex items-center gap-3">
-              <div className="text-right">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#3d4f66]">
-                  {t("listenPlayerLeft")}
-                </p>
-                <p className="font-mono text-2xl font-semibold tabular-nums leading-none text-[#1e3a5f]">
-                  {formatListenClock(player.sessionRemainingMs)}
-                </p>
-              </div>
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
+            <div className="text-right">
+              <p
                 className={cn(
-                  "h-8 w-8 rounded-full text-[#3d4f66]",
-                  settingsOpen ? "bg-[#1e3a5f]/8 text-[#1e3a5f]" : "",
+                  "text-[11px] font-semibold uppercase tracking-[0.18em]",
+                  compact ? "text-muted-foreground" : "text-[#3d4f66]",
                 )}
-                aria-expanded={settingsOpen}
-                aria-label={t("listenSettings")}
-                onClick={toggleSettings}
               >
-                <Settings className="h-4 w-4" />
-              </Button>
+                {t("listenPlayerLeft")}
+              </p>
+              <p
+                className={cn(
+                  "font-mono text-2xl font-semibold tabular-nums leading-none",
+                  compact ? "text-foreground" : "text-[#1e3a5f]",
+                )}
+              >
+                {formatListenClock(player.sessionRemainingMs)}
+              </p>
             </div>
           </div>
 
-          <div className="relative">
-            <div className={settingsOpen ? "invisible" : undefined}>
-              {displayItem?.badges && displayItem.badges.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {displayItem.badges.map((badge) => (
-                    <Badge key={badge} variant="outline">
-                      {badge}
-                    </Badge>
-                  ))}
-                </div>
-              ) : null}
+          <div className={compact ? "mt-4" : undefined}>
+            <div className="relative">
+              <div className={settingsOpen ? "invisible" : undefined}>
+                {displayItem?.badges && displayItem.badges.length > 0 ? (
+                  <div className={cn("flex flex-wrap gap-2", compact && "mb-3")}>
+                    {displayItem.badges.map((badge) => (
+                      <Badge key={badge} variant="outline">
+                        {badge}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : null}
 
-              {displayItem ? (
-                <div
-                  className={cn(
-                    "flex flex-col gap-4",
-                    compact
-                      ? "min-h-[8.5rem]"
-                      : "min-h-[13.5rem] sm:min-h-[16rem]",
-                    displayItem.questionText
-                      ? "justify-start"
-                      : "justify-center",
-                  )}
-                >
-                  {displayItem.questionText ? (
-                    <div className="max-w-[85%] rounded-xl border border-[#3d4f66]/35 bg-[#3d4f66]/10 px-4 py-3">
-                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#3d4f66]">
-                        {t("listenIntro")}
-                      </p>
-                      {displayItem.questionTranslation ? (
-                        <p className="mt-1.5 text-sm font-medium text-orange-500/80">
-                          {displayItem.questionTranslation}
-                        </p>
-                      ) : null}
-                      <p className="mt-1 text-base font-medium leading-snug text-[#1e3a5f]">
-                        {displayItem.questionText}
-                      </p>
-                    </div>
-                  ) : null}
-                  <div>
-                    {currentNative ? (
-                      <p
+                {displayItem ? (
+                  <div
+                    className={cn(
+                      "flex flex-col",
+                      compact ? "gap-4 min-h-[8.5rem]" : "gap-4 min-h-[13.5rem] sm:min-h-[16rem]",
+                      displayItem.questionText
+                        ? "justify-start"
+                        : "justify-center",
+                    )}
+                  >
+                    {displayItem.questionText ? (
+                      <div
                         className={cn(
-                          "mb-2 font-medium text-orange-500/80",
-                          compact ? "text-base" : "text-lg sm:text-xl",
+                          "max-w-[85%] rounded-xl border px-4 py-3",
+                          compact
+                            ? "border-border bg-muted/50"
+                            : "border-[#3d4f66]/35 bg-[#3d4f66]/10",
                         )}
                       >
-                        {currentNative}
-                      </p>
+                        <p
+                          className={cn(
+                            "text-[11px] font-bold uppercase tracking-[0.18em]",
+                            compact ? "text-muted-foreground" : "text-[#3d4f66]",
+                          )}
+                        >
+                          {t("listenIntro")}
+                        </p>
+                        {displayItem.questionTranslation ? (
+                          <p
+                            className={cn(
+                              "mt-1.5 text-sm font-medium",
+                              compact
+                                ? "text-muted-foreground"
+                                : "text-orange-500/80",
+                            )}
+                          >
+                            {displayItem.questionTranslation}
+                          </p>
+                        ) : null}
+                        <p
+                          className={cn(
+                            "mt-1 text-base font-medium leading-snug",
+                            compact ? "text-foreground" : "text-[#1e3a5f]",
+                          )}
+                        >
+                          {displayItem.questionText}
+                        </p>
+                      </div>
                     ) : null}
-                    <p
-                      className={cn(
-                        "font-semibold leading-snug text-[#1e3a5f]",
-                        compact ? "text-2xl" : "text-3xl sm:text-5xl",
-                        libreBaskerville.className,
-                      )}
-                    >
-                      {currentTarget}
-                    </p>
+                    <div>
+                      {currentNative ? (
+                        <p
+                          className={cn(
+                            "mb-2 font-medium",
+                            compact
+                              ? "text-muted-foreground"
+                              : "text-orange-500/80",
+                            compact ? "text-base" : "text-lg sm:text-xl",
+                          )}
+                        >
+                          {currentNative}
+                        </p>
+                      ) : null}
+                      <p
+                        className={cn(
+                          "font-semibold leading-snug",
+                          compact ? "text-foreground" : "text-[#1e3a5f]",
+                          compact ? "text-2xl" : "text-3xl sm:text-5xl",
+                          libreBaskerville.className,
+                        )}
+                      >
+                        {currentTarget}
+                      </p>
+                    </div>
                   </div>
+                ) : (
+                  <p
+                    className={cn(
+                      "text-lg",
+                      compact ? "text-muted-foreground" : "text-[#3d4f66]",
+                    )}
+                  >
+                    {t("listenReadyCount", { ready: 0, total: 0 })}
+                  </p>
+                )}
+              </div>
+              {settingsOpen ? (
+                <div className="absolute inset-0 overflow-y-auto">
+                  <ListenSettings
+                    settings={player.settings}
+                    updateSettings={player.updateSettings}
+                  />
                 </div>
-              ) : (
-                <p className="text-lg text-[#3d4f66]">
-                  {t("listenReadyCount", { ready: 0, total: 0 })}
-                </p>
-              )}
+              ) : null}
+            </div>
 
-              <div className="flex items-center justify-center gap-1.5 border-t border-border/60 pt-5 [touch-action:manipulation]">
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="h-12 w-12 rounded-full"
-                  disabled={!canPrev}
-                  onClick={player.goPrevSentence}
-                  aria-label={t("listenPlayerPrev")}
-                >
-                  <SkipBack className="h-5 w-5" />
-                </Button>
+            <div
+              className={cn(
+                "grid grid-cols-3 items-center border-t border-border/60 [touch-action:manipulation]",
+                compact ? "mt-4 pt-5" : "pt-5",
+              )}
+            >
+              <div className="flex items-center justify-end gap-1">
                 <Button
                   type="button"
                   size="icon"
@@ -328,6 +376,19 @@ export function ListenSession({
                 >
                   <Repeat className="h-5 w-5" />
                 </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="h-12 w-12 rounded-full"
+                  disabled={!canPrev}
+                  onClick={player.goPrevSentence}
+                  aria-label={t("listenPlayerPrev")}
+                >
+                  <SkipBack className="h-5 w-5" />
+                </Button>
+              </div>
+              <div className="flex justify-center">
                 <Button
                   type="button"
                   size="icon"
@@ -352,6 +413,8 @@ export function ListenSession({
                     <Pause className="h-6 w-6 fill-current" />
                   )}
                 </Button>
+              </div>
+              <div className="flex items-center justify-start gap-1">
                 <Button
                   type="button"
                   size="icon"
@@ -363,28 +426,44 @@ export function ListenSession({
                 >
                   <SkipForward className="h-5 w-5" />
                 </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className={cn(
+                    "h-12 w-12 rounded-full",
+                    settingsOpen ? "bg-accent text-accent-foreground" : "",
+                  )}
+                  aria-expanded={settingsOpen}
+                  aria-label={t("listenSettings")}
+                  onClick={toggleSettings}
+                >
+                  <Settings className="h-5 w-5" />
+                </Button>
               </div>
             </div>
-            {settingsOpen ? (
-              <div className="absolute inset-0 overflow-y-auto">
-                <ListenSettings
-                  settings={player.settings}
-                  updateSettings={player.updateSettings}
-                />
-              </div>
-            ) : null}
           </div>
         </div>
 
         <div
-          className="h-1 bg-[var(--cahier-ink,#1e3a5f)]/8 dark:bg-white/10"
+          className={cn(
+            "h-1",
+            compact
+              ? "bg-muted"
+              : "bg-[var(--cahier-ink,#1e3a5f)]/8 dark:bg-white/10",
+          )}
           role="progressbar"
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={Math.round(percent)}
         >
           <div
-            className="h-full bg-[var(--cahier-red,#d45d5d)]/80 transition-[width] duration-700 ease-linear"
+            className={cn(
+              "h-full transition-[width] duration-700 ease-linear",
+              compact
+                ? "bg-primary"
+                : "bg-[var(--cahier-red,#d45d5d)]/80",
+            )}
             style={{ width: `${percent}%` }}
           />
         </div>
@@ -392,13 +471,25 @@ export function ListenSession({
         <div className="border-t border-border/60">
           <div
             className={cn(
-              "flex flex-wrap items-center justify-between gap-3 py-3",
-              compact ? "px-4" : "px-6 sm:px-10",
+              "flex flex-wrap items-center justify-between gap-3",
+              compact ? "px-4 py-2.5" : "px-6 py-3 sm:px-10",
             )}
           >
-            <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#3d4f66]">
+            <span
+              className={cn(
+                "flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em]",
+                compact ? "text-muted-foreground" : "text-[#3d4f66]",
+              )}
+            >
               {t("listenQueue")}
-              <span className="tabular-nums text-[var(--cahier-red,#d45d5d)]">
+              <span
+                className={cn(
+                  "tabular-nums",
+                  compact
+                    ? "text-primary"
+                    : "text-[var(--cahier-red,#d45d5d)]",
+                )}
+              >
                 {currentQueueIndex >= 0 ? currentQueueIndex + 1 : 0} /{" "}
                 {queueItems.length}
               </span>
@@ -406,7 +497,12 @@ export function ListenSession({
             <div className="flex items-center gap-2">
               {filters ? (
                 <div className="flex flex-wrap items-center gap-2">
-                  <SlidersHorizontal className="h-3.5 w-3.5 text-[#3d4f66]" />
+                  <SlidersHorizontal
+                    className={cn(
+                      "h-3.5 w-3.5",
+                      compact ? "text-muted-foreground" : "text-[#3d4f66]",
+                    )}
+                  />
                   {filters}
                 </div>
               ) : null}
@@ -414,7 +510,10 @@ export function ListenSession({
                 type="button"
                 size="icon"
                 variant="ghost"
-                className="h-8 w-8 rounded-full text-[#3d4f66]"
+                className={cn(
+                  "h-8 w-8 rounded-full",
+                  compact ? "text-muted-foreground" : "text-[#3d4f66]",
+                )}
                 aria-expanded={queueOpen}
                 aria-label={t("listenQueue")}
                 onClick={() => setQueueOpen((open) => !open)}
@@ -431,10 +530,10 @@ export function ListenSession({
           {queueOpen ? (
             <ul
               className={cn(
-                "space-y-1 overflow-y-auto border-t border-border/60 pb-4 pt-2",
+                "overflow-y-auto border-t border-border/60",
                 compact
-                  ? "max-h-48 px-4 pr-5"
-                  : "max-h-80 px-6 pr-7 sm:px-10 sm:pr-11",
+                  ? "space-y-0.5 max-h-[45dvh] px-3 pr-4 pb-3 pt-1.5"
+                  : "space-y-1 max-h-80 px-6 pr-7 pb-4 pt-2 sm:px-10 sm:pr-11",
               )}
             >
               {queueItems.map((item, index) => {
@@ -452,22 +551,42 @@ export function ListenSession({
                       }
                       disabled={!player.sessionActive}
                       className={cn(
-                        "flex w-full items-start gap-3 rounded-lg border-2 px-3 py-2 text-left transition-colors",
+                        "flex w-full items-start gap-3 rounded-lg border-2 text-left transition-colors",
+                        compact ? "px-2.5 py-1.5" : "px-3 py-2",
                         active
-                          ? "border-[#1e3a5f] bg-[#1e3a5f]/10"
+                          ? compact
+                            ? "border-primary bg-primary/10"
+                            : "border-[#1e3a5f] bg-[#1e3a5f]/10"
                           : "border-transparent hover:bg-muted/60",
                         past && !active ? "opacity-50" : "",
                       )}
                     >
-                      <span className="w-6 shrink-0 pt-0.5 text-xs tabular-nums text-[#3d4f66]">
+                      <span
+                        className={cn(
+                          "w-6 shrink-0 pt-0.5 text-xs tabular-nums",
+                          compact ? "text-muted-foreground" : "text-[#3d4f66]",
+                        )}
+                      >
                         {index + 1}
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate font-medium text-[#1e3a5f]">
+                        <span
+                          className={cn(
+                            "block truncate font-medium",
+                            compact ? "text-foreground" : "text-[#1e3a5f]",
+                          )}
+                        >
                           {listenTargetText(item)}
                         </span>
                         {listenNativeText(item) ? (
-                          <span className="mt-0.5 block truncate text-sm text-[#3d4f66]">
+                          <span
+                            className={cn(
+                              "mt-0.5 block truncate text-sm",
+                              compact
+                                ? "text-muted-foreground"
+                                : "text-[#3d4f66]",
+                            )}
+                          >
                             {listenNativeText(item)}
                           </span>
                         ) : null}
