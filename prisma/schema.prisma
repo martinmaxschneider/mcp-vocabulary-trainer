@@ -674,3 +674,74 @@ model SatzImportDraft {
   @@index([batchId, status])
   @@index([batchId, rowNumber])
 }
+
+enum DailyPackageStatus {
+  DRAFT
+  ACTIVE
+  TESTING
+  PRODUCTIVE
+  ABANDONED
+}
+
+enum DailyItemType {
+  SATZ
+  ENTRY
+  CONJUGATION
+}
+
+enum DailyTestResult {
+  PENDING
+  CORRECT
+  WRONG
+}
+
+/// One study package per user / target language / calendar day (open packages only).
+model DailyPackage {
+  id               String             @id @default(cuid())
+  userId           String             @default("anonymous")
+  targetLang       String
+  /// Local calendar day YYYY-MM-DD
+  date             String
+  status           DailyPackageStatus @default(DRAFT)
+  targetSatzCount  Int
+  targetVocabCount Int
+  targetConjCount  Int
+  createdAt        DateTime           @default(now())
+  activatedAt      DateTime?
+  completedAt      DateTime?
+  items            DailyPackageItem[]
+
+  @@index([userId, targetLang, date])
+  @@index([userId, targetLang, status])
+}
+
+model DailyPackageItem {
+  id                        String          @id @default(cuid())
+  packageId                 String
+  package                   DailyPackage    @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  itemType                  DailyItemType
+  /// satzId | entryId | translationId (CONJUGATION)
+  refId                     String
+  /// tenseKey for CONJUGATION
+  refKey                    String?
+  domainIdSnapshot          String?
+  grammarTopicBonusApplied  Boolean         @default(false)
+  testResult                DailyTestResult @default(PENDING)
+  position                  Int
+
+  @@index([packageId, position])
+  @@index([itemType, refId])
+}
+
+model DailySettings {
+  id                    String   @id @default(cuid())
+  userId                String   @default("anonymous")
+  targetLang            String
+  currentGrammarTopicId String?
+  /// { satzCount, vocabCount, conjCount }
+  lastPackageConfig     Json?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([userId, targetLang])
+}

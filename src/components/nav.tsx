@@ -23,6 +23,7 @@ import {
   NotebookPen,
   Quote,
   Repeat,
+  CalendarDays,
 } from "lucide-react";
 import { FocusLangSelect } from "~/components/focus-lang-select";
 import { StreakIndicator } from "~/components/streak-indicator";
@@ -38,6 +39,7 @@ export function Nav() {
 
   const startLinks = [
     { href: "/", label: t("dashboard"), icon: Home },
+    { href: "/daily", label: t("daily"), icon: CalendarDays },
     { href: "/sentences/review", label: t("sentences"), icon: Quote },
   ];
   const practiceLinks = [

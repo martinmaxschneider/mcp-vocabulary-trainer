@@ -506,17 +506,24 @@ export const conjugationRouter = createTRPCRouter({
         pool[Math.floor(Math.random() * pool.length)]!;
 
       const chosenGroup =
-        dueGroups.length > 0
-          ? pickFrom(dueGroups)
-          : unseenGroups.length > 0
-            ? pickFrom(unseenGroups)
-            : (laterGroups[0]?.group ?? null);
+        dueGroups.length > 0 ? pickFrom(dueGroups) : null;
 
       const dueCount = dueGroups.length;
-      const boxCounts = boxCountsForRun(dueGroups, unseenGroups, laterGroups, progressByIdentity);
+      const boxCounts = boxCountsForRun(dueGroups, [], laterGroups, progressByIdentity);
+
+      if (!chosenGroup) {
+        return {
+          mode: input.mode,
+          card: null,
+          paradigm: null,
+          totalAvailable: forms.length,
+          dueCount,
+          boxCounts,
+        };
+      }
 
       if (input.mode === "single") {
-        const source = chosenGroup?.forms ?? forms;
+        const source = chosenGroup.forms;
         const pick = source[Math.floor(Math.random() * source.length)]!;
 
         return {
@@ -543,7 +550,7 @@ export const conjugationRouter = createTRPCRouter({
         };
       }
 
-      const group = chosenGroup?.forms ?? forms;
+      const group = chosenGroup.forms;
       const head = group[0]!;
 
       const slots = group

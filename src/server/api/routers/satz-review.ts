@@ -75,10 +75,9 @@ export const satzReviewRouter = createTRPCRouter({
       for (const row of dueProgresses) {
         addBoxCount(boxCounts, row.box, 1);
       }
-      addBoxCount(boxCounts, MIN_BOX, newCount);
 
       return {
-        due: dueProgresses.length + newCount,
+        due: dueProgresses.length,
         newCount,
         boxCounts,
       };
@@ -153,53 +152,20 @@ export const satzReviewRouter = createTRPCRouter({
       });
 
       const includeUnseen = input.box === undefined || input.box === MIN_BOX;
-      const remaining = Math.max(0, input.limit - dueProgresses.length);
-      const unseen =
-        includeUnseen && remaining > 0
-          ? await ctx.db.satz.findMany({
-              where: {
-                ...hasTranslation,
-                progresses: {
-                  none: { userId, targetLang: input.targetLang },
-                },
-              },
-              take: remaining,
-              orderBy: { createdAt: "asc" },
-              include: {
-                translations: { where: { lang: input.targetLang } },
-                domains: { include: { domain: true } },
-              },
-            })
-          : [];
 
-      const cards = [
-        ...dueProgresses.map((progress) => ({
-          satzId: progress.satzId,
-          mainText: progress.satz.mainText,
-          trigger: progress.satz.trigger,
-          priority: progress.satz.priority,
-          box: progress.box,
-          nextReviewAt: progress.nextReviewAt,
-          mainAudioUrl: progress.satz.mainAudioUrl,
-          mainAudioStatus: progress.satz.mainAudioStatus,
-          updatedAt: progress.satz.updatedAt,
-          translation: progress.satz.translations[0] ?? null,
-          domains: progress.satz.domains.map((d) => d.domain),
-        })),
-        ...unseen.map((satz) => ({
-          satzId: satz.id,
-          mainText: satz.mainText,
-          trigger: satz.trigger,
-          priority: satz.priority,
-          box: MIN_BOX,
-          nextReviewAt: now,
-          mainAudioUrl: satz.mainAudioUrl,
-          mainAudioStatus: satz.mainAudioStatus,
-          updatedAt: satz.updatedAt,
-          translation: satz.translations[0] ?? null,
-          domains: satz.domains.map((d) => d.domain),
-        })),
-      ];
+      const cards = dueProgresses.map((progress) => ({
+        satzId: progress.satzId,
+        mainText: progress.satz.mainText,
+        trigger: progress.satz.trigger,
+        priority: progress.satz.priority,
+        box: progress.box,
+        nextReviewAt: progress.nextReviewAt,
+        mainAudioUrl: progress.satz.mainAudioUrl,
+        mainAudioStatus: progress.satz.mainAudioStatus,
+        updatedAt: progress.satz.updatedAt,
+        translation: progress.satz.translations[0] ?? null,
+        domains: progress.satz.domains.map((d) => d.domain),
+      }));
 
       const dueCount = await ctx.db.satzProgress.count({
         where: {
@@ -235,12 +201,11 @@ export const satzReviewRouter = createTRPCRouter({
       for (const row of dueByBox) {
         addBoxCount(boxCounts, row.box, row._count._all);
       }
-      addBoxCount(boxCounts, MIN_BOX, newCount);
-
       return {
         cards,
-        totalAvailable: dueCount + newCount,
+        totalAvailable: dueCount,
         boxCounts,
+        newCount,
       };
     }),
 

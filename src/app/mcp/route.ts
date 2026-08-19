@@ -1350,6 +1350,128 @@ const handler = createMcpHandler(
       },
     );
 
+    // ── Daily ────────────────────────────────────────────────
+    server.tool(
+      "create_daily_package",
+      "Erstellt ein DRAFT-Tagespaket aus neuen Sätzen, Vokabeln und Konjugationen (domain-stratifiziert). " +
+        "Gibt eine Vorschau zurück und stößt fehlende Audio-Generierung an.",
+      {
+        targetLang: z.string(),
+        satzCount: z.number().int().min(0).max(200),
+        vocabCount: z.number().int().min(0).max(200),
+        conjCount: z.number().int().min(0).max(200),
+      },
+      async (args) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.daily.createPackage(args));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "get_daily_package",
+      "Lädt ein Tagespaket per id oder über targetLang + date (YYYY-MM-DD, default: heute).",
+      {
+        id: z.string().optional(),
+        targetLang: z.string().optional(),
+        date: z.string().optional(),
+      },
+      async (args) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.daily.getPackage(args));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "activate_daily_package",
+      "Setzt ein DRAFT-Paket auf ACTIVE, sobald alle Item-Audios fertig sind.",
+      { id: z.string() },
+      async ({ id }) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.daily.activatePackage({ id }));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "start_daily_test",
+      "Startet den Active-Recall-Test (ACTIVE → TESTING).",
+      { id: z.string() },
+      async ({ id }) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.daily.startTest({ id }));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "submit_daily_test_answer",
+      "Bewertet ein Daily-Item im TEST (richtig/falsch).",
+      {
+        itemId: z.string(),
+        isCorrect: z.boolean(),
+      },
+      async (args) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.daily.submitTestAnswer(args));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "complete_daily_package",
+      "Schließt den Test ab (TESTING → PRODUCTIVE) und legt Leitner-Progress auf Box 1 an.",
+      { id: z.string() },
+      async ({ id }) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.daily.completePackage({ id }));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "abandon_daily_package",
+      "Verwirft ein offenes Tagespaket manuell (ABANDONED). PRODUCTIVE-Pakete können nicht verworfen werden.",
+      { id: z.string() },
+      async ({ id }) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.daily.abandonPackage({ id }));
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "get_daily_burndown",
+      "Offener Neu-Bestand je Typ plus geschätzte Resttage anhand der letzten abgeschlossenen Tagespakete.",
+      { targetLang: z.string() },
+      async ({ targetLang }) => {
+        const api = await getCaller();
+        return jsonResult(await api.daily.burndown({ targetLang }));
+      },
+    );
+
     // ── Stats ────────────────────────────────────────────────
     server.tool(
       "get_stats",

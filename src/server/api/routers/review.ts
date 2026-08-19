@@ -342,60 +342,7 @@ export const reviewRouter = createTRPCRouter({
         },
       });
 
-      const entriesWithoutProgress = await ctx.db.entry.findMany({
-        where: {
-          ...(domainFilter || {}),
-          translations: {
-            some: { lang: input.targetLang },
-          },
-          progresses: {
-            none: {
-              userId,
-              targetLang: input.targetLang,
-              cardType: CardType.VOCAB,
-            },
-          },
-        },
-        take: Math.max(0, input.limit - dueProgresses.length),
-        include: {
-          translations: {
-            where: { lang: input.targetLang },
-          },
-          domains: {
-            include: { domain: true },
-          },
-        },
-      });
-
-      const newProgresses = await Promise.all(
-        entriesWithoutProgress.map(async (entry) => {
-          const progress = await ctx.db.userProgress.create({
-            data: {
-              userId,
-              entryId: entry.id,
-              targetLang: input.targetLang,
-              ...VOCAB_CARD,
-              box: MIN_BOX,
-              nextReviewAt: now,
-            },
-            include: {
-              entry: {
-                include: {
-                  translations: {
-                    where: { lang: input.targetLang },
-                  },
-                  domains: {
-                    include: { domain: true },
-                  },
-                },
-              },
-            },
-          });
-          return progress;
-        })
-      );
-
-      const allCards = [...dueProgresses, ...newProgresses];
+      const allCards = dueProgresses;
 
       const totalDueCount = await ctx.db.userProgress.count({
         where: {
@@ -406,24 +353,6 @@ export const reviewRouter = createTRPCRouter({
           ...(domainFilter ? { entry: domainFilter } : {}),
         },
       });
-
-      const totalNewCount = await ctx.db.entry.count({
-        where: {
-          ...(domainFilter || {}),
-          translations: {
-            some: { lang: input.targetLang },
-          },
-          progresses: {
-            none: {
-              userId,
-              targetLang: input.targetLang,
-              cardType: CardType.VOCAB,
-            },
-          },
-        },
-      });
-
-      const totalAvailable = totalDueCount + totalNewCount;
 
       const dueByBox = await ctx.db.userProgress.groupBy({
         by: ["box"],
@@ -440,7 +369,6 @@ export const reviewRouter = createTRPCRouter({
       for (const row of dueByBox) {
         addBoxCount(boxCounts, row.box, row._count._all);
       }
-      addBoxCount(boxCounts, MIN_BOX, totalNewCount);
 
       return {
         cards: allCards.map((progress) => ({
@@ -448,7 +376,7 @@ export const reviewRouter = createTRPCRouter({
           // UI still needs translation after submit; MCP strips this
           translation: progress.entry.translations[0],
         })),
-        totalAvailable,
+        totalAvailable: totalDueCount,
         boxCounts,
       };
     }),
@@ -483,40 +411,12 @@ export const reviewRouter = createTRPCRouter({
         },
       });
 
-      // Entries that have a translation in some target lang but no progress for that lang
-      const entriesWithMissingProgress = await ctx.db.entry.findMany({
-        where: {
-          ...(domainFilter || {}),
-          translations: {
-            some: { lang: { in: targetLangs } },
-          },
-          OR: targetLangs.map((lang) => ({
-            translations: { some: { lang } },
-            progresses: {
-              none: {
-                userId,
-                targetLang: lang,
-                cardType: CardType.VOCAB,
-              },
-            },
-          })),
-        },
-        select: { id: true },
-      });
-
-      // Build ordered unique entry IDs: due first (by earliest nextReviewAt), then new
       const entryOrder: string[] = [];
       const seen = new Set<string>();
       for (const p of dueProgresses) {
         if (!seen.has(p.entryId)) {
           seen.add(p.entryId);
           entryOrder.push(p.entryId);
-        }
-      }
-      for (const e of entriesWithMissingProgress) {
-        if (!seen.has(e.id)) {
-          seen.add(e.id);
-          entryOrder.push(e.id);
         }
       }
 
@@ -529,11 +429,6 @@ export const reviewRouter = createTRPCRouter({
         const prev = boxByEntry.get(progress.entryId);
         if (prev === undefined || progress.box < prev) {
           boxByEntry.set(progress.entryId, progress.box);
-        }
-      }
-      for (const entry of entriesWithMissingProgress) {
-        if (!boxByEntry.has(entry.id)) {
-          boxByEntry.set(entry.id, MIN_BOX);
         }
       }
       for (const box of boxByEntry.values()) {
