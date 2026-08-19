@@ -202,11 +202,19 @@ export async function hydrateOfflineItems(
   for (const url of collectClipUrls(items)) {
     const cached = await cache.match(url);
     if (!cached) continue;
-    const objectUrl = URL.createObjectURL(await cached.blob());
+    const objectUrl = URL.createObjectURL(
+      await blobForAudioPlayback(await cached.blob()),
+    );
     urlMap.set(url, objectUrl);
     blobUrls.push(objectUrl);
   }
   return { items: remapItemClips(items, urlMap), blobUrls };
+}
+
+/** iOS refuses blobs without an audio/* MIME type. */
+export async function blobForAudioPlayback(blob: Blob): Promise<Blob> {
+  if (blob.type.startsWith("audio/")) return blob;
+  return new Blob([await blob.arrayBuffer()], { type: "audio/mpeg" });
 }
 
 export function revokeBlobUrls(urls: string[]): void {

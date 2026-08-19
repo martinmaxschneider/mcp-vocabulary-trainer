@@ -70,6 +70,35 @@ export function useListenPlayer({
   const preparedKeyRef = useRef("");
   settingsRef.current = settings;
 
+  const ensureAudio = () => {
+    if (audioRef.current) return audioRef.current;
+    const audio = new Audio();
+    audio.playsInline = true;
+    audio.setAttribute("playsinline", "");
+    audio.setAttribute("webkit-playsinline", "");
+    audio.preload = "auto";
+    audio.setAttribute("aria-hidden", "true");
+    Object.assign(audio.style, {
+      position: "absolute",
+      width: "0",
+      height: "0",
+      opacity: "0",
+      pointerEvents: "none",
+    });
+    document.body.appendChild(audio);
+    audioRef.current = audio;
+    return audio;
+  };
+
+  useEffect(() => {
+    return () => {
+      const audio = audioRef.current;
+      audio?.pause();
+      audio?.remove();
+      audioRef.current = null;
+    };
+  }, []);
+
   useEffect(() => {
     setSettings(loadSatzListenSettings());
   }, []);
@@ -133,7 +162,6 @@ export function useListenPlayer({
     );
     runIdRef.current += 1;
     audioRef.current?.pause();
-    audioRef.current = null;
     practicedRef.current = false;
     setPlayEpoch((value) => value + 1);
     pausedRef.current = startPaused;
@@ -160,12 +188,20 @@ export function useListenPlayer({
     );
     runIdRef.current += 1;
     audioRef.current?.pause();
-    audioRef.current = null;
     setPlayEpoch((value) => value + 1);
     pausedRef.current = startPaused;
     setPaused(startPaused);
     setAwaitingNext(false);
     setClipIndex(nextIndex);
+    if (!startPaused) {
+      const clip = playlist[nextIndex];
+      if (clip) {
+        const audio = ensureAudio();
+        audio.src = clip.url;
+        audio.playbackRate = settingsRef.current.playbackRate;
+        void audio.play().catch(() => undefined);
+      }
+    }
     if (startPaused) {
       remainingUntilRef.current = null;
       frozenRemainingRef.current = remaining;
@@ -197,7 +233,6 @@ export function useListenPlayer({
       preparedKeyRef.current = "";
       runIdRef.current += 1;
       audioRef.current?.pause();
-      audioRef.current = null;
       pausedRef.current = true;
       remainingUntilRef.current = null;
       frozenRemainingRef.current = null;
@@ -263,17 +298,25 @@ export function useListenPlayer({
     }
     const leftover = frozenRemainingRef.current ?? 0;
     remainingUntilRef.current = Date.now() + leftover;
-    if (audioRef.current && !audioRef.current.ended) {
-      void audioRef.current.play().catch(() => undefined);
+    const audio = ensureAudio();
+    if (audio.src && !audio.ended) {
+      void audio.play().catch(() => {
+        setPlayEpoch((value) => value + 1);
+      });
       return;
     }
-    // No live audio element (freshly prepared or clip finished): restart the
-    // playback effect for the current clip.
+    const clip = playlist?.[clipIndex];
+    if (clip) {
+      audio.src = clip.url;
+      audio.playbackRate = settingsRef.current.playbackRate;
+      void audio.play().catch(() => undefined);
+    }
     setPlayEpoch((value) => value + 1);
   };
 
   useEffect(() => {
     if (!playlist || awaitingNext) return;
+    if (pausedRef.current) return;
     const item = playlist[clipIndex];
     if (!item) {
       stopPlayback();
@@ -325,9 +368,8 @@ export function useListenPlayer({
 
     const playUrl = (url: string) =>
       new Promise<void>((resolve, reject) => {
-        const audio = new Audio(url);
+        const audio = ensureAudio();
         audio.playbackRate = settingsRef.current.playbackRate;
-        audioRef.current = audio;
         const finish = () => {
           controller.signal.removeEventListener("abort", onAbort);
           resolve();
@@ -346,7 +388,12 @@ export function useListenPlayer({
           finish();
           return;
         }
-        void audio.play().catch(reject);
+        if (audio.getAttribute("src") !== url && audio.src !== url) {
+          audio.src = url;
+        }
+        if (audio.paused || audio.ended) {
+          void audio.play().catch(reject);
+        }
       });
 
     commitRemaining(
@@ -414,9 +461,10 @@ export function useListenPlayer({
 
     return () => {
       controller.abort();
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
+      const audio = audioRef.current;
+      if (audio) {
+        audio.onended = null;
+        audio.onerror = null;
       }
     };
     // Playlist index drives playback; pause is handled via refs.

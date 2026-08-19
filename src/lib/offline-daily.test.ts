@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  blobForAudioPlayback,
   collectClipUrls,
   normalizeClipUrl,
   remapItemClips,
@@ -41,5 +42,15 @@ describe("offline daily helpers", () => {
     expect(mapped[0]?.clips[1]?.url).toBe(
       "https://host.local:4843/api/audio/b?x=1",
     );
+  });
+
+  it("gives untyped blobs an audio/mpeg type for iOS playback", async () => {
+    const raw = new Blob([new Uint8Array([1, 2, 3])]);
+    const typed = await blobForAudioPlayback(raw);
+    expect(typed.type).toBe("audio/mpeg");
+    const already = await blobForAudioPlayback(
+      new Blob([new Uint8Array([1])], { type: "audio/wav" }),
+    );
+    expect(already.type).toBe("audio/wav");
   });
 });
