@@ -17,21 +17,14 @@ import {
 } from "~/lib/conjugation-catalog";
 import { api } from "~/trpc/client";
 import { Button } from "~/components/ui/button";
-import { Card, CardContent } from "~/components/ui/card";
-import { Badge } from "~/components/ui/badge";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
+import {
+  CahierQuizCard,
+  CahierQuizFrame,
+} from "~/components/cahier-quiz-view";
 import { useToast } from "~/hooks/use-toast";
 import { resolveErrorCode } from "~/lib/trpc-error";
-import {
-  ArrowLeft,
-  CheckCircle2,
-  Loader2,
-  Play,
-  XCircle,
-} from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useFocusLang } from "~/components/focus-lang-provider";
-import { ReviewBoxBar } from "~/components/review-box-bar";
 import { useCelebrate } from "~/components/gamification-provider";
 import { SessionSummary } from "~/components/session-summary";
 import { PracticeModeButtons } from "~/components/practice-mode-buttons";
@@ -61,7 +54,6 @@ export function ConjugationDrill() {
   const t = useTranslations("conjugations");
   const tDomains = useTranslations("domains");
   const tCommon = useTranslations("common");
-  const tReview = useTranslations("review");
   const tLang = useTranslations("languages");
   const tErrors = useTranslations("errors.codes");
   const { toast } = useToast();
@@ -368,36 +360,6 @@ export function ConjugationDrill() {
     await refetch();
   };
 
-  const handleSingleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!singleCard || !answer.trim() || result) return;
-    submitMutation.mutate({
-      formId: singleCard.formId,
-      answer: answer.trim(),
-      skipProgress: practiceMode || undefined,
-    });
-  };
-
-  const handleParadigmSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!paradigm || paradigmResults || submitParadigmMutation.isPending) {
-      return;
-    }
-    const payload = slots.map((slot) => ({
-      formId: slot.formId,
-      answer: (paradigmAnswers[slot.formId] ?? "").trim(),
-    }));
-    if (payload.every((p) => !p.answer)) return;
-    submitParadigmMutation.mutate({
-      answers: payload,
-      skipProgress: practiceMode || undefined,
-    });
-  };
-
-  const paradigmFilledCount = slots.filter(
-    (s) => (paradigmAnswers[s.formId] ?? "").trim().length > 0,
-  ).length;
-
   const toggleTense = (key: string) => {
     setSelectedTenses((prev) =>
       prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
@@ -644,43 +606,20 @@ export function ConjugationDrill() {
     : 0;
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={backToSetup}
-          className="text-[#1e3a5f] hover:bg-white/70 hover:text-[#1e3a5f]"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          {tCommon("back")}
-        </Button>
-        <div className="flex items-center gap-2">
-          {remainingInRun > 0 ? (
-            <span className="text-sm font-medium text-[#1e3a5f]">
-              {tReview("cardsLeft", { count: remainingInRun })}
-            </span>
-          ) : null}
-          <span className="rounded-md bg-slate-200/80 px-2.5 py-1 text-xs text-slate-700">
-            {currentLang?.flag} {tLang(selectedLang)}
-          </span>
-        </div>
-      </div>
-
-      <p
-        className={cn(
-          "mb-6 text-center text-base text-red-600",
-          caveat.className,
-        )}
-      >
-        {t("cahierLabel")}
-      </p>
-      {drillData?.boxCounts && hasContent ? (
-        <div className="mb-6">
-          <ReviewBoxBar remaining={drillData.boxCounts} />
-        </div>
-      ) : null}
-
+    <CahierQuizFrame
+      kicker={t("cahierLabel")}
+      cardsLeft={remainingInRun > 0 ? remainingInRun : null}
+      langPill={
+        <>
+          {currentLang?.flag} {tLang(selectedLang)}
+        </>
+      }
+      onBack={backToSetup}
+      backLabel={tCommon("back")}
+      remainingBoxes={
+        drillData?.boxCounts && hasContent ? drillData.boxCounts : null
+      }
+    >
       {isLoading || awaitingParadigm || (isFetching && !hasContent) ? (
         <div className="cahier-card py-16 text-center">
           <Loader2 className="mx-auto h-8 w-8 animate-spin text-[#1e3a5f]" />
@@ -705,281 +644,153 @@ export function ConjugationDrill() {
           </Button>
         </div>
       ) : drillMode === "paradigm" && paradigm ? (
-        <Card key={cardKey} className="cahier-card overflow-hidden">
-          <CardContent className="px-6 py-10 sm:px-12 sm:py-14">
-            {slotsByTense[0] ? (
-              <p className="mb-3 text-center text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                {slotsByTense[0].tenseLabel}
-              </p>
-            ) : null}
-            <h2
-              className={cn(
-                "text-center text-4xl font-bold leading-tight text-[#1e3a5f] sm:text-5xl",
-                libreBaskerville.className,
-              )}
-            >
-              {paradigm.mainText}
-            </h2>
-            <p className="mt-3 text-center text-sm text-slate-600">
-              <span className="italic">{paradigm.infinitive}</span>
+        <CahierQuizCard
+          cardKey={cardKey}
+          badges={
+            slotsByTense[0]
+              ? [{ label: slotsByTense[0].tenseLabel }]
+              : undefined
+          }
+          prompt={paradigm.mainText}
+          subtitle={
+            <>
+              <span className="italic text-slate-600">{paradigm.infinitive}</span>
               {paradigm.isIrregular ? (
                 <span className="ml-2 text-xs uppercase tracking-wide text-red-600">
                   {tCommon("irregular")}
                 </span>
               ) : null}
-            </p>
-
-            <form
-              onSubmit={handleParadigmSubmit}
-              className="mx-auto mt-10 max-w-2xl space-y-8"
-            >
-              {slotsByTense.map((group) => {
-                const singular = group.slots.filter((s) => s.personIndex < 3);
-                const plural = group.slots.filter((s) => s.personIndex >= 3);
-                const columns =
-                  singular.length > 0 && plural.length > 0
-                    ? [singular, plural]
-                    : [group.slots];
-                return (
-                  <div key={group.tenseKey} className="space-y-4">
-                    {slotsByTense.length > 1 ? (
-                      <h3 className="text-center text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                        {group.tenseLabel}
-                      </h3>
-                    ) : null}
-                    <div
-                      className={cn(
-                        "grid gap-x-10 gap-y-3",
-                        columns.length > 1 && "sm:grid-cols-2",
-                      )}
-                    >
-                      {columns.map((column, colIdx) => (
-                        <div key={colIdx} className="space-y-3">
-                          {column.map((slot) => {
-                            const slotResult = paradigmResults?.[slot.formId];
-                            return (
-                              <div key={slot.formId} className="space-y-1">
-                                <div className="flex items-center gap-3">
-                                  <Label
-                                    htmlFor={`slot-${slot.formId}`}
-                                    className="w-20 shrink-0 text-sm text-[#1e3a5f]"
-                                  >
-                                    {slot.personLabel}
-                                  </Label>
-                                  <Input
-                                    id={`slot-${slot.formId}`}
-                                    value={paradigmAnswers[slot.formId] ?? ""}
-                                    onChange={(e) =>
-                                      setParadigmAnswers((prev) => ({
-                                        ...prev,
-                                        [slot.formId]: e.target.value,
-                                      }))
-                                    }
-                                    placeholder={t("formPlaceholder")}
-                                    disabled={
-                                      !!paradigmResults ||
-                                      submitParadigmMutation.isPending
-                                    }
-                                    className={cn(
-                                      "h-12 text-base",
-                                      slotResult?.isCorrect &&
-                                        "border-green-500/60",
-                                      slotResult &&
-                                        !slotResult.isCorrect &&
-                                        "border-red-500/60",
-                                    )}
-                                  />
-                                  {slotResult ? (
-                                    slotResult.isCorrect ? (
-                                      <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600" />
-                                    ) : (
-                                      <XCircle className="h-5 w-5 shrink-0 text-red-600" />
-                                    )
-                                  ) : null}
-                                </div>
-                                {slotResult && !slotResult.isCorrect ? (
-                                  <p className="pl-[5.75rem] text-xs text-slate-500">
-                                    {t("expectedLabel")}{" "}
-                                    <span className="font-medium text-[#1e3a5f]">
-                                      {slotResult.expected}
-                                    </span>
-                                  </p>
-                                ) : null}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-
-              {!paradigmResults ? (
-                <Button
-                  type="submit"
-                  size="lg"
-                  className="h-12 w-full bg-[#1e3a5f] text-white hover:bg-[#16304d]"
-                  disabled={
-                    paradigmFilledCount === 0 ||
-                    submitParadigmMutation.isPending
-                  }
-                >
-                  {submitParadigmMutation.isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : null}
-                  {t("checkParadigm")}
-                </Button>
-              ) : (
-                <div className="space-y-4">
-                  {paradigmScore ? (
-                    <p className="text-center text-sm font-medium text-[#1e3a5f]">
-                      {t("paradigmScore", {
-                        correct: paradigmScore.correctCount,
-                        total: paradigmScore.totalCount,
-                      })}
-                    </p>
-                  ) : null}
-                  {paradigmTenseResults.length > 0 ? (
-                    <div className="space-y-1 text-center text-sm text-slate-500">
-                      {paradigmTenseResults.map((tense) => (
-                        <p key={tense.tenseKey}>
-                          {tense.tenseLabel}:{" "}
-                          {t("boxMoved", {
-                            from: tense.boxBefore,
-                            to: tense.boxAfter,
-                          })}
-                        </p>
-                      ))}
-                    </div>
-                  ) : null}
-                  <Button
-                    type="button"
-                    size="lg"
-                    className="h-12 w-full bg-[#1e3a5f] text-white hover:bg-[#16304d]"
-                    onClick={() => void nextParadigm()}
-                  >
-                    {t("nextVerb")}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    asChild
-                    className="w-full text-[#1e3a5f]"
-                  >
-                    <Link href={`/vocabulary/verbs/${paradigm.entryId}`}>
-                      {t("openVerb")}
-                    </Link>
-                  </Button>
-                </div>
-              )}
-            </form>
-          </CardContent>
-        </Card>
-      ) : singleCard ? (
-        <Card key={cardKey} className="cahier-card overflow-hidden">
-          <CardContent className="px-6 py-10 sm:px-12 sm:py-14">
-            <div className="mb-6 flex flex-wrap items-center justify-center gap-2">
-              <Badge variant="outline">{singleCard.tenseLabel}</Badge>
-              <Badge variant="secondary">{singleCard.personLabel}</Badge>
-              {singleCard.isIrregular ? (
-                <Badge variant="outline">{tCommon("irregular")}</Badge>
-              ) : null}
-            </div>
-            <h2
-              className={cn(
-                "text-center text-4xl font-bold leading-tight text-[#1e3a5f] sm:text-5xl",
-                libreBaskerville.className,
-              )}
-            >
-              {singleCard.mainText}
-            </h2>
-            <p className="mt-3 text-center text-sm italic text-slate-600">
-              {singleCard.infinitive}
-            </p>
-
-            <form
-              onSubmit={handleSingleSubmit}
-              className="mx-auto mt-10 max-w-xl space-y-4"
-            >
-              <Input
-                value={answer}
-                onChange={(e) => setAnswer(e.target.value)}
-                placeholder={t("formPlaceholder")}
-                disabled={!!result || submitMutation.isPending}
-                autoFocus
-                className="h-14 text-center text-xl"
-              />
-              {!result ? (
-                <Button
-                  type="submit"
-                  size="lg"
-                  className="h-12 w-full bg-[#1e3a5f] text-white hover:bg-[#16304d]"
-                  disabled={!answer.trim() || submitMutation.isPending}
-                >
-                  {submitMutation.isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : null}
-                  {t("check")}
-                </Button>
-              ) : (
-                <div className="space-y-4">
-                  <div
-                    className={`flex items-start gap-3 rounded-lg p-4 ${
-                      result.isCorrect
-                        ? "bg-green-50 dark:bg-green-950"
-                        : "bg-red-50 dark:bg-red-950"
-                    }`}
-                  >
-                    {result.isCorrect ? (
-                      <CheckCircle2 className="mt-0.5 h-5 w-5 text-green-600" />
-                    ) : (
-                      <XCircle className="mt-0.5 h-5 w-5 text-red-600" />
-                    )}
-                    <div>
-                      <p className="font-medium">
-                        {result.isCorrect
-                          ? result.typo
-                            ? t("correctTypo")
-                            : tReview("correct")
-                          : tReview("incorrect")}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {t("expectedLabel")}{" "}
-                        <span className="font-medium">{result.expected}</span>
-                      </p>
-                      <p className="text-sm text-muted-foreground">
+            </>
+          }
+          mode="paradigm"
+          paradigmSlots={slots.map((slot) => ({
+            key: slot.formId,
+            label: slot.personLabel,
+            tenseKey: slot.tenseKey,
+            tenseLabel: slot.tenseLabel,
+            personIndex: slot.personIndex,
+          }))}
+          paradigmValues={paradigmAnswers}
+          onParadigmChange={(key, value) =>
+            setParadigmAnswers((prev) => ({ ...prev, [key]: value }))
+          }
+          onParadigmSubmit={() => {
+            if (paradigmResults || submitParadigmMutation.isPending) return;
+            const payload = slots.map((slot) => ({
+              formId: slot.formId,
+              answer: (paradigmAnswers[slot.formId] ?? "").trim(),
+            }));
+            if (payload.every((item) => !item.answer)) return;
+            submitParadigmMutation.mutate({
+              answers: payload,
+              skipProgress: practiceMode || undefined,
+            });
+          }}
+          paradigmResults={paradigmResults}
+          onParadigmNext={() => void nextParadigm()}
+          pending={submitParadigmMutation.isPending}
+          paradigmScore={
+            paradigmScore ? (
+              <div className="space-y-1">
+                <p className="text-center text-sm font-medium text-[#1e3a5f]">
+                  {t("paradigmScore", {
+                    correct: paradigmScore.correctCount,
+                    total: paradigmScore.totalCount,
+                  })}
+                </p>
+                {paradigmTenseResults.length > 0 ? (
+                  <div className="space-y-1 text-center text-sm text-slate-500">
+                    {paradigmTenseResults.map((tense) => (
+                      <p key={tense.tenseKey}>
+                        {tense.tenseLabel}:{" "}
                         {t("boxMoved", {
-                          from: result.boxBefore,
-                          to: result.boxAfter,
+                          from: tense.boxBefore,
+                          to: tense.boxAfter,
                         })}
                       </p>
-                    </div>
+                    ))}
                   </div>
-                  <Button
-                    type="button"
-                    size="lg"
-                    className="h-12 w-full bg-[#1e3a5f] text-white hover:bg-[#16304d]"
-                    onClick={() => void nextSingle()}
-                  >
-                    {t("nextForm")}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    asChild
-                    className="w-full text-[#1e3a5f]"
-                  >
-                    <Link href={`/vocabulary/verbs/${singleCard.entryId}`}>
-                      {t("openVerb")}
-                    </Link>
-                  </Button>
-                </div>
-              )}
-            </form>
-          </CardContent>
-        </Card>
+                ) : null}
+              </div>
+            ) : null
+          }
+          resultExtra={
+            <Button
+              type="button"
+              variant="ghost"
+              asChild
+              className="w-full text-[#1e3a5f]"
+            >
+              <Link href={`/vocabulary/verbs/${paradigm.entryId}`}>
+                {t("openVerb")}
+              </Link>
+            </Button>
+          }
+        />
+      ) : singleCard ? (
+        <CahierQuizCard
+          cardKey={cardKey}
+          badges={[
+            { label: singleCard.tenseLabel },
+            { label: singleCard.personLabel, variant: "secondary" },
+            ...(singleCard.isIrregular
+              ? [{ label: tCommon("irregular") }]
+              : []),
+          ]}
+          prompt={singleCard.mainText}
+          subtitle={
+            <span className="italic text-slate-600">{singleCard.infinitive}</span>
+          }
+          mode="typed"
+          typedValue={answer}
+          onTypedChange={setAnswer}
+          onTypedSubmit={() => {
+            if (!answer.trim() || result) return;
+            submitMutation.mutate({
+              formId: singleCard.formId,
+              answer: answer.trim(),
+              skipProgress: practiceMode || undefined,
+            });
+          }}
+          typedPlaceholder={t("formPlaceholder")}
+          typedCheckLabel={t("check")}
+          typedResult={
+            result
+              ? {
+                  isCorrect: result.isCorrect,
+                  expected: result.expected,
+                  typo: result.typo,
+                  yourAnswer: answer,
+                }
+              : null
+          }
+          onTypedNext={() => void nextSingle()}
+          typedNextLabel={t("nextForm")}
+          pending={submitMutation.isPending}
+          resultExtra={
+            result ? (
+              <div className="space-y-4">
+                <p className="text-center text-sm text-muted-foreground">
+                  {t("boxMoved", {
+                    from: result.boxBefore,
+                    to: result.boxAfter,
+                  })}
+                </p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  asChild
+                  className="w-full text-[#1e3a5f]"
+                >
+                  <Link href={`/vocabulary/verbs/${singleCard.entryId}`}>
+                    {t("openVerb")}
+                  </Link>
+                </Button>
+              </div>
+            ) : null
+          }
+        />
       ) : null}
-    </div>
+    </CahierQuizFrame>
   );
 }

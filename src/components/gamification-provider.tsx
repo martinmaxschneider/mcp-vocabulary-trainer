@@ -85,6 +85,15 @@ export function GamificationProvider({
       options?: CelebrateOptions,
     ) => {
       if (!result) return;
+      utils.gamification.getStatus.setData(undefined, (prev) => ({
+        languages: prev?.languages ?? [],
+        xpToday: result.xpToday,
+        dailyGoalXp: result.dailyGoalXp,
+        goalMet: result.xpToday >= result.dailyGoalXp,
+        streak: result.streak,
+        longestStreak: result.longestStreak,
+        week: result.week,
+      }));
       void utils.gamification.getStatus.invalidate();
       void utils.gamification.getAchievements.invalidate();
 

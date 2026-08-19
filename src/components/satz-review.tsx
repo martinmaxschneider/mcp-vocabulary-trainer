@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { SatzPriority } from "@prisma/client";
 import { api } from "~/trpc/client";
 import { Button } from "~/components/ui/button";
-import { Badge } from "~/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -15,23 +14,20 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import { Label } from "~/components/ui/label";
-import { SatzAudioButton } from "~/components/satz-audio-button";
 import { SessionSummary } from "~/components/session-summary";
 import { PracticeModeButtons } from "~/components/practice-mode-buttons";
-import {
-  remainingBoxCounts,
-  ReviewBoxBar,
-} from "~/components/review-box-bar";
+import { remainingBoxCounts } from "~/components/review-box-bar";
+import { CahierQuizView } from "~/components/cahier-quiz-view";
 import { useFocusLang } from "~/components/focus-lang-provider";
 import { useCelebrate } from "~/components/gamification-provider";
+import { CELEBRATIONS } from "~/lib/gamification-config";
 import { groupDomainsByKind } from "~/lib/domain-catalog";
 import { getTargetLang, SOURCE_LANG } from "~/lib/languages";
 import { playbackUrls } from "~/lib/satz-tts";
 import { MAX_BOX, MIN_BOX } from "~/lib/leitner";
 import { cn } from "~/lib/utils";
-import { Card, CardContent } from "~/components/ui/card";
 import { Caveat, Libre_Baskerville } from "next/font/google";
-import { ArrowLeft, Eye, Loader2, Play, ThumbsDown, ThumbsUp } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 const caveat = Caveat({
   subsets: ["latin", "latin-ext"],
@@ -78,6 +74,7 @@ export function SatzReview() {
     xp: 0,
     streak: 0,
   });
+  const reportedSessionRef = useRef(false);
 
   const filters = {
     targetLang: focusLang,
@@ -95,6 +92,17 @@ export function SatzReview() {
     { ...filters, limit: 30, practice: practiceMode || undefined },
     { enabled: state === "active" },
   );
+
+  const reportSession = api.gamification.reportSession.useMutation({
+    onSuccess: (data) => {
+      celebrate(data, {
+        perfectSession:
+          session.answers >= (CELEBRATIONS.perfectSession.minCards ?? 10) &&
+          session.correct === session.answers,
+        sessionAnswers: session.answers,
+      });
+    },
+  });
 
   const gradeMutation = api.satzReview.grade.useMutation({
     onSuccess: (data) => {
@@ -130,8 +138,15 @@ export function SatzReview() {
 
   useEffect(() => {
     if (state !== "active" || queueQuery.isLoading || card) return;
+    if (session.answers > 0 && !reportedSessionRef.current) {
+      reportedSessionRef.current = true;
+      reportSession.mutate({
+        answers: session.answers,
+        correct: session.correct,
+      });
+    }
     setState("summary");
-  }, [state, queueQuery.isLoading, card]);
+  }, [state, queueQuery.isLoading, card, session.answers, session.correct]);
 
   const start = (practice = false) => {
     setPracticeMode(practice);
@@ -139,6 +154,7 @@ export function SatzReview() {
     setRevealed(false);
     setCompletedBoxes([]);
     setSession({ answers: 0, correct: 0, xp: 0, streak: 0 });
+    reportedSessionRef.current = false;
     setState("active");
   };
 
@@ -319,147 +335,55 @@ export function SatzReview() {
   });
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setState("setup")}
-          className="text-[#1e3a5f] hover:bg-white/70 hover:text-[#1e3a5f]"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          {tReview("backToSetup")}
-        </Button>
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-[#1e3a5f]">
-            {cardsLeft === 0
-              ? tReview("lastCard")
-              : tReview("cardsLeft", { count: cardsLeft })}
-          </span>
-          <span className="rounded-md bg-slate-200/80 px-2.5 py-1 text-xs text-slate-700">
-            {focusMeta?.flag} {tLang(focusLang)}
-          </span>
-        </div>
-      </div>
-
-      <p className={cn("mb-3 text-center text-base text-red-600", caveat.className)}>
-        {t("reviewCahierLabel")}
-      </p>
-      <div className="mb-6">
-        <ReviewBoxBar remaining={remaining} />
-      </div>
-
-      <Card key={card.satzId} className="cahier-card overflow-hidden">
-        <CardContent className="px-6 py-10 sm:px-12 sm:py-14">
-          <div className="mb-6 flex flex-wrap items-center justify-center gap-2">
-            <Badge variant="secondary">{tCommon("box", { number: card.box })}</Badge>
-            <Badge variant="outline">{t(`priority${card.priority}`)}</Badge>
-            {card.domains.map((domain) => (
-              <Badge key={domain.id} variant="outline">
-                {domain.name}
-              </Badge>
-            ))}
-          </div>
-
-          {card.trigger ? (
-            <p className="mb-3 text-center text-sm text-slate-500">
-              {card.trigger}
-            </p>
-          ) : null}
-
-          <h2
-            className={cn(
-              "text-center text-4xl font-bold leading-tight text-[#1e3a5f] sm:text-5xl",
-              libreBaskerville.className,
-            )}
-          >
-            {card.mainText}
-          </h2>
-          <div className="mt-4 flex justify-center">
-            <SatzAudioButton
-              urls={mainClips}
-              langCode={SOURCE_LANG.code}
-              label={t("playAudioLang", { language: tLang(SOURCE_LANG.code) })}
-            />
-          </div>
-
-          {revealed && translation ? (
-            <div className="mx-auto mt-10 max-w-xl space-y-4 border-t border-[#1e3a5f]/10 pt-8">
-              <p
-                className={cn(
-                  "text-center text-3xl font-semibold leading-tight text-[#1e3a5f] sm:text-4xl",
-                  libreBaskerville.className,
-                )}
-              >
-                {translation.text}
-              </p>
-              <div className="flex justify-center">
-                <SatzAudioButton
-                  urls={translationClips}
-                  langCode={focusLang}
-                  label={t("playAudioLang", { language: tLang(focusLang) })}
-                />
-              </div>
-            </div>
-          ) : null}
-
-          <div className="mx-auto mt-10 max-w-xl space-y-3">
-            {!revealed ? (
-              <Button
-                type="button"
-                size="lg"
-                className="h-12 w-full bg-[#1e3a5f] text-white hover:bg-[#16304d]"
-                onClick={() => setRevealed(true)}
-              >
-                <Eye className="mr-2 h-4 w-4" />
-                {t("reviewShowAnswer")}
-              </Button>
-            ) : (
-              <div className="grid gap-2 sm:grid-cols-2">
-                <Button
-                  type="button"
-                  size="lg"
-                  className="h-12 bg-[#1e3a5f] text-white hover:bg-[#16304d]"
-                  disabled={gradeMutation.isPending}
-                  onClick={() =>
-                    gradeMutation.mutate({
-                      satzId: card.satzId,
-                      targetLang: focusLang,
-                      isCorrect: true,
-                      skipProgress: practiceMode || undefined,
-                    })
-                  }
-                >
-                  {gradeMutation.isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <ThumbsUp className="mr-2 h-4 w-4" />
-                  )}
-                  {t("reviewKnew")}
-                </Button>
-                <Button
-                  type="button"
-                  size="lg"
-                  variant="outline"
-                  className="h-12 border-[#1e3a5f]/20 text-[#1e3a5f]"
-                  disabled={gradeMutation.isPending}
-                  onClick={() =>
-                    gradeMutation.mutate({
-                      satzId: card.satzId,
-                      targetLang: focusLang,
-                      isCorrect: false,
-                      skipProgress: practiceMode || undefined,
-                    })
-                  }
-                >
-                  <ThumbsDown className="mr-2 h-4 w-4" />
-                  {t("reviewDidNotKnow")}
-                </Button>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+    <CahierQuizView
+      kicker={t("reviewCahierLabel")}
+      cardsLeft={cardsLeft}
+      langPill={
+        <>
+          {focusMeta?.flag} {tLang(focusLang)}
+        </>
+      }
+      onBack={() => setState("setup")}
+      remainingBoxes={remaining}
+      cardKey={card.satzId}
+      badges={[
+        { label: tCommon("box", { number: card.box }), variant: "secondary" },
+        { label: t(`priority${card.priority}`) },
+        ...card.domains.map((domain) => ({ label: domain.name })),
+      ]}
+      prompt={card.mainText}
+      subtitle={card.trigger}
+      promptAudio={{
+        urls: mainClips,
+        langCode: SOURCE_LANG.code,
+        label: t("playAudioLang", { language: tLang(SOURCE_LANG.code) }),
+      }}
+      mode="selfGrade"
+      revealed={revealed}
+      answer={translation?.text}
+      answerAudio={{
+        urls: translationClips,
+        langCode: focusLang,
+        label: t("playAudioLang", { language: tLang(focusLang) }),
+      }}
+      pending={gradeMutation.isPending}
+      onReveal={() => setRevealed(true)}
+      onKnew={() =>
+        gradeMutation.mutate({
+          satzId: card.satzId,
+          targetLang: focusLang,
+          isCorrect: true,
+          skipProgress: practiceMode || undefined,
+        })
+      }
+      onDidNotKnow={() =>
+        gradeMutation.mutate({
+          satzId: card.satzId,
+          targetLang: focusLang,
+          isCorrect: false,
+          skipProgress: practiceMode || undefined,
+        })
+      }
+    />
   );
 }

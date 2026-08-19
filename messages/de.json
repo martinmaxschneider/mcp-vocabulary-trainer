@@ -92,6 +92,7 @@
     "wrongNextDay": "{count} falsche Items werden im nächsten Tagespaket bevorzugt.",
     "poolAfter": "Neu im Pool: Sätze {satz} · Vokabeln {vocab} · Konj. {conj}",
     "burndownEstimate": "Bei diesem Tempo leer in {days} Tagen",
+    "viewResults": "Ergebnisse",
     "backToOverview": "Zur Übersicht",
     "offlineTitle": "Daily offline",
     "offlineCardHint": "Paket und Audio auf dieses Gerät laden – danach ohne Mac üben.",

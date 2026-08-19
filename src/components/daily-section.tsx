@@ -13,8 +13,6 @@ import {
   Repeat,
   Sparkles,
   Star,
-  ThumbsDown,
-  ThumbsUp,
   Volume2,
 } from "lucide-react";
 import { Caveat, Libre_Baskerville } from "next/font/google";
@@ -37,10 +35,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
-import { SatzAudioButton } from "~/components/satz-audio-button";
+import { DailyTestSession } from "~/components/daily-test-session";
 import { StatsWidget } from "~/components/stats-widget";
 import { useFocusLang } from "~/components/focus-lang-provider";
 import { useCelebrate } from "~/components/gamification-provider";
+import { CELEBRATIONS } from "~/lib/gamification-config";
 import { useToast } from "~/hooks/use-toast";
 import {
   DAILY_TIME_PRESETS,
@@ -98,10 +97,10 @@ export function DailySection() {
   const [vocabCount, setVocabCount] = useState<number>(DEFAULT_DAILY_CONFIG.vocabCount);
   const [conjCount, setConjCount] = useState<number>(DEFAULT_DAILY_CONFIG.conjCount);
   const [defaultsApplied, setDefaultsApplied] = useState(false);
-  const [revealed, setRevealed] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [justCompleted, setJustCompleted] = useState(false);
+  const [showResults, setShowResults] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(urlPackageId);
+  const [testOverview, setTestOverview] = useState(false);
 
   const todayQuery = api.daily.today.useQuery({ targetLang: focusLang });
   const grammarQuery = api.grammar.listByLang.useQuery({ targetLang: focusLang });
@@ -132,9 +131,9 @@ export function DailySection() {
 
   useEffect(() => {
     setDefaultsApplied(false);
-    setJustCompleted(false);
-    setRevealed(false);
+    setShowResults(false);
     setSelectedId(urlPackageId);
+    setTestOverview(false);
   }, [focusLang, urlPackageId]);
 
   useEffect(() => {
@@ -147,7 +146,6 @@ export function DailySection() {
 
   const pendingItems = pkg?.items.filter((item) => item.testResult === "PENDING") ?? [];
   const currentTestItem = pendingItems[0];
-  const testIndex = pkg ? pkg.answeredCount + 1 : 0;
 
   const invalidate = () => {
     void utils.daily.today.invalidate({ targetLang: focusLang });
@@ -189,9 +187,61 @@ export function DailySection() {
     setConjCount(Math.min(preset.conjCount, Math.max(pool.conj, 0)));
   };
 
+  const maybeComplete = async (id: string) => {
+    const current = await utils.daily.getPackage.fetch({ id });
+    if (!current || current.status !== "TESTING") return;
+    if (current.items.some((item) => item.testResult === "PENDING")) {
+      await invalidate();
+      return;
+    }
+    try {
+      const result = await completePackage.mutateAsync({ id });
+      if (result.gamification) {
+        const answers = result.package.items.length;
+        const correct = result.package.items.filter(
+          (item) => item.testResult === "CORRECT",
+        ).length;
+        celebrate(result.gamification, {
+          perfectSession:
+            answers >= (CELEBRATIONS.perfectSession.minCards ?? 10) &&
+            correct === answers,
+          sessionAnswers: answers,
+        });
+      }
+      setShowResults(true);
+      await invalidate();
+    } catch (error) {
+      showError(error, t("completeError"));
+    }
+  };
+
   if (todayQuery.isLoading) {
     return (
       <p className="text-sm text-muted-foreground">{tCommon("loading")}</p>
+    );
+  }
+
+  if (pkg?.status === "TESTING" && currentTestItem && !testOverview) {
+    return (
+      <DailyTestSession
+        item={currentTestItem}
+        cardsLeft={Math.max(0, pendingItems.length - 1)}
+        focusLang={focusLang}
+        pending={submitAnswer.isPending || completePackage.isPending}
+        onBack={() => setTestOverview(true)}
+        onSubmit={async (isCorrect) => {
+          try {
+            const result = await submitAnswer.mutateAsync({
+              itemId: currentTestItem.id,
+              isCorrect,
+            });
+            if (result.gamification) celebrate(result.gamification);
+            await maybeComplete(pkg.id);
+          } catch (error) {
+            showError(error, t("completeError"));
+          }
+        }}
+      />
     );
   }
 
@@ -251,15 +301,17 @@ export function DailySection() {
           <p className="text-sm text-muted-foreground">{t("dueBlockHint")}</p>
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline" size="sm">
-              <Link href="/review">{t("reviewVocab", { count: due.vocab })}</Link>
+              <Link href="/review?start=1">
+                {t("reviewVocab", { count: due.vocab })}
+              </Link>
             </Button>
             <Button asChild variant="outline" size="sm">
-              <Link href="/sentences/review">
+              <Link href="/sentences/review?start=1">
                 {t("reviewSaetze", { count: due.satz })}
               </Link>
             </Button>
             <Button asChild variant="outline" size="sm">
-              <Link href="/practice/conjugations">
+              <Link href="/practice/conjugations?start=1">
                 {t("reviewConj", { count: due.conj })}
               </Link>
             </Button>
@@ -267,11 +319,12 @@ export function DailySection() {
         </CardContent>
       </Card>
 
-      {justCompleted && pkg?.status === "PRODUCTIVE" ? (
+      {showResults && pkg?.status === "PRODUCTIVE" ? (
         <CompletedCard
           pkg={pkg}
           burndown={burndown}
-          onReset={() => setJustCompleted(false)}
+          due={due}
+          onReset={() => setShowResults(false)}
         />
       ) : null}
 
@@ -297,7 +350,12 @@ export function DailySection() {
                       <button
                         type="button"
                         className="min-w-0 flex-1 text-left"
-                        onClick={() => setSelectedId(row.id)}
+                        onClick={() => {
+                          setSelectedId(row.id);
+                          setShowResults(
+                            row.status === DailyPackageStatus.PRODUCTIVE,
+                          );
+                        }}
                       >
                         <p className="flex flex-wrap items-center gap-2 font-medium">
                           <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -345,9 +403,24 @@ export function DailySection() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => setSelectedId(row.id)}
+                            onClick={() => {
+                              setSelectedId(row.id);
+                              setTestOverview(false);
+                            }}
                           >
                             {t("continueTest")}
+                          </Button>
+                        ) : null}
+                        {row.status === DailyPackageStatus.PRODUCTIVE ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedId(row.id);
+                              setShowResults(true);
+                            }}
+                          >
+                            {t("viewResults")}
                           </Button>
                         ) : null}
                       </div>
@@ -575,107 +648,11 @@ export function DailySection() {
       ) : null}
 
       {pkg?.status === "TESTING" && currentTestItem ? (
-        <Card>
-          <CardContent className="space-y-6 px-6 py-10">
-            <div className="flex items-center justify-between text-sm">
-              <span>
-                {t("testProgress", {
-                  current: testIndex,
-                  total: pkg.items.length,
-                })}
-              </span>
-              <Progress
-                className="ml-4 max-w-xs"
-                value={(pkg.answeredCount / pkg.items.length) * 100}
-              />
-            </div>
-            <div className="flex justify-center gap-2">
-              <Badge variant="secondary">
-                {t(`type${currentTestItem.itemType}`)}
-              </Badge>
-              {currentTestItem.domain ? (
-                <Badge variant="outline">{currentTestItem.domain.name}</Badge>
-              ) : null}
-              {currentTestItem.tenseLabel ? (
-                <Badge variant="outline">{currentTestItem.tenseLabel}</Badge>
-              ) : null}
-            </div>
-            <h2
-              className={cn(
-                "text-center text-4xl font-bold text-[#1e3a5f]",
-                libreBaskerville.className,
-              )}
-            >
-              {currentTestItem.nativeText}
-            </h2>
-            {revealed ? (
-              <div className="space-y-4 border-t pt-6 text-center">
-                <p
-                  className={cn(
-                    "text-3xl font-semibold text-[#1e3a5f]",
-                    libreBaskerville.className,
-                  )}
-                >
-                  {currentTestItem.targetText}
-                </p>
-                {currentTestItem.forms.length > 0 ? (
-                  <ul className="mx-auto max-w-sm space-y-1 text-left text-sm">
-                    {currentTestItem.forms.map((form) => (
-                      <li key={form.personIndex}>
-                        <span className="text-muted-foreground">
-                          {form.personLabel}
-                        </span>{" "}
-                        {form.form}
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-                <SatzAudioButton
-                  urls={currentTestItem.clips.map((clip) => clip.url)}
-                  langCode={focusLang}
-                  label={t("showAnswer")}
-                />
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <Button
-                    size="lg"
-                    disabled={submitAnswer.isPending}
-                    onClick={async () => {
-                      await submitAnswer.mutateAsync({
-                        itemId: currentTestItem.id,
-                        isCorrect: true,
-                      });
-                      setRevealed(false);
-                      await maybeComplete(pkg.id);
-                    }}
-                  >
-                    <ThumbsUp className="mr-2 h-4 w-4" />
-                    {t("correct")}
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    disabled={submitAnswer.isPending}
-                    onClick={async () => {
-                      await submitAnswer.mutateAsync({
-                        itemId: currentTestItem.id,
-                        isCorrect: false,
-                      });
-                      setRevealed(false);
-                      await maybeComplete(pkg.id);
-                    }}
-                  >
-                    <ThumbsDown className="mr-2 h-4 w-4" />
-                    {t("wrong")}
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <Button size="lg" className="w-full" onClick={() => setRevealed(true)}>
-                {t("showAnswer")}
-              </Button>
-            )}
-          </CardContent>
-        </Card>
+        <div className="flex justify-center">
+          <Button onClick={() => setTestOverview(false)}>
+            {t("continueTest")}
+          </Button>
+        </div>
       ) : null}
 
       {pkg?.status === "TESTING" && !currentTestItem ? (
@@ -693,23 +670,6 @@ export function DailySection() {
       ) : null}
     </div>
   );
-
-  async function maybeComplete(id: string) {
-    const current = await utils.daily.getPackage.fetch({ id });
-    if (!current || current.status !== "TESTING") return;
-    if (current.items.some((item) => item.testResult === "PENDING")) {
-      await invalidate();
-      return;
-    }
-    try {
-      const result = await completePackage.mutateAsync({ id });
-      if (result.gamification) celebrate(result.gamification);
-      setJustCompleted(true);
-      await invalidate();
-    } catch (error) {
-      showError(error, t("completeError"));
-    }
-  }
 }
 
 function SliderRow({
@@ -750,6 +710,7 @@ function SliderRow({
 function CompletedCard({
   pkg,
   burndown,
+  due,
   onReset,
 }: {
   pkg: {
@@ -760,10 +721,12 @@ function CompletedCard({
     estimatedDays: { total: number | null };
     open: { satz: number; vocab: number; conj: number };
   };
+  due: { vocab: number; satz: number; conj: number };
   onReset: () => void;
 }) {
   const t = useTranslations("daily");
   const wrong = pkg.items.length - pkg.correctCount;
+  const hasDue = due.vocab + due.satz + due.conj > 0;
   return (
     <Card>
       <CardContent className="space-y-4 py-10 text-center">
@@ -792,6 +755,31 @@ function CompletedCard({
               ? ` · ${t("burndownEstimate", { days: burndown.estimatedDays.total })}`
               : ""}
           </p>
+        ) : null}
+        {hasDue ? (
+          <div className="flex flex-wrap justify-center gap-2">
+            {due.vocab > 0 ? (
+              <Button asChild variant="outline" size="sm">
+                <Link href="/review?start=1">
+                  {t("reviewVocab", { count: due.vocab })}
+                </Link>
+              </Button>
+            ) : null}
+            {due.satz > 0 ? (
+              <Button asChild variant="outline" size="sm">
+                <Link href="/sentences/review?start=1">
+                  {t("reviewSaetze", { count: due.satz })}
+                </Link>
+              </Button>
+            ) : null}
+            {due.conj > 0 ? (
+              <Button asChild variant="outline" size="sm">
+                <Link href="/practice/conjugations?start=1">
+                  {t("reviewConj", { count: due.conj })}
+                </Link>
+              </Button>
+            ) : null}
+          </div>
         ) : null}
         <Button onClick={onReset}>{t("backToOverview")}</Button>
       </CardContent>

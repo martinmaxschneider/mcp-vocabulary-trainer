@@ -16,7 +16,10 @@ import { WeekStreakBar } from "~/components/week-streak-bar";
 
 export function StreakIndicator() {
   const t = useTranslations("gamification");
-  const { data } = api.gamification.getStatus.useQuery();
+  const { data } = api.gamification.getStatus.useQuery(undefined, {
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  });
   const streak = data?.streak ?? 0;
   const goalMet = data?.goalMet ?? false;
 

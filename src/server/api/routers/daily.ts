@@ -14,7 +14,7 @@ import {
 } from "~/lib/daily";
 import { localDateString } from "~/lib/gamification-config";
 import { processRequestedAudio } from "~/server/services/tts";
-import { recordActivity } from "~/server/gamification";
+import { recordActivity, reportPerfectSession } from "~/server/gamification";
 import {
   buildDailySelection,
   completeDailyToLeitner,
@@ -348,7 +348,18 @@ export const dailyRouter = createTRPCRouter({
         },
       });
       const pkg = await loadPackageOrThrow(ctx.db, ctx.userId, item.packageId);
-      return toHydratedPackage(ctx.db, pkg);
+      const gamification = await recordActivity(ctx.db, ctx.userId, {
+        items: [
+          {
+            targetLang: item.package.targetLang,
+            isCorrect: input.isCorrect,
+          },
+        ],
+      });
+      return {
+        ...(await toHydratedPackage(ctx.db, pkg)),
+        gamification,
+      };
     }),
 
   completePackage: publicProcedure
@@ -378,11 +389,11 @@ export const dailyRouter = createTRPCRouter({
         include: { items: true },
       });
 
-      const gamification = await recordActivity(ctx.db, ctx.userId, {
-        items: pkg.items.map((item) => ({
-          targetLang: pkg.targetLang,
-          isCorrect: item.testResult === DailyTestResult.CORRECT,
-        })),
+      const gamification = await reportPerfectSession(ctx.db, ctx.userId, {
+        answers: pkg.items.length,
+        correct: pkg.items.filter(
+          (row) => row.testResult === DailyTestResult.CORRECT,
+        ).length,
       });
 
       return {

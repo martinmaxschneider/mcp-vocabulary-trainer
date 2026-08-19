@@ -92,6 +92,7 @@
     "wrongNextDay": "{count} elementos fallidos tendrán prioridad en el próximo paquete.",
     "poolAfter": "Siguen nuevos: frases {satz} · vocabulario {vocab} · conj. {conj}",
     "burndownEstimate": "A este ritmo el pool se vacía en {days} días",
+    "viewResults": "Resultados",
     "backToOverview": "Volver al resumen",
     "offlineTitle": "Daily sin conexión",
     "offlineCardHint": "Guarda este paquete y su audio en este dispositivo y practica sin el Mac.",

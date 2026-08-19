@@ -92,6 +92,7 @@
     "wrongNextDay": "{count} items faux seront privilégiés dans le prochain paquet.",
     "poolAfter": "Encore nouveaux : phrases {satz} · vocabulaire {vocab} · conj. {conj}",
     "burndownEstimate": "À ce rythme, le pool est vide dans {days} jours",
+    "viewResults": "Résultats",
     "backToOverview": "Retour à l'aperçu",
     "offlineTitle": "Daily hors ligne",
     "offlineCardHint": "Enregistre ce paquet et son audio sur cet appareil, puis entraîne-toi sans le Mac.",

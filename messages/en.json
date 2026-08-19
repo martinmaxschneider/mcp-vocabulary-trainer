@@ -92,6 +92,7 @@
     "wrongNextDay": "{count} wrong items will be preferred in the next daily pack.",
     "poolAfter": "Still new: sentences {satz} · vocab {vocab} · conj. {conj}",
     "burndownEstimate": "At this pace the pool is empty in {days} days",
+    "viewResults": "Results",
     "backToOverview": "Back to overview",
     "offlineTitle": "Daily offline",
     "offlineCardHint": "Save this pack and its audio on this device, then practice without the Mac.",
