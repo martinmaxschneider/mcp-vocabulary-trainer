@@ -818,7 +818,13 @@ export async function findOpenPackage(
       userId,
       targetLang,
       date,
-      status: { not: DailyPackageStatus.ABANDONED },
+      status: {
+        in: [
+          DailyPackageStatus.DRAFT,
+          DailyPackageStatus.ACTIVE,
+          DailyPackageStatus.TESTING,
+        ],
+      },
     },
     include: { items: true },
     orderBy: { createdAt: "desc" },

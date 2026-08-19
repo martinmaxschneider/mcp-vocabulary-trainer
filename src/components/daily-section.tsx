@@ -9,6 +9,7 @@ import {
   CalendarDays,
   Headphones,
   Loader2,
+  Plus,
   Quote,
   Repeat,
   Sparkles,
@@ -26,27 +27,13 @@ import {
   CardHeader,
   CardTitle,
 } from "~/components/ui/card";
-import { Label } from "~/components/ui/label";
 import { Progress } from "~/components/ui/progress";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "~/components/ui/select";
 import { DailyTestSession } from "~/components/daily-test-session";
 import { StatsWidget } from "~/components/stats-widget";
 import { useFocusLang } from "~/components/focus-lang-provider";
 import { useCelebrate } from "~/components/gamification-provider";
 import { CELEBRATIONS } from "~/lib/gamification-config";
 import { useToast } from "~/hooks/use-toast";
-import {
-  DAILY_TIME_PRESETS,
-  DEFAULT_DAILY_CONFIG,
-  MAX_DAILY_COUNT,
-  estimatePackageDurationMs,
-} from "~/lib/daily";
 import { drainAudioQueue } from "~/lib/process-audio-queue";
 import { resolveErrorCode } from "~/lib/trpc-error";
 import { cn } from "~/lib/utils";
@@ -93,24 +80,17 @@ export function DailySection() {
   const searchParams = useSearchParams();
   const urlPackageId = searchParams.get("id");
 
-  const [satzCount, setSatzCount] = useState<number>(DEFAULT_DAILY_CONFIG.satzCount);
-  const [vocabCount, setVocabCount] = useState<number>(DEFAULT_DAILY_CONFIG.vocabCount);
-  const [conjCount, setConjCount] = useState<number>(DEFAULT_DAILY_CONFIG.conjCount);
-  const [defaultsApplied, setDefaultsApplied] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(urlPackageId);
   const [testOverview, setTestOverview] = useState(false);
 
   const todayQuery = api.daily.today.useQuery({ targetLang: focusLang });
-  const grammarQuery = api.grammar.listByLang.useQuery({ targetLang: focusLang });
 
-  const createPackage = api.daily.createPackage.useMutation();
   const activatePackage = api.daily.activatePackage.useMutation();
   const submitAnswer = api.daily.submitTestAnswer.useMutation();
   const completePackage = api.daily.completePackage.useMutation();
   const abandonPackage = api.daily.abandonPackage.useMutation();
-  const updateSettings = api.daily.updateSettings.useMutation();
   const processAudio = api.daily.processAudio.useMutation();
 
   const data = todayQuery.data;
@@ -130,19 +110,10 @@ export function DailySection() {
   const highlightedId = selectedId ?? todayPkg?.id ?? packages[0]?.id ?? null;
 
   useEffect(() => {
-    setDefaultsApplied(false);
     setShowResults(false);
     setSelectedId(urlPackageId);
     setTestOverview(false);
   }, [focusLang, urlPackageId]);
-
-  useEffect(() => {
-    if (!data || defaultsApplied) return;
-    setSatzCount(data.settings.lastPackageConfig.satzCount);
-    setVocabCount(data.settings.lastPackageConfig.vocabCount);
-    setConjCount(data.settings.lastPackageConfig.conjCount);
-    setDefaultsApplied(true);
-  }, [data, defaultsApplied]);
 
   const pendingItems = pkg?.items.filter((item) => item.testResult === "PENDING") ?? [];
   const currentTestItem = pendingItems[0];
@@ -177,14 +148,6 @@ export function DailySection() {
     } finally {
       setGenerating(false);
     }
-  };
-
-  const applyPreset = (minutes: number) => {
-    const preset = DAILY_TIME_PRESETS.find((row) => row.minutes === minutes);
-    if (!preset) return;
-    setSatzCount(Math.min(preset.satzCount, Math.max(pool.satz, 0)));
-    setVocabCount(Math.min(preset.vocabCount, Math.max(pool.vocab, 0)));
-    setConjCount(Math.min(preset.conjCount, Math.max(pool.conj, 0)));
   };
 
   const maybeComplete = async (id: string) => {
@@ -245,26 +208,28 @@ export function DailySection() {
     );
   }
 
-  const estimatedMs = estimatePackageDurationMs([
-    ...Array.from({ length: satzCount }, () => ({ itemType: "SATZ" as const })),
-    ...Array.from({ length: vocabCount }, () => ({ itemType: "ENTRY" as const })),
-    ...Array.from({ length: conjCount }, () => ({
-      itemType: "CONJUGATION" as const,
-    })),
-  ]);
-
   return (
     <div className="mx-auto max-w-5xl space-y-8">
       <header className="space-y-2">
         <p className={cn("text-lg text-red-600", caveat.className)}>{t("kicker")}</p>
-        <h1
-          className={cn(
-            "text-4xl font-bold text-[#1e3a5f]",
-            libreBaskerville.className,
-          )}
-        >
-          {t("title")}
-        </h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1
+            className={cn(
+              "text-4xl font-bold text-[#1e3a5f]",
+              libreBaskerville.className,
+            )}
+          >
+            {t("title")}
+          </h1>
+          {!todayPkg ? (
+            <Button asChild>
+              <Link href="/daily/create">
+                <Plus className="mr-2 h-4 w-4" />
+                {t("newPackage")}
+              </Link>
+            </Button>
+          ) : null}
+        </div>
         <p className="text-sm text-slate-600">
           {t("subtitle", { language: tLang(focusLang) })}
         </p>
@@ -433,112 +398,6 @@ export function DailySection() {
         </Card>
       ) : null}
 
-      {!todayPkg ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">{t("configTitle")}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex flex-wrap gap-2">
-              {DAILY_TIME_PRESETS.map((preset) => (
-                <Button
-                  key={preset.minutes}
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => applyPreset(preset.minutes)}
-                >
-                  {t("presetMinutes", { minutes: preset.minutes })}
-                </Button>
-              ))}
-            </div>
-
-            <div className="space-y-2">
-              <Label>{t("grammarTopic")}</Label>
-              <Select
-                value={data?.settings.currentGrammarTopicId ?? "none"}
-                onValueChange={(value) => {
-                  updateSettings.mutate({
-                    targetLang: focusLang,
-                    currentGrammarTopicId: value === "none" ? null : value,
-                  });
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={t("grammarTopicNone")} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">{t("grammarTopicNone")}</SelectItem>
-                  {(grammarQuery.data ?? []).map((topic) => (
-                    <SelectItem key={topic.id} value={topic.id}>
-                      {topic.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <SliderRow
-              label={t("satzSlider")}
-              value={satzCount}
-              max={Math.min(MAX_DAILY_COUNT, Math.max(pool.satz, 1))}
-              available={pool.satz}
-              onChange={setSatzCount}
-            />
-            <SliderRow
-              label={t("vocabSlider")}
-              value={vocabCount}
-              max={Math.min(MAX_DAILY_COUNT, Math.max(pool.vocab, 1))}
-              available={pool.vocab}
-              onChange={setVocabCount}
-            />
-            <SliderRow
-              label={t("conjSlider")}
-              value={conjCount}
-              max={Math.min(MAX_DAILY_COUNT, Math.max(pool.conj, 1))}
-              available={pool.conj}
-              onChange={setConjCount}
-            />
-
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-muted-foreground">
-                {t("packageSummary", {
-                  count: satzCount + vocabCount + conjCount,
-                  minutes: Math.max(1, Math.round(estimatedMs / 60000)),
-                })}
-              </p>
-              <Button
-                onClick={async () => {
-                  try {
-                    await createPackage.mutateAsync({
-                      targetLang: focusLang,
-                      satzCount,
-                      vocabCount,
-                      conjCount,
-                    });
-                    setSelectedId(null);
-                    await invalidate();
-                  } catch (error) {
-                    showError(error, t("createError"));
-                  }
-                }}
-                disabled={
-                  createPackage.isPending ||
-                  satzCount + vocabCount + conjCount === 0
-                }
-              >
-                {createPackage.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <CalendarDays className="mr-2 h-4 w-4" />
-                )}
-                {t("createPackage")}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
-
       {pkg?.status === "DRAFT" ? (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
@@ -550,7 +409,6 @@ export function DailySection() {
               size="sm"
               onClick={async () => {
                 await abandonPackage.mutateAsync({ id: pkg.id });
-                setDefaultsApplied(false);
                 setSelectedId(null);
                 await invalidate();
               }}
@@ -668,41 +526,6 @@ export function DailySection() {
           </Button>
         </div>
       ) : null}
-    </div>
-  );
-}
-
-function SliderRow({
-  label,
-  value,
-  max,
-  available,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  max: number;
-  available: number;
-  onChange: (value: number) => void;
-}) {
-  const cap = Math.max(0, max);
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between text-sm">
-        <Label>{label}</Label>
-        <span className="tabular-nums text-muted-foreground">
-          {value} / {available}
-        </span>
-      </div>
-      <input
-        type="range"
-        min={0}
-        max={cap}
-        value={Math.min(value, cap)}
-        onChange={(event) => onChange(Number(event.target.value))}
-        className="w-full accent-primary"
-        disabled={cap === 0}
-      />
     </div>
   );
 }
