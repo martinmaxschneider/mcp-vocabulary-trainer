@@ -3,7 +3,7 @@ import { ImageResponse } from "next/og";
 export const size = { width: 32, height: 32 };
 export const contentType = "image/png";
 
-/** Favicon: navy listen bubble with a white play mark on white cahier paper. */
+/** Tab favicon: one navy speech bubble with a white play mark. */
 export default function Icon() {
   return new ImageResponse(
     (
@@ -15,15 +15,13 @@ export default function Icon() {
           alignItems: "center",
           justifyContent: "center",
           background: "#ffffff",
-          borderRadius: 8,
-          borderLeft: "5px solid #d07a7a",
         }}
       >
         <div
           style={{
-            width: 21,
-            height: 17,
-            borderRadius: 6,
+            width: 26,
+            height: 22,
+            borderRadius: 8,
             background: "#1e3a5f",
             display: "flex",
             alignItems: "center",
@@ -34,9 +32,9 @@ export default function Icon() {
             style={{
               width: 0,
               height: 0,
-              borderTop: "5px solid transparent",
-              borderBottom: "5px solid transparent",
-              borderLeft: "8px solid #ffffff",
+              borderTop: "7px solid transparent",
+              borderBottom: "7px solid transparent",
+              borderLeft: "12px solid #ffffff",
               marginLeft: 2,
             }}
           />
