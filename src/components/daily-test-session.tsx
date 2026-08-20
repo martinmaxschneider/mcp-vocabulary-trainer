@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { DailyItemType } from "@prisma/client";
 import { CahierQuizView } from "~/components/cahier-quiz-view";
+import { SatzDriftReport } from "~/components/satz-drift-report";
 import { SatzAudioButton } from "~/components/satz-audio-button";
 import { getTargetLang, SOURCE_LANG } from "~/lib/languages";
 import { matchAnswer } from "~/lib/matching";
@@ -22,6 +23,7 @@ type DailyTestForm = {
 export type DailyTestItem = {
   id: string;
   itemType: DailyItemType;
+  refId: string;
   nativeText: string;
   targetText: string;
   domain?: { name: string } | null;
@@ -52,6 +54,8 @@ export function DailyTestSession({
   const tSentences = useTranslations("sentences");
   const focusMeta = getTargetLang(focusLang);
 
+  const [nativeText, setNativeText] = useState(item.nativeText);
+  const [targetText, setTargetText] = useState(item.targetText);
   const [revealed, setRevealed] = useState(false);
   const [typedValue, setTypedValue] = useState("");
   const [typedResult, setTypedResult] = useState<{
@@ -70,13 +74,15 @@ export function DailyTestSession({
   const [paradigmCorrect, setParadigmCorrect] = useState(false);
 
   useEffect(() => {
+    setNativeText(item.nativeText);
+    setTargetText(item.targetText);
     setRevealed(false);
     setTypedValue("");
     setTypedResult(null);
     setParadigmValues({});
     setParadigmResults(null);
     setParadigmCorrect(false);
-  }, [item.id]);
+  }, [item.id, item.nativeText, item.targetText]);
 
   const promptUrls = useMemo(
     () =>
@@ -128,7 +134,7 @@ export function DailyTestSession({
         backLabel={t("backToOverview")}
         cardKey={item.id}
         badges={badges}
-        prompt={item.nativeText}
+        prompt={nativeText}
         subtitle={item.questionText}
         promptAudio={
           promptUrls.length > 0
@@ -143,7 +149,7 @@ export function DailyTestSession({
         }
         mode="selfGrade"
         revealed={revealed}
-        answer={item.targetText}
+        answer={targetText}
         answerAudio={
           answerUrls.length > 0
             ? {
@@ -154,6 +160,16 @@ export function DailyTestSession({
                 }),
               }
             : null
+        }
+        afterGrade={
+          <SatzDriftReport
+            satzId={item.refId}
+            targetLang={focusLang}
+            onApplied={({ fix, newText }) => {
+              if (fix === "SOURCE") setNativeText(newText);
+              else setTargetText(newText);
+            }}
+          />
         }
         pending={pending}
         onReveal={() => setRevealed(true)}

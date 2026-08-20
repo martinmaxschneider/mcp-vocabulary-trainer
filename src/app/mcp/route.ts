@@ -477,7 +477,8 @@ const handler = createMcpHandler(
 
     server.tool(
       "enrich_satz_import",
-      "Reichert die nächsten Drafts eines Satz-Imports an (Duplikat-Check, Übersetzung, Themen, Vokabeln, Frage-Vorschlag).",
+      "Reichert die nächsten Drafts eines Satz-Imports an (Duplikat-Check, Übersetzung, Themen, Vokabeln, Frage-Vorschlag). " +
+        "Wechselt die natürliche Übersetzung die Konstruktion (z. B. „gibt es“ → „vous avez“), liefert der Draft adjustedSource: einen deutschen Satz, der zur Übersetzung passt.",
       {
         batchId: z.string(),
         limit: z.number().min(1).max(10).default(2),

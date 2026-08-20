@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { SatzPriority } from "@prisma/client";
+import { AudioStatus, SatzPriority } from "@prisma/client";
 import { api } from "~/trpc/client";
 import { Button } from "~/components/ui/button";
 import {
@@ -18,6 +18,7 @@ import { SessionSummary } from "~/components/session-summary";
 import { PracticeModeButtons } from "~/components/practice-mode-buttons";
 import { remainingBoxCounts } from "~/components/review-box-bar";
 import { CahierQuizView } from "~/components/cahier-quiz-view";
+import { SatzDriftReport } from "~/components/satz-drift-report";
 import { useFocusLang } from "~/components/focus-lang-provider";
 import { useCelebrate } from "~/components/gamification-provider";
 import { CELEBRATIONS } from "~/lib/gamification-config";
@@ -88,10 +89,14 @@ export function SatzReview() {
   const statsQuery = api.satzReview.stats.useQuery(filters, {
     enabled: state === "setup",
   });
-  const queueQuery = api.satzReview.queue.useQuery(
-    { ...filters, limit: 30, practice: practiceMode || undefined },
-    { enabled: state === "active" },
-  );
+  const queueInput = {
+    ...filters,
+    limit: 30,
+    practice: practiceMode || undefined,
+  };
+  const queueQuery = api.satzReview.queue.useQuery(queueInput, {
+    enabled: state === "active",
+  });
 
   const reportSession = api.gamification.reportSession.useMutation({
     onSuccess: (data) => {
@@ -118,6 +123,8 @@ export function SatzReview() {
       setIndex((prev) => prev + 1);
     },
   });
+
+  const utils = api.useUtils();
 
   const themeDomains = useMemo(
     () =>
@@ -366,6 +373,42 @@ export function SatzReview() {
         langCode: focusLang,
         label: t("playAudioLang", { language: tLang(focusLang) }),
       }}
+      afterGrade={
+        <SatzDriftReport
+          satzId={card.satzId}
+          targetLang={focusLang}
+          onApplied={({ fix, newText }) => {
+            utils.satzReview.queue.setData(queueInput, (old) => {
+              if (!old) return old;
+              return {
+                ...old,
+                cards: old.cards.map((c) => {
+                  if (c.satzId !== card.satzId) return c;
+                  if (fix === "SOURCE") {
+                    return {
+                      ...c,
+                      mainText: newText,
+                      mainAudioUrl: null,
+                      mainAudioStatus: AudioStatus.REQUESTED,
+                    };
+                  }
+                  return c.translation
+                    ? {
+                        ...c,
+                        translation: {
+                          ...c.translation,
+                          text: newText,
+                          audioUrl: null,
+                          audioStatus: AudioStatus.REQUESTED,
+                        },
+                      }
+                    : c;
+                }),
+              };
+            });
+          }}
+        />
+      }
       pending={gradeMutation.isPending}
       onReveal={() => setRevealed(true)}
       onKnew={() =>

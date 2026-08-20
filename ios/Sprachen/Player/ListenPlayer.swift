@@ -45,6 +45,23 @@ final class ListenPlayer: ObservableObject {
         return items.first { $0.id == playlist[clipIndex].itemId }
     }
 
+    var currentItemId: String? {
+        currentItem?.id
+    }
+
+    var queueItems: [MobileDailyItem] {
+        var seen = Set<String>()
+        var ordered: [MobileDailyItem] = []
+        for clip in playlist {
+            if seen.contains(clip.itemId) { continue }
+            seen.insert(clip.itemId)
+            if let item = items.first(where: { $0.id == clip.itemId }) {
+                ordered.append(item)
+            }
+        }
+        return ordered
+    }
+
     var currentTitle: String {
         currentItem?.displayTitle ?? "Sprachen Daily"
     }
@@ -171,6 +188,11 @@ final class ListenPlayer: ObservableObject {
         audioPlayer = nil
         freezeRemaining()
         updateNowPlaying()
+    }
+
+    func jumpToItem(_ id: String) {
+        guard let index = playlist.firstIndex(where: { $0.itemId == id }) else { return }
+        seek(to: index, paused: paused)
     }
 
     func seek(to index: Int, paused startPaused: Bool = false) {

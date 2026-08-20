@@ -22,6 +22,7 @@ import {
   upsertSatzEmbedding,
 } from "~/server/services/embeddings";
 import { MIN_BOX, MAX_BOX } from "~/lib/leitner";
+import { analyzeSatzDrift } from "~/server/services/openai";
 import { suggestAnswerQuestion } from "~/server/services/satz-question";
 import {
   deleteAudioFiles,
@@ -587,6 +588,113 @@ export const satzRouter = createTRPCRouter({
     )
     .mutation(async ({ input }) => {
       return suggestAnswerQuestion(input);
+    }),
+
+  analyzeDrift: publicProcedure
+    .input(z.object({ satzId: z.string(), targetLang: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const satz = await ctx.db.satz.findUnique({
+        where: { id: input.satzId },
+        include: { translations: { where: { lang: input.targetLang } } },
+      });
+      if (!satz) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Satz not found" });
+      }
+      const translation = satz.translations[0];
+      if (!translation) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `No translation found for language: ${input.targetLang}`,
+        });
+      }
+
+      const result = await analyzeSatzDrift({
+        germanText: satz.mainText,
+        translationText: translation.text,
+        targetLang: input.targetLang,
+      });
+
+      return {
+        ...result,
+        translationId: translation.id,
+        mainText: satz.mainText,
+        translationText: translation.text,
+      };
+    }),
+
+  applyDriftFix: publicProcedure
+    .input(
+      z.object({
+        satzId: z.string(),
+        side: z.enum(["SOURCE", "TRANSLATION"]),
+        newText: z.string().min(1),
+        translationId: z.string().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const newText = input.newText.trim();
+      const satz = await ctx.db.satz.findUnique({
+        where: { id: input.satzId },
+        select: { id: true, mainAudioStatus: true },
+      });
+      if (!satz) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Satz not found" });
+      }
+
+      if (input.side === "SOURCE") {
+        // Altes Audio passt nicht mehr zum Text: Datei löschen und neu anfordern,
+        // aber nur wenn für die Karte überhaupt Audio gewollt war.
+        const regenerate = satz.mainAudioStatus !== AudioStatus.NONE;
+        if (regenerate) {
+          await deleteMainAudioFiles([input.satzId]);
+        }
+        await ctx.db.satz.update({
+          where: { id: input.satzId },
+          data: {
+            mainText: newText,
+            ...(regenerate && {
+              mainAudioStatus: AudioStatus.REQUESTED,
+              mainAudioUrl: null,
+              mainAudioDurationMs: null,
+            }),
+          },
+        });
+        await persistSatzEmbedding(input.satzId, newText);
+        return { success: true, audioRequested: regenerate };
+      }
+
+      if (!input.translationId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "translationId is required when side is TRANSLATION",
+        });
+      }
+      const translation = await ctx.db.satzTranslation.findUnique({
+        where: { id: input.translationId },
+        select: { id: true, satzId: true, audioStatus: true },
+      });
+      if (!translation || translation.satzId !== input.satzId) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Translation not found for this Satz",
+        });
+      }
+      const regenerate = translation.audioStatus !== AudioStatus.NONE;
+      if (regenerate) {
+        await deleteAudioFiles([translation.id]);
+      }
+      await ctx.db.satzTranslation.update({
+        where: { id: translation.id },
+        data: {
+          text: newText,
+          ...(regenerate && {
+            audioStatus: AudioStatus.REQUESTED,
+            audioUrl: null,
+            audioDurationMs: null,
+          }),
+        },
+      });
+      return { success: true, audioRequested: regenerate };
     }),
 
   requestAudio: publicProcedure

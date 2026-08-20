@@ -12,8 +12,16 @@ struct HomeView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 header
-                content
-                PlayerDock(listenSettingsOpen: $listenSettingsOpen)
+                GeometryReader { geo in
+                    ZStack(alignment: .bottom) {
+                        content
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        PlayerDock(
+                            listenSettingsOpen: $listenSettingsOpen,
+                            availableHeight: geo.size.height
+                        )
+                    }
+                }
             }
             .background(CahierBackground())
             .navigationBarHidden(true)

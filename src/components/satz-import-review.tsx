@@ -248,6 +248,7 @@ function DraftCard({
   );
 
   const [mainText, setMainText] = useState(item.mainText);
+  const [adjustedSource, setAdjustedSource] = useState(item.adjustedSource);
   const [editingMainText, setEditingMainText] = useState(false);
   const [skip, setSkip] = useState(item.skip);
   const [allowSimilar, setAllowSimilar] = useState(item.allowSimilar);
@@ -370,6 +371,42 @@ function DraftCard({
       )}
       {item.error ? (
         <p className="text-sm text-destructive">{item.error}</p>
+      ) : null}
+
+      {adjustedSource && item.status !== "COMMITTED" ? (
+        <div className="space-y-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+          <div className="font-medium">{t("importDriftTitle")}</div>
+          <p className="text-muted-foreground">{t("importDriftHint")}</p>
+          <p className="font-semibold">{adjustedSource}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                setMainText(adjustedSource);
+                setAdjustedSource(null);
+                updateMutation.mutate({
+                  id: item.id,
+                  mainText: adjustedSource,
+                  adjustedSource: null,
+                });
+              }}
+            >
+              {t("importDriftApply")}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setAdjustedSource(null);
+                updateMutation.mutate({ id: item.id, adjustedSource: null });
+              }}
+            >
+              {t("importDriftDismiss")}
+            </Button>
+          </div>
+        </div>
       ) : null}
 
       {item.isDuplicate ? (

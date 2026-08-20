@@ -528,6 +528,7 @@ ${candidateLines}`;
 
 const satzImportEnrichSchema = z.object({
   translations: z.record(z.string(), z.string()),
+  adjustedSource: z.string().nullable().optional(),
   register: z.enum(["INFORMAL", "FORMAL"]).optional(),
   priority: z.enum(["DAILY", "WEEKLY", "OCCASIONAL", "RARE"]).optional(),
   trigger: z.string().nullable().optional(),
@@ -575,7 +576,20 @@ export async function enrichSatzImport(params: {
 Arbeite nur mit der gelieferten Themenliste und den gelieferten Vokabel-Kandidaten. Es gibt keine weiteren Themen oder Wörter.
 
 Regeln:
-- Übersetze natürlich in jede genannte Zielsprache (Alltagssprache).
+- Übersetze natürlich in jede genannte Zielsprache — gesprochene Alltagssprache, KEIN Lehrbuch-/Schriftsprache-Register (z. B. FR: „pour aller à…" statt „puis-je me rendre à…", „acheter" statt „se procurer").
+- adjustedSource: Prüfe NACH dem Übersetzen, ob der deutsche Satz die natürliche Rückübersetzung deiner Übersetzungen ist (gleicher Sprechakt, gleiche Konstruktion, gleiches Tempus). Wenn ja: null. Wenn die natürliche Übersetzung die Konstruktion wechselt: liefere EINEN deutschen Satz, der zu ALLEN Übersetzungen passt. Verbiege NIEMALS die Übersetzung, damit sie zum deutschen Satz passt — die Übersetzung bleibt natürlich, der deutsche Satz wird angepasst.
+
+Beispiele für adjustedSource:
+1. Deutscher Satz: "Gibt es das auch in einer anderen Farbe?"
+   fr: "Est-ce que vous l'avez dans une autre couleur ?" (natürlich, aber Konstruktion wechselt: es gibt → vous avez)
+   → adjustedSource: "Haben Sie das auch in einer anderen Farbe?"
+2. Deutscher Satz: "Ich hätte gern einen Kaffee."
+   fr: "Je voudrais un café." (gleiche Konstruktion)
+   → adjustedSource: null
+3. Deutscher Satz: "Wo ist die Toilette?"
+   es: "¿Dónde está el baño?" (gleiche Konstruktion)
+   → adjustedSource: null
+
 - register INFORMAL (du/tu) oder FORMAL (Sie/vous), passend zur Situation.
 - priority: DAILY / WEEKLY / OCCASIONAL / RARE nach typischer Nutzung.
 - trigger: kurze deutsche Szene, wann der Satz fällt, oder null.
@@ -588,6 +602,7 @@ Regeln:
 Gib nur JSON zurück:
 {
   "translations": { "<lang>": "<text>" },
+  "adjustedSource": string | null,
   "register": "INFORMAL" | "FORMAL",
   "priority": "DAILY" | "WEEKLY" | "OCCASIONAL" | "RARE",
   "trigger": string | null,
@@ -637,9 +652,17 @@ ${vocabLines}`;
   );
   const question = parsed.question?.trim() || null;
 
+  const adjustedSourceRaw = parsed.adjustedSource?.trim() || null;
+  const adjustedSource =
+    adjustedSourceRaw &&
+    adjustedSourceRaw.toLowerCase() !== params.germanText.trim().toLowerCase()
+      ? adjustedSourceRaw
+      : null;
+
   return {
     ...parsed,
     translations,
+    adjustedSource,
     themeNames: (parsed.themeNames ?? []).filter((name) => allowedThemes.has(name)),
     linkedEntryIds: (parsed.linkedEntryIds ?? []).filter((id) =>
       allowedEntryIds.has(id),
@@ -648,6 +671,78 @@ ${vocabLines}`;
     question,
     questionTranslations,
   };
+}
+
+const satzDriftSchema = z.object({
+  hasDrift: z.boolean(),
+  fix: z.enum(["SOURCE", "TRANSLATION"]).nullable(),
+  newText: z.string().nullable(),
+  reason: z.string(),
+});
+
+export type SatzDriftResult = z.infer<typeof satzDriftSchema>;
+
+/** Check a card pair for construction drift and propose which side to fix. */
+export async function analyzeSatzDrift(params: {
+  germanText: string;
+  translationText: string;
+  targetLang: string;
+}): Promise<SatzDriftResult> {
+  const targetName = getLanguageName(params.targetLang);
+
+  const completion = await createChatCompletion({
+    messages: [
+      {
+        role: "system",
+        content: `Du prüfst ein Karteikarten-Paar (Deutsch ↔ ${targetName}) auf Übersetzungs-Drift. Der Nutzer lernt ${targetName} für den mündlichen Alltag — die Karte muss das lehren, was auf der Straße wirklich gesagt wird.
+Drift heißt: Die beiden Sätze sind keine wechselseitigen natürlichen Rückübersetzungen — anderer Sprechakt, andere Konstruktion, anderes Tempus ODER anderes Register (gesprochene vs. Schriftsprache).
+
+Entscheide in dieser Reihenfolge:
+1. Ist die ${targetName}-Übersetzung das, was Muttersprachler in dieser Situation MÜNDLICH wirklich sagen? Sei hier STRENG: Grammatisch korrekt und höflich reicht nicht — Lehrbuch- und Schriftsprache zählt als Drift. Warnsignale (Beispiele für Französisch): Inversionsfragen wie „puis-je / pourriez-vous / avez-vous…?", formelle Verben wie „se rendre à" (statt „aller à"), „se procurer" (statt „acheter/avoir"), „souhaiter" (statt „vouloir"). Ähnliche Schriftsprache-Marker gelten in jeder Zielsprache. Wenn die Übersetzung steif, schriftsprachlich oder fehlerhaft ist: fix="TRANSLATION", newText = die natürliche gesprochene Alltagsübersetzung des deutschen Satzes.
+2. Ist die Übersetzung natürlich, aber der deutsche Satz nicht ihre natürliche Rückübersetzung (andere Konstruktion/Sprechakt): fix="SOURCE", newText = ein deutscher Satz, der zur Übersetzung passt.
+3. Passen beide zusammen (gleiche Konstruktion, gleicher Sprechakt, beides gesprochene Alltagssprache): hasDrift=false, fix=null, newText=null. Reine Wortstellungsunterschiede, die die Zielsprache mündlich so verlangt, sind KEIN Drift.
+
+Beispiele:
+1. DE: "Entschuldigung, wie komme ich zum Bahnhof?" / FR: "Excusez-moi, comment puis-je me rendre à la gare ?"
+   → hasDrift=true, fix="TRANSLATION", newText="Excusez-moi, pour aller à la gare ?" („puis-je" + „se rendre à" ist Schriftsprache; so fragt mündlich niemand nach dem Weg.)
+2. DE: "Gibt es das auch in einer anderen Farbe?" / FR: "Est-ce que vous l'avez dans une autre couleur ?"
+   → hasDrift=true, fix="SOURCE", newText="Haben Sie das auch in einer anderen Farbe?" (Übersetzung ist natürlich, aber Konstruktion wechselt: Existenz → Besitz/Anrede.)
+3. DE: "Wie viele Zimmer hat deine Wohnung?" / FR: "Ton appartement a combien de pièces ?"
+   → hasDrift=false (Gleiche Konstruktion und Alltagssprache; die In-situ-Wortstellung ist mündlich normal.)
+
+reason: 1–2 kurze deutsche Sätze zur Begründung.
+
+Gib nur JSON zurück:
+{ "hasDrift": boolean, "fix": "SOURCE" | "TRANSLATION" | null, "newText": string | null, "reason": string }`,
+      },
+      {
+        role: "user",
+        content: `Deutsch: ${JSON.stringify(params.germanText)}
+${targetName} (${params.targetLang}): ${JSON.stringify(params.translationText)}`,
+      },
+    ],
+    temperature: 0,
+    response_format: { type: "json_object" },
+  });
+
+  const content = completion.choices[0]?.message?.content;
+  if (!content) {
+    throw new Error("No content in OpenAI satz-drift response");
+  }
+
+  const parsed = satzDriftSchema.parse(JSON.parse(content) as unknown);
+  const newText = parsed.newText?.trim() || null;
+  const currentText =
+    parsed.fix === "SOURCE" ? params.germanText : params.translationText;
+  if (
+    !parsed.hasDrift ||
+    !parsed.fix ||
+    !newText ||
+    newText.toLowerCase() === currentText.trim().toLowerCase()
+  ) {
+    return { hasDrift: false, fix: null, newText: null, reason: parsed.reason };
+  }
+  return { hasDrift: true, fix: parsed.fix, newText, reason: parsed.reason };
 }
 
 const satzAnswerClassifySchema = z.object({

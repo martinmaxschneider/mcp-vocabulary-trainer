@@ -94,6 +94,7 @@ export type CahierQuizCardProps = {
       onReveal: () => void;
       onKnew: () => void;
       onDidNotKnow: () => void;
+      afterGrade?: React.ReactNode;
     }
   | {
       mode: "typed";
@@ -268,33 +269,36 @@ export function CahierQuizCard(props: CahierQuizCardProps) {
                 {t("reviewShowAnswer")}
               </Button>
             ) : (
-              <div className="grid gap-2 sm:grid-cols-2">
-                <Button
-                  type="button"
-                  size="lg"
-                  className={NAVY_BTN}
-                  disabled={props.pending}
-                  onClick={props.onKnew}
-                >
-                  {props.pending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <ThumbsUp className="mr-2 h-4 w-4" />
-                  )}
-                  {t("reviewKnew")}
-                </Button>
-                <Button
-                  type="button"
-                  size="lg"
-                  variant="outline"
-                  className="h-12 border-[#1e3a5f]/20 text-[#1e3a5f]"
-                  disabled={props.pending}
-                  onClick={props.onDidNotKnow}
-                >
-                  <ThumbsDown className="mr-2 h-4 w-4" />
-                  {t("reviewDidNotKnow")}
-                </Button>
-              </div>
+              <>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Button
+                    type="button"
+                    size="lg"
+                    className={NAVY_BTN}
+                    disabled={props.pending}
+                    onClick={props.onKnew}
+                  >
+                    {props.pending ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <ThumbsUp className="mr-2 h-4 w-4" />
+                    )}
+                    {t("reviewKnew")}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="lg"
+                    variant="outline"
+                    className="h-12 border-[#1e3a5f]/20 text-[#1e3a5f]"
+                    disabled={props.pending}
+                    onClick={props.onDidNotKnow}
+                  >
+                    <ThumbsDown className="mr-2 h-4 w-4" />
+                    {t("reviewDidNotKnow")}
+                  </Button>
+                </div>
+                {props.afterGrade}
+              </>
             )}
           </div>
         ) : null}

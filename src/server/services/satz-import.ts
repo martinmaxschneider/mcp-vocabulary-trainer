@@ -176,6 +176,7 @@ async function enrichOneDraft(
     data: {
       status: SatzImportItemStatus.ENRICHED,
       isDuplicate: false,
+      adjustedSource: enriched.adjustedSource ?? null,
       trigger: enriched.trigger?.trim() || null,
       priority: parsePriority(enriched.priority),
       register,
@@ -269,6 +270,7 @@ export async function enrichNextDrafts(batchId: string, limit: number) {
 
 export type DraftUpdateInput = {
   mainText?: string;
+  adjustedSource?: string | null;
   skip?: boolean;
   allowSimilar?: boolean;
   trigger?: string | null;
@@ -331,6 +333,13 @@ export async function updateImportDraft(id: string, input: DraftUpdateInput) {
     where: { id },
     data: {
       ...(input.mainText !== undefined && { mainText: input.mainText.trim() }),
+      // Manuelles Ändern des Quelltexts macht den Drift-Vorschlag obsolet.
+      ...((input.adjustedSource !== undefined || input.mainText !== undefined) && {
+        adjustedSource:
+          input.adjustedSource !== undefined
+            ? input.adjustedSource?.trim() || null
+            : null,
+      }),
       ...(input.skip !== undefined && { skip: input.skip }),
       ...(input.allowSimilar !== undefined && { allowSimilar: input.allowSimilar }),
       ...(input.trigger !== undefined && {
@@ -645,6 +654,7 @@ export async function getBatchView(batchId: string) {
       id: item.id,
       rowNumber: item.rowNumber,
       mainText: item.mainText,
+      adjustedSource: item.adjustedSource,
       status: item.status,
       skip: item.skip,
       trigger: item.trigger,

@@ -656,6 +656,9 @@ model SatzImportDraft {
   /// [{ id, mainText, score }]
   vocabCandidates Json?
 
+  /// LLM-Vorschlag: deutscher Satz, der zur natürlichen Übersetzung passt (Konstruktions-Drift)
+  adjustedSource String?
+
   isDuplicate  Boolean @default(false)
   allowSimilar Boolean @default(false)
   isAnswer     Boolean @default(false)
