@@ -29,9 +29,9 @@ You do **not** need Xcode on other computers or on the iPhones. You do **not** n
 npm run dev:web
 ```
 
-Port **4810** is enough. The native app talks HTTP on the LAN; mkcert / port 4843 is only for the PWA.
+Port **4810** is enough. The native app talks HTTP on the LAN — no certificate.
 
-On the Mac, note the LAN address, for example `http://192.168.1.10:4810` (`System Settings → Network`, or the hostname printed by the HTTPS proxy if you still run `npm run dev`).
+On the Mac, note the LAN address, for example `http://192.168.1.10:4810` (`System Settings → Network`).
 
 ## First launch on the iPhone
 

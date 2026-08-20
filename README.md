@@ -74,20 +74,13 @@ npm run dev
 
 Open [http://localhost:4810](http://localhost:4810).
 
-`npm run dev` starts Next.js on port **4810** (MCP at `/mcp`), the optional OpenAI MCP tunnel (health **4811**), and the HTTPS proxy on **4843** for the iPhone PWA. Web only: `npm run dev:web`.
+`npm run dev` starts Next.js on port **4810** (MCP at `/mcp`) and the optional OpenAI MCP tunnel (health **4811**). Web only: `npm run dev:web`.
 
 ## Daily on iPhone (offline, no cloud)
 
-The listen player can run as a home-screen PWA on your iPhone. You save one Daily pack (text + MP3s) over home Wi-Fi; after that the player works with the Mac off.
-
-```bash
-npm run https:setup      # once: mkcert + LAN certificate
-npm run dev              # Next + MCP tunnel + HTTPS proxy
-```
-
-Open the printed `https://<mac>.local:4843` URL in iPhone Safari → Add to Home Screen. The PWA is language + download + player only. Details: [docs/offline-iphone.md](docs/offline-iphone.md).
-
 Native iOS (download + listen, lock-screen audio): open `ios/Sprachen.xcodeproj` on this Mac, sign with your Apple ID, and install to the iPhone over USB. Details: [docs/ios.md](docs/ios.md).
+
+The Mac creates the Daily pack and TTS. The iPhone downloads over home Wi-Fi (`http://<mac-ip>:4810`) and then plays from local files with the Mac off.
 
 ## Environment
 

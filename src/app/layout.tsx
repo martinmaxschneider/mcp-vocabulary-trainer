@@ -9,7 +9,6 @@ import { TRPCReactProvider } from "~/trpc/client";
 import { Toaster } from "~/components/ui/toaster";
 import { ThemeProvider } from "~/components/theme-provider";
 import { FocusLangProvider } from "~/components/focus-lang-provider";
-import { ServiceWorkerRegister } from "~/components/service-worker-register";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -22,12 +21,6 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: t("title"),
     description: t("description"),
-    manifest: "/manifest.webmanifest",
-    appleWebApp: {
-      capable: true,
-      title: "Sprachen Daily",
-      statusBarStyle: "default",
-    },
     icons: [
       { rel: "icon", url: "/favicon.svg", type: "image/svg+xml" },
       { rel: "icon", url: "/icon", type: "image/png", sizes: "32x32" },
@@ -55,7 +48,6 @@ export default async function RootLayout({
             <FocusLangProvider>
               <TRPCReactProvider>{children}</TRPCReactProvider>
               <Toaster />
-              <ServiceWorkerRegister />
             </FocusLangProvider>
           </NextIntlClientProvider>
         </ThemeProvider>
