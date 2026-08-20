@@ -3,7 +3,7 @@ import { ImageResponse } from "next/og";
 export const size = { width: 32, height: 32 };
 export const contentType = "image/png";
 
-/** Favicon: ink-blue speech bubble with a white play triangle on cahier paper. */
+/** Favicon: navy listen bubble with a white play mark on white cahier paper. */
 export default function Icon() {
   return new ImageResponse(
     (
@@ -14,9 +14,9 @@ export default function Icon() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "#eef4fa",
+          background: "#ffffff",
           borderRadius: 8,
-          borderLeft: "3px solid #d45d5d",
+          borderLeft: "5px solid #d07a7a",
         }}
       >
         <div

@@ -148,8 +148,14 @@ export function markerAtTime(
   timeSec: number,
 ): TapeMarker | null {
   if (markers.length === 0) return null;
+  if (!Number.isFinite(timeSec)) return markers[0] ?? null;
+  let lastStarted: TapeMarker | null = null;
   for (const marker of markers) {
-    if (timeSec >= marker.startSec && timeSec < marker.endSec) return marker;
+    if (timeSec < marker.startSec) {
+      return lastStarted ?? marker;
+    }
+    lastStarted = marker;
+    if (timeSec < marker.endSec) return marker;
   }
-  return markers[markers.length - 1] ?? null;
+  return lastStarted;
 }

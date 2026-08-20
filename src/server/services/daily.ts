@@ -831,6 +831,25 @@ export async function findOpenPackage(
   });
 }
 
+/** Newest started pack for a language, regardless of calendar day. */
+export async function findLatestListenPackage(
+  prisma: Db,
+  userId: string,
+  targetLang: string,
+) {
+  return prisma.dailyPackage.findFirst({
+    where: {
+      userId,
+      targetLang,
+      status: {
+        in: [DailyPackageStatus.ACTIVE, DailyPackageStatus.TESTING],
+      },
+    },
+    include: { items: true },
+    orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+  });
+}
+
 export type DailyPackageSummary = {
   id: string;
   date: string;

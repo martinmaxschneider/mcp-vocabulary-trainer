@@ -525,6 +525,7 @@ export function useListenPlayer({
     const tape = tapeRef.current;
     const audio = audioRef.current;
     if (!tape || !audio) return;
+    if (!Number.isFinite(audio.currentTime)) return;
     const marker = markerAtTime(tape.markers, audio.currentTime);
     if (!marker) return;
     if (marker.clipIndex !== clipIndexRef.current) {

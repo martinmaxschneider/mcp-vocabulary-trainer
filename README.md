@@ -87,6 +87,8 @@ npm run dev              # Next + MCP tunnel + HTTPS proxy
 
 Open the printed `https://<mac>.local:4843` URL in iPhone Safari → Add to Home Screen. The PWA is language + download + player only. Details: [docs/offline-iphone.md](docs/offline-iphone.md).
 
+Native iOS (download + listen, lock-screen audio): open `ios/Sprachen.xcodeproj` on this Mac, sign with your Apple ID, and install to the iPhone over USB. Details: [docs/ios.md](docs/ios.md).
+
 ## Environment
 
 Copy from [`.env.example`](.env.example):

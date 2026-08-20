@@ -31,4 +31,16 @@ describe("listen tape helpers", () => {
     expect(markerAtTime(markers, 1.2)?.clipIndex).toBe(1);
     expect(markerAtTime(markers, 9)?.clipIndex).toBe(1);
   });
+
+  it("keeps the previous clip during pause gaps instead of the last item", () => {
+    const markers = [
+      { clipIndex: 0, startSec: 0, endSec: 1.2 },
+      { clipIndex: 1, startSec: 2.4, endSec: 3.5 },
+      { clipIndex: 2, startSec: 4.7, endSec: 6 },
+    ];
+    expect(markerAtTime(markers, 1.8)?.clipIndex).toBe(0);
+    expect(markerAtTime(markers, 4)?.clipIndex).toBe(1);
+    expect(markerAtTime(markers, -0.1)?.clipIndex).toBe(0);
+    expect(markerAtTime(markers, Number.NaN)?.clipIndex).toBe(0);
+  });
 });
