@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/client";
@@ -23,8 +23,8 @@ import {
   Sparkles,
   BookA,
   BookText,
-  Play,
   Quote,
+  Repeat,
 } from "lucide-react";
 import { Badge } from "~/components/ui/badge";
 import { useFocusLang } from "~/components/focus-lang-provider";
@@ -32,6 +32,31 @@ import { getTargetLang } from "~/lib/languages";
 import { isConjugatableLang } from "~/lib/conjugation-catalog";
 
 const SHOW_ALL_STORAGE_KEY = "sprachen-dashboard-show-all";
+
+type LeitnerTrack = {
+  boxes: { new: number };
+  total: number;
+};
+
+function inBoxesOverTotal(
+  progress: Array<{
+    vocab: LeitnerTrack;
+    conjugations: LeitnerTrack;
+    satze: LeitnerTrack;
+  }>,
+  keys: Array<"vocab" | "conjugations" | "satze">,
+) {
+  let inBoxes = 0;
+  let total = 0;
+  for (const lang of progress) {
+    for (const key of keys) {
+      const track = lang[key];
+      total += track.total;
+      inBoxes += track.total - track.boxes.new;
+    }
+  }
+  return { inBoxes, total };
+}
 
 function readShowAll(): boolean {
   if (typeof window === "undefined") return false;
@@ -72,6 +97,16 @@ export function Dashboard() {
       };
     }) ?? [];
 
+  const inventory = useMemo(() => {
+    const tracks = stats?.languageProgress ?? [];
+    return {
+      overall: inBoxesOverTotal(tracks, ["vocab", "satze"]),
+      sentences: inBoxesOverTotal(tracks, ["satze"]),
+      words: inBoxesOverTotal(tracks, ["vocab"]),
+      conjugations: inBoxesOverTotal(tracks, ["conjugations"]),
+    };
+  }, [stats?.languageProgress]);
+
   return (
     <>
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -104,82 +139,12 @@ export function Dashboard() {
         </div>
       </div>
 
-      <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <Button asChild size="lg" className="h-auto justify-start gap-3 py-4">
-          <Link href="/sentences/review?start=1">
-            <Quote className="h-5 w-5" />
-            <span className="flex flex-col items-start text-left">
-              <span>{t("startSatzReview")}</span>
-              <span className="text-xs font-normal opacity-80">
-                {t("startSatzReviewDesc", { language: tLang(focusLang) })}
-              </span>
-            </span>
-          </Link>
-        </Button>
-        <Button asChild size="lg" variant="outline" className="h-auto justify-start gap-3 py-4">
-          <Link
-            href={
-              showAll ? "/review?start=1&mode=multi" : "/review?start=1"
-            }
-          >
-            <Play className="h-5 w-5" />
-            <span className="flex flex-col items-start text-left">
-              <span>{t("startVocabReview")}</span>
-              <span className="text-xs font-normal text-muted-foreground">
-                {showAll
-                  ? t("startVocabReviewAllDesc")
-                  : t("startVocabReviewDesc", {
-                      language: tLang(focusLang),
-                    })}
-              </span>
-            </span>
-          </Link>
-        </Button>
-        {isConjugatableLang(focusLang) ? (
-          <Button
-            asChild
-            size="lg"
-            variant="outline"
-            className="h-auto justify-start gap-3 py-4"
-          >
-            <Link href="/practice/conjugations?start=1">
-              <BookOpen className="h-5 w-5" />
-              <span className="flex flex-col items-start text-left">
-                <span>{t("startConjugationReview")}</span>
-                <span className="text-xs font-normal text-muted-foreground">
-                  {t("startConjugationReviewDesc", {
-                    language: tLang(focusLang),
-                  })}
-                </span>
-              </span>
-            </Link>
-          </Button>
-        ) : (
-          <Button
-            size="lg"
-            variant="outline"
-            className="h-auto justify-start gap-3 py-4"
-            disabled
-          >
-            <BookOpen className="h-5 w-5" />
-            <span className="flex flex-col items-start text-left">
-              <span>{t("startConjugationReview")}</span>
-              <span className="text-xs font-normal text-muted-foreground">
-                {t("startConjugationReviewDesc", {
-                  language: tLang(focusLang),
-                })}
-              </span>
-            </span>
-          </Button>
-        )}
-      </div>
-
       {isLoading || !stats ? (
         <p className="text-muted-foreground">{tCommon("loading")}</p>
       ) : (
         <>
           <GamificationOverview focusLang={focusLang} showAll={showAll} />
-          <div className="mb-8 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <div className="mb-8 grid items-stretch gap-6 md:grid-cols-2 lg:grid-cols-4">
             <StatsWidget
               title={t("dueToday")}
               value={stats.dueCount}
@@ -187,26 +152,63 @@ export function Dashboard() {
               icon={<BookOpen className="h-4 w-4 text-muted-foreground" />}
             />
             <StatsWidget
-              title={t("total")}
-              value={stats.totalEntries}
-              description={t("totalDesc")}
-              icon={<FileText className="h-4 w-4 text-muted-foreground" />}
-            />
-            <StatsWidget
-              title={t("words")}
-              value={stats.wordCount}
-              description={t("wordsDesc")}
-              icon={<MessageSquare className="h-4 w-4 text-muted-foreground" />}
-            />
-            <StatsWidget
-              title={tNav("sentences")}
-              value={stats.satzCount}
-              description={t("sentencesDesc")}
+              title={t("dueSentences")}
+              value={stats.dueSatzCount}
+              description={t("startSatzReview")}
               icon={<Quote className="h-4 w-4 text-muted-foreground" />}
+              href="/sentences/review?start=1"
+            />
+            <StatsWidget
+              title={t("dueWords")}
+              value={stats.dueVocabCount}
+              description={
+                showAll ? t("startVocabReviewAllDesc") : t("startVocabReview")
+              }
+              icon={<MessageSquare className="h-4 w-4 text-muted-foreground" />}
+              href={showAll ? "/review?start=1&mode=multi" : "/review?start=1"}
+            />
+            <StatsWidget
+              title={t("dueConjugations")}
+              value={stats.dueConjCount}
+              description={t("startConjugationReview")}
+              icon={<Repeat className="h-4 w-4 text-muted-foreground" />}
+              href="/practice/conjugations?start=1"
+              disabled={!isConjugatableLang(focusLang)}
             />
           </div>
 
-          <div className="mb-8 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <div className="mb-8 grid items-stretch gap-6 md:grid-cols-2 lg:grid-cols-4">
+            <StatsWidget
+              title={t("total")}
+              value={inventory.overall.inBoxes}
+              total={inventory.overall.total}
+              description={t("inBoxesOverTotal")}
+              icon={<FileText className="h-4 w-4 text-muted-foreground" />}
+            />
+            <StatsWidget
+              title={t("sentencesTotal")}
+              value={inventory.sentences.inBoxes}
+              total={inventory.sentences.total}
+              description={t("inBoxesOverTotal")}
+              icon={<Quote className="h-4 w-4 text-muted-foreground" />}
+            />
+            <StatsWidget
+              title={t("wordsTotal")}
+              value={inventory.words.inBoxes}
+              total={inventory.words.total}
+              description={t("inBoxesOverTotal")}
+              icon={<MessageSquare className="h-4 w-4 text-muted-foreground" />}
+            />
+            <StatsWidget
+              title={t("conjugationsTotal")}
+              value={inventory.conjugations.inBoxes}
+              total={inventory.conjugations.total}
+              description={t("inBoxesOverTotal")}
+              icon={<Repeat className="h-4 w-4 text-muted-foreground" />}
+            />
+          </div>
+
+          <div className="mb-8 grid items-stretch gap-6 md:grid-cols-2 lg:grid-cols-4">
             <StatsWidget
               title={tNav("verbs")}
               value={stats.verbCount}

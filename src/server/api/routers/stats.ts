@@ -97,7 +97,15 @@ export const statsRouter = createTRPCRouter({
           : {}),
       },
     });
-    const dueCount = dueVocabCount + dueSatzCount;
+    const dueConjCount = await ctx.db.userProgress.count({
+      where: {
+        userId,
+        cardType: CardType.CONJUGATION,
+        nextReviewAt: { lte: now },
+        ...(targetLang ? { targetLang } : {}),
+      },
+    });
+    const dueCount = dueVocabCount + dueSatzCount + dueConjCount;
 
     const totalVocab = await ctx.db.entry.count({
       where: hasTranslation,
@@ -298,8 +306,16 @@ export const statsRouter = createTRPCRouter({
       };
     });
 
+    const conjugationCount = languageProgress.reduce(
+      (sum, lang) => sum + lang.conjugations.total,
+      0,
+    );
+
     return {
       dueCount,
+      dueVocabCount,
+      dueSatzCount,
+      dueConjCount,
       totalEntries,
       topWrong: problemCards,
       domainStats: domainStats.map((d) => ({
@@ -313,6 +329,7 @@ export const statsRouter = createTRPCRouter({
       adjectiveCount,
       proverbCategoryCount,
       satzCount,
+      conjugationCount,
       languageProgress,
     };
   }),
