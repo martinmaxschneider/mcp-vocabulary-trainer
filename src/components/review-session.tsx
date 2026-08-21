@@ -3,8 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { SOURCE_LANG, TARGET_LANG_CODES } from "~/lib/languages";
-import { api } from "~/trpc/client";
+import {
+  SOURCE_LANG,
+  TARGET_LANG_CODES,
+  type LearningLangCode,
+} from "~/lib/languages";
+import { api, type RouterOutputs } from "~/trpc/client";
 import { Button } from "~/components/ui/button";
 import { ReviewCard } from "~/components/review-card";
 import {
@@ -42,6 +46,47 @@ const libreBaskerville = Libre_Baskerville({
 
 type ReviewState = "setup" | "active" | "summary";
 type ReviewMode = "single" | "multi";
+type DueSingle = RouterOutputs["review"]["getDue"];
+type DueMulti = RouterOutputs["review"]["getDueMulti"];
+
+type SessionQueue = {
+  single: DueSingle["cards"];
+  multi: DueMulti["cards"];
+  totalAvailable: number;
+  boxCounts: DueSingle["boxCounts"];
+};
+
+const SESSION_QUERY_OPTS = {
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+} as const;
+
+function queueFromSingle(data: DueSingle): SessionQueue {
+  return {
+    single: data.cards,
+    multi: [],
+    totalAvailable: data.totalAvailable,
+    boxCounts: data.boxCounts,
+  };
+}
+
+function queueFromMulti(data: DueMulti): SessionQueue {
+  return {
+    single: [],
+    multi: data.cards,
+    totalAvailable: data.totalAvailable,
+    boxCounts: data.boxCounts,
+  };
+}
+
+function emptyQueue(): SessionQueue {
+  return {
+    single: [],
+    multi: [],
+    totalAvailable: 0,
+    boxCounts: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 },
+  };
+}
 
 export function ReviewSession() {
   const t = useTranslations("review");
@@ -57,8 +102,10 @@ export function ReviewSession() {
   const [reviewState, setReviewState] = useState<ReviewState>("setup");
   const [practiceMode, setPracticeMode] = useState(false);
   const [mode, setMode] = useState<ReviewMode>("single");
-  const selectedLang = mode === "multi" ? null : focusLang;
+  const [sessionLang, setSessionLang] = useState<LearningLangCode | null>(null);
+  const selectedLang = mode === "multi" ? null : sessionLang;
   const [selectedDomains, setSelectedDomains] = useState<string[]>([]);
+  const [sessionQueue, setSessionQueue] = useState<SessionQueue | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [result, setResult] = useState<{
     isCorrect: boolean;
@@ -81,6 +128,8 @@ export function ReviewSession() {
     if (searchParams.get("start") !== "1") return;
     const nextMode = searchParams.get("mode") === "multi" ? "multi" : "single";
     setMode(nextMode);
+    setSessionLang(focusLang);
+    setSessionQueue(null);
     setSelectedDomains([]);
     setCurrentIndex(0);
     setResult(null);
@@ -100,6 +149,7 @@ export function ReviewSession() {
     {
       enabled:
         reviewState === "active" && mode === "single" && selectedLang !== null,
+      ...SESSION_QUERY_OPTS,
     }
   );
 
@@ -110,27 +160,51 @@ export function ReviewSession() {
     },
     {
       enabled: reviewState === "active" && mode === "multi",
+      ...SESSION_QUERY_OPTS,
     }
   );
 
+  useEffect(() => {
+    if (reviewState !== "active" || sessionQueue) return;
+    if (mode === "single") {
+      if (!singleQuery.isSuccess || singleQuery.isFetching || !singleQuery.data) {
+        return;
+      }
+      setSessionQueue(queueFromSingle(singleQuery.data));
+      return;
+    }
+    if (!multiQuery.isSuccess || multiQuery.isFetching || !multiQuery.data) {
+      return;
+    }
+    setSessionQueue(queueFromMulti(multiQuery.data));
+  }, [
+    reviewState,
+    sessionQueue,
+    mode,
+    singleQuery.isSuccess,
+    singleQuery.isFetching,
+    singleQuery.data,
+    multiQuery.isSuccess,
+    multiQuery.isFetching,
+    multiQuery.data,
+  ]);
+
   const isLoading =
-    mode === "multi" ? multiQuery.isLoading : singleQuery.isLoading;
+    sessionQueue === null &&
+    (mode === "multi"
+      ? multiQuery.isLoading || multiQuery.isFetching
+      : singleQuery.isLoading || singleQuery.isFetching);
   const refetch =
     mode === "multi" ? multiQuery.refetch : singleQuery.refetch;
 
-  const singleCards = singleQuery.data?.cards ?? [];
-  const multiCards = multiQuery.data?.cards ?? [];
-  const totalAvailable =
-    mode === "multi"
-      ? (multiQuery.data?.totalAvailable ?? 0)
-      : (singleQuery.data?.totalAvailable ?? 0);
+  const singleCards = sessionQueue?.single ?? [];
+  const multiCards = sessionQueue?.multi ?? [];
+  const totalAvailable = sessionQueue?.totalAvailable ?? 0;
   const totalCards =
     mode === "multi" ? multiCards.length : singleCards.length;
 
   const sessionBoxCounts = remainingBoxCounts(
-    mode === "multi"
-      ? multiQuery.data?.boxCounts
-      : singleQuery.data?.boxCounts,
+    sessionQueue?.boxCounts,
     (mode === "multi" ? multiCards : singleCards)
       .slice(0, currentIndex)
       .map((card) =>
@@ -371,6 +445,8 @@ export function ReviewSession() {
       setReviewState("summary");
       return;
     }
+    setSessionLang(null);
+    setSessionQueue(null);
     setReviewState("setup");
   };
 
@@ -383,6 +459,13 @@ export function ReviewSession() {
       setMultiResults(null);
     } else {
       void refetch().then((result) => {
+        if (mode === "multi") {
+          const data = result.data as DueMulti | undefined;
+          setSessionQueue(data ? queueFromMulti(data) : emptyQueue());
+        } else {
+          const data = result.data as DueSingle | undefined;
+          setSessionQueue(data ? queueFromSingle(data) : emptyQueue());
+        }
         const remaining = result.data?.cards.length ?? 0;
         setCurrentIndex(0);
         setResult(null);
@@ -402,6 +485,8 @@ export function ReviewSession() {
   const beginSession = (practice: boolean) => {
     setPracticeMode(practice);
     setMode("single");
+    setSessionLang(focusLang);
+    setSessionQueue(null);
     setReviewState("active");
     setCurrentIndex(0);
     setResult(null);
@@ -414,6 +499,8 @@ export function ReviewSession() {
   const handleBackToSetup = () => {
     setReviewState("setup");
     setMode("single");
+    setSessionLang(null);
+    setSessionQueue(null);
     setSelectedDomains([]);
     setCurrentIndex(0);
     setResult(null);
@@ -680,6 +767,7 @@ export function ReviewSession() {
           <>
             {mode === "single" && currentSingleCard && selectedLang && (
               <ReviewCard
+                key={currentSingleCard.entryId}
                 entryId={currentSingleCard.entryId}
                 mainText={currentSingleCard.mainText}
                 type={currentSingleCard.type}
@@ -702,6 +790,7 @@ export function ReviewSession() {
 
             {mode === "multi" && currentMultiCard && (
               <MultiReviewCard
+                key={currentMultiCard.entryId}
                 entryId={currentMultiCard.entryId}
                 mainText={currentMultiCard.mainText}
                 type={currentMultiCard.type}

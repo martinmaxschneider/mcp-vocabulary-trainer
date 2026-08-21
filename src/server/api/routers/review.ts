@@ -295,7 +295,7 @@ export const reviewRouter = createTRPCRouter({
             translations: { some: { lang: input.targetLang } },
           },
           take: input.limit,
-          orderBy: { updatedAt: "desc" },
+          orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
           include: {
             translations: { where: { lang: input.targetLang } },
             domains: { include: { domain: true } },
@@ -327,7 +327,7 @@ export const reviewRouter = createTRPCRouter({
           ...(domainFilter ? { entry: domainFilter } : {}),
         },
         take: input.limit,
-        orderBy: { nextReviewAt: "asc" },
+        orderBy: [{ nextReviewAt: "asc" }, { id: "asc" }],
         include: {
           entry: {
             include: {
@@ -403,7 +403,7 @@ export const reviewRouter = createTRPCRouter({
           nextReviewAt: { lte: now },
           ...(domainFilter ? { entry: domainFilter } : {}),
         },
-        orderBy: { nextReviewAt: "asc" },
+        orderBy: [{ nextReviewAt: "asc" }, { id: "asc" }],
         select: {
           entryId: true,
           nextReviewAt: true,
