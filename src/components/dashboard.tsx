@@ -150,6 +150,7 @@ export function Dashboard() {
               value={stats.dueCount}
               description={t("dueDesc")}
               icon={<BookOpen className="h-4 w-4 text-muted-foreground" />}
+              pulse={stats.dueCount > 0}
             />
             <StatsWidget
               title={t("dueSentences")}

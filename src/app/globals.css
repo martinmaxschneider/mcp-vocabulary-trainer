@@ -195,6 +195,42 @@
     box-shadow: var(--cahier-shadow);
   }
 
+  @keyframes cahier-border-glow {
+    0%,
+    100% {
+      box-shadow:
+        var(--cahier-shadow),
+        0 0 0 1px color-mix(in srgb, var(--cahier-ink) 30%, transparent),
+        0 0 12px color-mix(in srgb, var(--cahier-ink) 16%, transparent);
+    }
+    50% {
+      box-shadow:
+        var(--cahier-shadow),
+        0 0 0 2px color-mix(in srgb, var(--cahier-ink) 72%, transparent),
+        0 0 22px color-mix(in srgb, var(--cahier-ink) 32%, transparent);
+    }
+  }
+
+  .cahier-start-card-pulse {
+    animation: cahier-border-glow 2.6s ease-in-out infinite;
+  }
+
+  .group:hover .cahier-start-card:not(.cahier-start-card-pulse),
+  .group:focus-visible .cahier-start-card:not(.cahier-start-card-pulse) {
+    animation: cahier-border-glow 2.6s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cahier-start-card-pulse,
+    .group:hover .cahier-start-card,
+    .group:focus-visible .cahier-start-card {
+      animation: none;
+      box-shadow:
+        var(--cahier-shadow),
+        0 0 0 2px color-mix(in srgb, var(--cahier-ink) 55%, transparent);
+    }
+  }
+
   .cahier-section {
     border-radius: 1rem;
     background: var(--cahier-section);

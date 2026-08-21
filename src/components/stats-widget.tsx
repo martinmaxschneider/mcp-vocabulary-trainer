@@ -13,6 +13,7 @@ interface StatsWidgetProps {
   icon?: React.ReactNode;
   href?: string;
   disabled?: boolean;
+  pulse?: boolean;
 }
 
 export function StatsWidget({
@@ -23,6 +24,7 @@ export function StatsWidget({
   icon,
   href,
   disabled,
+  pulse,
 }: StatsWidgetProps) {
   const t = useTranslations("dashboard");
   const numericValue = typeof value === "number" ? value : null;
@@ -31,13 +33,18 @@ export function StatsWidget({
       ? Math.round((numericValue / total) * 100)
       : null;
   const clickable = Boolean(href) && !disabled;
+  const shouldPulse =
+    !disabled &&
+    numericValue != null &&
+    numericValue > 0 &&
+    (pulse || clickable);
 
   const card = (
     <Card
       className={cn(
         "flex h-full flex-col",
-        clickable &&
-          "transition hover:shadow-md hover:ring-1 hover:ring-[var(--cahier-ink)]/20",
+        clickable && "cahier-start-card",
+        shouldPulse && "cahier-start-card-pulse",
         disabled && "opacity-60",
       )}
     >
