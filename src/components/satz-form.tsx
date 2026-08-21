@@ -35,7 +35,9 @@ import {
   type SimilarEntryCandidate,
 } from "~/components/similar-entries-dialog";
 import { isEntryCreated } from "~/lib/entry-create";
-import { Loader2, Save, Search, Sparkles, X } from "lucide-react";
+import { drainAudioQueue } from "~/lib/process-audio-queue";
+import { playbackUrls } from "~/lib/satz-tts";
+import { Loader2, Save, Search, Sparkles, Volume2, X } from "lucide-react";
 
 type TranslationDraft = {
   text: string;
@@ -47,6 +49,9 @@ type TranslationDraft = {
 export type SatzFormValues = {
   id?: string;
   mainText: string;
+  mainAudioUrl?: string | null;
+  mainAudioStatus?: AudioStatus;
+  mainAudioUpdatedAt?: Date | string | number;
   trigger: string;
   source: SatzSource;
   priority: SatzPriority;
@@ -107,6 +112,8 @@ export function SatzForm({
     SimilarEntryCandidate[]
   >([]);
   const [pendingAllowSimilar, setPendingAllowSimilar] = useState(false);
+  const [generatingMainAudio, setGeneratingMainAudio] = useState(false);
+  const [savedMainText, setSavedMainText] = useState(initial.mainText);
 
   const errorDescription = (message: string) => {
     const code = resolveErrorCode(message);
@@ -191,6 +198,11 @@ export function SatzForm({
     },
   });
 
+  const utils = api.useUtils();
+  const persistMainText = api.satz.update.useMutation();
+  const requestAudio = api.satz.requestAudio.useMutation();
+  const processAudio = api.satz.processAudio.useMutation();
+
   const assignableDomains = useMemo(
     () =>
       groupDomainsByKind(
@@ -201,7 +213,75 @@ export function SatzForm({
     [domains],
   );
 
-  const busy = createMutation.isPending || updateMutation.isPending;
+  const saving = createMutation.isPending || updateMutation.isPending;
+  const busy = saving || generatingMainAudio;
+
+  const mainAudioClips = playbackUrls({
+    mainUrl: values.mainAudioUrl,
+    mainStatus: values.mainAudioStatus,
+    mainUpdatedAt: values.mainAudioUpdatedAt,
+  });
+  const hasMainAudio = values.mainAudioStatus === AudioStatus.DONE;
+
+  const generateMainAudio = async () => {
+    if (!values.id) return;
+    const mainText = values.mainText.trim();
+    if (!mainText) {
+      toast({
+        title: t("validationMainText"),
+        variant: "destructive",
+      });
+      return;
+    }
+    if (
+      hasMainAudio &&
+      !confirm(t("confirmRegenerateAudio", { count: 1 }))
+    ) {
+      return;
+    }
+
+    setGeneratingMainAudio(true);
+    try {
+      if (mainText !== savedMainText.trim()) {
+        await persistMainText.mutateAsync({
+          id: values.id,
+          mainText,
+        });
+        setSavedMainText(mainText);
+      }
+      await requestAudio.mutateAsync({
+        satzIds: [values.id],
+        langs: [],
+        includeMain: true,
+        regenerate: hasMainAudio || values.mainAudioStatus !== AudioStatus.NONE,
+      });
+      await drainAudioQueue((limit) => processAudio.mutateAsync({ limit }));
+      const latest = await utils.satz.getById.fetch({ id: values.id });
+      setValues((prev) => ({
+        ...prev,
+        mainAudioUrl: latest.mainAudioUrl,
+        mainAudioStatus: latest.mainAudioStatus,
+        mainAudioUpdatedAt: latest.updatedAt,
+      }));
+      if (latest.mainAudioStatus === AudioStatus.DONE) {
+        toast({ title: tToasts("satzAudioDone") });
+      } else {
+        toast({
+          title: tToasts("satzAudioError"),
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      toast({
+        title: tToasts("satzAudioError"),
+        description: errorDescription(message),
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingMainAudio(false);
+    }
+  };
 
   const toggleId = (list: string[], id: string) =>
     list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
@@ -270,7 +350,39 @@ export function SatzForm({
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <Label htmlFor="satz-main">{t("mainTextLabel")}</Label>
+        <div className="flex items-center justify-between gap-2">
+          <Label htmlFor="satz-main">{t("mainTextLabel")}</Label>
+          {mode === "edit" && values.id ? (
+            <div className="flex items-center gap-1">
+              {mainAudioClips.length > 0 ? (
+                <SatzAudioButton
+                  urls={mainAudioClips}
+                  langCode={SOURCE_LANG.code}
+                  label={t("playAudioLang", {
+                    language: tLang(SOURCE_LANG.code),
+                  })}
+                />
+              ) : null}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={busy}
+                aria-label={
+                  hasMainAudio ? t("regenerateAudio") : t("generateAudio")
+                }
+                onClick={() => void generateMainAudio()}
+              >
+                {generatingMainAudio ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Volume2 className="mr-2 h-4 w-4" />
+                )}
+                {hasMainAudio ? t("regenerateAudio") : t("generateAudio")}
+              </Button>
+            </div>
+          ) : null}
+        </div>
         <textarea
           id="satz-main"
           className="flex min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -638,7 +750,7 @@ export function SatzForm({
       </div>
 
       <Button type="button" onClick={handleSubmit} disabled={busy}>
-        {busy ? (
+        {saving ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             {tCommon("saving")}

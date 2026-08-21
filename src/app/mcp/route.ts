@@ -335,11 +335,12 @@ const handler = createMcpHandler(
 
     server.tool(
       "request_satz_audio",
-      "Markiert Übersetzungen ausgewählter Sätze (optional inkl. verknüpfter Fragen) für TTS. Danach process_satz_audio.",
+      "Markiert Haupt- und/oder Übersetzungs-Audios ausgewählter Sätze (optional inkl. verknüpfter Fragen) für TTS. langs=[] überspringt Übersetzungen. includeMain default true. Danach process_satz_audio.",
       {
         satzIds: z.array(z.string()).min(1),
         includeQuestions: z.boolean().optional(),
         langs: z.array(z.string()).optional(),
+        includeMain: z.boolean().optional(),
         regenerate: z.boolean().optional(),
       },
       async (args) => {

@@ -24,6 +24,7 @@ struct HomeView: View {
                 }
             }
             .background(CahierBackground())
+            .toolbar(.hidden, for: .navigationBar)
             .navigationBarHidden(true)
             .sheet(isPresented: $settingsOpen) {
                 ServerSettingsView()
@@ -205,8 +206,9 @@ struct HomeView: View {
                     }
                     .padding(.leading, 36)
                     .padding(.trailing, 16)
-                    .padding(.vertical, 20)
-                    .frame(minHeight: geo.size.height, alignment: .center)
+                    .padding(.top, 37)
+                    .padding(.bottom, 20)
+                    .frame(minHeight: geo.size.height, alignment: .top)
                 }
             }
         } else {

@@ -85,7 +85,14 @@ env.HOSTNAME = env.HOSTNAME || "0.0.0.0";
 
 const dbUrl = env.DATABASE_URL ?? "";
 if (dbUrl.startsWith("file:")) {
-  const filePath = dbUrl.slice("file:".length);
+  let filePath = dbUrl.slice("file:".length);
+  const q = filePath.indexOf("?");
+  if (q !== -1) filePath = filePath.slice(0, q);
+  try {
+    filePath = decodeURIComponent(filePath);
+  } catch {
+    // already a raw path
+  }
   const absolute = path.isAbsolute(filePath)
     ? filePath
     : // Documented as relative to prisma/

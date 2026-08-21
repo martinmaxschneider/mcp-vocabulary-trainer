@@ -703,6 +703,7 @@ export const satzRouter = createTRPCRouter({
         satzIds: z.array(z.string()).min(1),
         includeQuestions: z.boolean().optional(),
         langs: z.array(z.string()).optional(),
+        includeMain: z.boolean().optional(),
         regenerate: z.boolean().optional(),
       }),
     )

@@ -106,9 +106,11 @@ export async function requestSatzAudio(params: {
   satzIds: string[];
   includeQuestions?: boolean;
   langs?: string[];
+  includeMain?: boolean;
   regenerate?: boolean;
 }): Promise<{ requested: number; satzIds: string[] }> {
-  const langs = params.langs?.length ? params.langs : [...TARGET_LANG_CODES];
+  const langs = params.langs === undefined ? [...TARGET_LANG_CODES] : params.langs;
+  const includeMain = params.includeMain ?? true;
   const satzIds = [...new Set(params.satzIds)];
   if (satzIds.length === 0) {
     return { requested: 0, satzIds: [] };
@@ -127,17 +129,21 @@ export async function requestSatzAudio(params: {
 
   const idList = [...ids];
   const [translations, mainRows] = await Promise.all([
-    db.satzTranslation.findMany({
-      where: {
-        satzId: { in: idList },
-        lang: { in: langs },
-      },
-      select: { id: true, audioStatus: true },
-    }),
-    db.satz.findMany({
-      where: { id: { in: idList } },
-      select: { id: true, mainAudioStatus: true },
-    }),
+    langs.length === 0
+      ? Promise.resolve([] as Array<{ id: string; audioStatus: AudioStatus }>)
+      : db.satzTranslation.findMany({
+          where: {
+            satzId: { in: idList },
+            lang: { in: langs },
+          },
+          select: { id: true, audioStatus: true },
+        }),
+    includeMain
+      ? db.satz.findMany({
+          where: { id: { in: idList } },
+          select: { id: true, mainAudioStatus: true },
+        })
+      : Promise.resolve([] as Array<{ id: string; mainAudioStatus: AudioStatus }>),
   ]);
 
   const toRequest = translations.filter((t) => {
