@@ -236,6 +236,23 @@
     "statsSuccess": "Erfolg",
     "leechBadge": "Leech"
   },
+  "growthChart": {
+    "title": "Wortschatz in den Boxen",
+    "description": "Wörter, Sätze und Konjugationen in den Boxen — Rot ist Box 0, der Waiting Pool.",
+    "waitingPoolLabel": "Box 0",
+    "todayIntakeLabel": "Heute in Box 1",
+    "inBoxesLabel": "In Boxen",
+    "cumulativeTitle": "Bestand über die Zeit (Anzahl)",
+    "dailyTitle": "Neue Einträge in Box 1 (Anzahl)",
+    "range30": "30 Tage",
+    "range90": "90 Tage",
+    "rangeAll": "Gesamt",
+    "trackVocab": "Wörter",
+    "trackSatze": "Sätze",
+    "trackConjugations": "Konjugationen",
+    "trackWaiting": "Box 0",
+    "empty": "Noch keine Karten im Bestand. Sobald Einträge existieren, erscheint Box 0 in Rot."
+  },
   "progressChart": {
     "title": "Lernfortschritt pro Sprache",
     "description": "Verteilung von Übersetzungen, Konjugationen und Sätzen über die Leitner-Boxen (Box 4–6 = verinnerlicht)",

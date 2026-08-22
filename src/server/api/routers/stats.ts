@@ -8,6 +8,11 @@ import {
   TARGET_LANG_CODES,
 } from "~/lib/languages";
 import { conjugationCardKey } from "~/lib/leitner";
+import { localDateString } from "~/lib/gamification-config";
+import {
+  buildVocabularyGrowth,
+  type GrowthEvent,
+} from "~/lib/vocabulary-growth";
 
 type LeitnerBoxes = {
   new: number;
@@ -333,4 +338,136 @@ export const statsRouter = createTRPCRouter({
       languageProgress,
     };
   }),
+
+  vocabularyGrowth: publicProcedure
+    .input(
+      z
+        .object({
+          targetLang: z.string().optional(),
+        })
+        .optional(),
+    )
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.userId;
+      const targetLang =
+        input?.targetLang && isTargetLang(input.targetLang)
+          ? input.targetLang
+          : undefined;
+      const langs = targetLang ? [targetLang] : [...TARGET_LANG_CODES];
+
+      const [
+        userProgress,
+        satzProgress,
+        translations,
+        satzTranslations,
+        conjugationForms,
+      ] = await Promise.all([
+        ctx.db.userProgress.findMany({
+          where: {
+            userId,
+            ...(targetLang ? { targetLang } : {}),
+          },
+          select: { createdAt: true, cardType: true },
+        }),
+        ctx.db.satzProgress.findMany({
+          where: {
+            userId,
+            ...(targetLang ? { targetLang } : {}),
+          },
+          select: { createdAt: true },
+        }),
+        ctx.db.translation.findMany({
+          where: { lang: { in: langs } },
+          select: { createdAt: true, entryId: true, lang: true },
+        }),
+        ctx.db.satzTranslation.findMany({
+          where: { lang: { in: langs } },
+          select: { createdAt: true, satzId: true, lang: true },
+        }),
+        ctx.db.conjugationForm.findMany({
+          where: {
+            translation: {
+              lang: { in: langs },
+              entry: { category: WordCategory.VERB },
+            },
+          },
+          select: {
+            createdAt: true,
+            tenseKey: true,
+            translation: { select: { entryId: true, lang: true } },
+          },
+        }),
+      ]);
+
+      const progress: GrowthEvent[] = [
+        ...userProgress.map((row) => ({
+          createdAt: row.createdAt,
+          kind:
+            row.cardType === CardType.CONJUGATION
+              ? ("conjugations" as const)
+              : ("vocab" as const),
+        })),
+        ...satzProgress.map((row) => ({
+          createdAt: row.createdAt,
+          kind: "satze" as const,
+        })),
+      ];
+
+      const catalog = catalogEventsFrom(
+        translations,
+        satzTranslations,
+        conjugationForms,
+      );
+
+      return buildVocabularyGrowth(progress, catalog, localDateString());
+    }),
 });
+
+function keepEarliest(map: Map<string, Date>, key: string, date: Date) {
+  const previous = map.get(key);
+  if (!previous || date < previous) map.set(key, date);
+}
+
+function catalogEventsFrom(
+  translations: Array<{ createdAt: Date; entryId: string; lang: string }>,
+  satzTranslations: Array<{ createdAt: Date; satzId: string; lang: string }>,
+  conjugationForms: Array<{
+    createdAt: Date;
+    tenseKey: string;
+    translation: { entryId: string; lang: string };
+  }>,
+): GrowthEvent[] {
+  const vocab = new Map<string, Date>();
+  const satze = new Map<string, Date>();
+  const conjugations = new Map<string, Date>();
+
+  for (const row of translations) {
+    keepEarliest(vocab, `${row.lang}:${row.entryId}`, row.createdAt);
+  }
+  for (const row of satzTranslations) {
+    keepEarliest(satze, `${row.lang}:${row.satzId}`, row.createdAt);
+  }
+  for (const row of conjugationForms) {
+    if (!isValidTense(row.translation.lang, row.tenseKey)) continue;
+    keepEarliest(
+      conjugations,
+      `${row.translation.lang}:${row.translation.entryId}:${conjugationCardKey(row.tenseKey)}`,
+      row.createdAt,
+    );
+  }
+
+  return [
+    ...[...vocab.values()].map((createdAt) => ({
+      createdAt,
+      kind: "vocab" as const,
+    })),
+    ...[...satze.values()].map((createdAt) => ({
+      createdAt,
+      kind: "satze" as const,
+    })),
+    ...[...conjugations.values()].map((createdAt) => ({
+      createdAt,
+      kind: "conjugations" as const,
+    })),
+  ];
+}

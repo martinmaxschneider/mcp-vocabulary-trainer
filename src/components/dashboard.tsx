@@ -14,6 +14,7 @@ import {
 } from "~/components/ui/card";
 import { StatsWidget } from "~/components/stats-widget";
 import { LanguageProgressChart } from "~/components/language-progress-chart";
+import { VocabularyGrowthChart } from "~/components/vocabulary-growth-chart";
 import { GamificationOverview } from "~/components/gamification-overview";
 import {
   BookOpen,
@@ -91,6 +92,9 @@ export function Dashboard() {
   };
 
   const { data: stats, isLoading } = api.stats.dashboard.useQuery({
+    targetLang: showAll ? undefined : focusLang,
+  });
+  const { data: growth } = api.stats.vocabularyGrowth.useQuery({
     targetLang: showAll ? undefined : focusLang,
   });
   const { data: game } = api.gamification.getStatus.useQuery();
@@ -249,6 +253,18 @@ export function Dashboard() {
             data={languageProgress}
             showLanguageHeader={showAll}
           />
+
+          {growth ? (
+            <VocabularyGrowthChart
+              daily={growth.daily}
+              cumulative={growth.cumulative}
+              waitingPool={
+                inventory.overall.total -
+                inventory.overall.inBoxes +
+                (inventory.conjugations.total - inventory.conjugations.inBoxes)
+              }
+            />
+          ) : null}
 
           <Card className="mb-8">
             <CardHeader>

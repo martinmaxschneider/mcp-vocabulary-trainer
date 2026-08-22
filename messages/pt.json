@@ -236,6 +236,23 @@
     "statsSuccess": "Taxa de acerto",
     "leechBadge": "Leech"
   },
+  "growthChart": {
+    "title": "Vocabulário nas caixas",
+    "description": "Palavras, frases e conjugações nas caixas — o vermelho é a caixa 0, o waiting pool.",
+    "waitingPoolLabel": "Caixa 0",
+    "todayIntakeLabel": "Hoje para a caixa 1",
+    "inBoxesLabel": "Nas caixas",
+    "cumulativeTitle": "Stock ao longo do tempo (quantidade)",
+    "dailyTitle": "Novas entradas na caixa 1 (quantidade)",
+    "range30": "30 dias",
+    "range90": "90 dias",
+    "rangeAll": "Tudo",
+    "trackVocab": "Palavras",
+    "trackSatze": "Frases",
+    "trackConjugations": "Conjugações",
+    "trackWaiting": "Caixa 0",
+    "empty": "Ainda não há cartões no stock. Quando existirem, a caixa 0 aparece a vermelho."
+  },
   "progressChart": {
     "title": "Progresso de aprendizagem por língua",
     "description": "Distribuição de traduções, conjugações e frases pelas caixas Leitner (Caixa 4–6 = dominado)",

@@ -236,6 +236,23 @@
     "statsSuccess": "Acierto",
     "leechBadge": "Leech"
   },
+  "growthChart": {
+    "title": "Vocabulario en las cajas",
+    "description": "Palabras, frases y conjugaciones en las cajas — el rojo es la caja 0, el waiting pool.",
+    "waitingPoolLabel": "Caja 0",
+    "todayIntakeLabel": "Hoy a la caja 1",
+    "inBoxesLabel": "En cajas",
+    "cumulativeTitle": "Existencias en el tiempo (cantidad)",
+    "dailyTitle": "Entradas nuevas en la caja 1 (cantidad)",
+    "range30": "30 días",
+    "range90": "90 días",
+    "rangeAll": "Todo",
+    "trackVocab": "Palabras",
+    "trackSatze": "Frases",
+    "trackConjugations": "Conjugaciones",
+    "trackWaiting": "Caja 0",
+    "empty": "Aún no hay tarjetas en el inventario. Cuando existan, la caja 0 aparece en rojo."
+  },
   "progressChart": {
     "title": "Progreso de aprendizaje por idioma",
     "description": "Distribución de traducciones, conjugaciones y frases en las cajas Leitner (Caja 4–6 = dominado)",

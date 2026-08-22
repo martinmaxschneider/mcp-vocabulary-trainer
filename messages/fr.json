@@ -236,6 +236,23 @@
     "statsSuccess": "Réussite",
     "leechBadge": "Leech"
   },
+  "growthChart": {
+    "title": "Vocabulaire dans les boîtes",
+    "description": "Mots, phrases et conjugaisons dans les boîtes — le rouge est la boîte 0, le waiting pool.",
+    "waitingPoolLabel": "Boîte 0",
+    "todayIntakeLabel": "Aujourd'hui en boîte 1",
+    "inBoxesLabel": "Dans les boîtes",
+    "cumulativeTitle": "Stock dans le temps (nombre)",
+    "dailyTitle": "Nouvelles entrées en boîte 1 (nombre)",
+    "range30": "30 jours",
+    "range90": "90 jours",
+    "rangeAll": "Tout",
+    "trackVocab": "Mots",
+    "trackSatze": "Phrases",
+    "trackConjugations": "Conjugaisons",
+    "trackWaiting": "Boîte 0",
+    "empty": "Pas encore de cartes dans le stock. Dès qu'il y en a, la boîte 0 apparaît en rouge."
+  },
   "progressChart": {
     "title": "Progression par langue",
     "description": "Répartition des traductions, conjugaisons et phrases dans les boîtes Leitner (Boîte 4–6 = maîtrisé)",

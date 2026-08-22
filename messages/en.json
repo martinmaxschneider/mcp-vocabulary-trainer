@@ -236,6 +236,23 @@
     "statsSuccess": "Success",
     "leechBadge": "Leech"
   },
+  "growthChart": {
+    "title": "Vocabulary in the boxes",
+    "description": "Words, sentences, and conjugations in the boxes — red is box 0, the waiting pool.",
+    "waitingPoolLabel": "Box 0",
+    "todayIntakeLabel": "Into box 1 today",
+    "inBoxesLabel": "In boxes",
+    "cumulativeTitle": "Stock over time (count)",
+    "dailyTitle": "New entries into box 1 (count)",
+    "range30": "30 days",
+    "range90": "90 days",
+    "rangeAll": "All",
+    "trackVocab": "Words",
+    "trackSatze": "Sentences",
+    "trackConjugations": "Conjugations",
+    "trackWaiting": "Box 0",
+    "empty": "No cards in the stock yet. Once entries exist, box 0 shows up in red."
+  },
   "progressChart": {
     "title": "Learning progress by language",
     "description": "Distribution of translations, conjugations, and sentences across Leitner boxes (Box 4–6 = mastered)",
