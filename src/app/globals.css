@@ -77,7 +77,8 @@
     --cahier-btn-fg: #ffffff;
 
     position: relative;
-    min-height: calc(100vh - 4rem);
+    --app-nav-h: 4rem;
+    min-height: calc(100dvh - var(--app-nav-h));
     background-color: var(--cahier-sheet-bg);
     background-image:
       linear-gradient(to right, var(--cahier-grid) 1px, transparent 1px),
@@ -169,12 +170,15 @@
   }
 
   .cahier-inner {
+    --cahier-pad-top: 2.5rem;
+    --cahier-pad-bottom: 3rem;
     position: relative;
     z-index: 2;
     margin-left: auto;
     margin-right: auto;
     max-width: 80rem;
-    padding: 2.5rem max(1.5rem, calc(2.75rem + 1.25rem)) 3rem;
+    padding: var(--cahier-pad-top) max(1.5rem, calc(2.75rem + 1.25rem))
+      var(--cahier-pad-bottom);
   }
 
   @media (min-width: 640px) {

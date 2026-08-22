@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Libre_Baskerville } from "next/font/google";
 import {
+  ChevronDown,
   Headphones,
   Pause,
   Play,
@@ -12,8 +13,6 @@ import {
   Settings,
   SkipBack,
   SkipForward,
-  SlidersHorizontal,
-  X,
 } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
@@ -182,8 +181,8 @@ export function ListenSession({
   const clipDone = clipTotal > 0 ? player.clipIndex + 1 : 0;
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+    <div className="flex h-[calc(100dvh-var(--app-nav-h,4rem)-var(--cahier-pad-top,2.5rem)-var(--cahier-pad-bottom,3rem))] min-h-0 flex-col gap-6">
+      <div className="flex shrink-0 flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="mb-2 text-4xl font-bold">{title}</h1>
           {subtitle ? (
@@ -200,96 +199,94 @@ export function ListenSession({
         </div>
       </div>
 
-      <section className="cahier-card overflow-hidden">
-        <div className="space-y-6 p-6 sm:p-10">
-          <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
-            <span className="flex items-center gap-2 font-semibold uppercase tracking-[0.16em]">
+      {filters ? (
+        <div className="cahier-card shrink-0 p-4 sm:p-5">{filters}</div>
+      ) : null}
+
+      <div className="flex min-h-0 flex-1 flex-col gap-6 lg:flex-row lg:items-stretch">
+        <section className="cahier-card flex max-h-[50%] min-h-0 flex-col overflow-hidden p-6 sm:p-8 lg:max-h-none lg:min-h-0 lg:flex-1">
+          <div className="mb-4 flex shrink-0 flex-wrap items-end justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Headphones className="h-4 w-4" />
-              {t("listenNowPlaying")}
+              <span>{t("listenNowPlaying")}</span>
               <span className="tabular-nums text-[var(--cahier-red,#d45d5d)]">
                 {clipDone} / {clipTotal}
               </span>
-            </span>
+            </div>
             <div className="text-right">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 {t("listenPlayerLeft")}
               </p>
-              <p className="font-mono text-2xl font-semibold tabular-nums leading-none">
+              <p className="text-xl font-semibold tabular-nums leading-none">
                 {formatListenClock(player.sessionRemainingMs)}
               </p>
             </div>
           </div>
 
-          <div>
-            <div className="relative">
-              <div className={cn(settingsOpen && "invisible")}>
-                {displayItem?.badges && displayItem.badges.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {displayItem.badges.map((badge) => (
-                      <Badge key={badge} variant="outline">
-                        {badge}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : null}
-
-                {displayItem ? (
-                  <div
-                    className={cn(
-                      "flex min-h-[13.5rem] flex-col gap-4 sm:min-h-[16rem]",
-                      displayItem.questionText
-                        ? "justify-start"
-                        : "justify-center",
-                    )}
-                  >
-                    {displayItem.questionText ? (
-                      <div className="max-w-[85%] rounded-xl border border-border bg-muted/50 px-4 py-3">
-                        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
-                          {t("listenIntro")}
-                        </p>
-                        {displayItem.questionTranslation ? (
-                          <p className="mt-1.5 text-sm font-medium text-muted-foreground">
-                            {displayItem.questionTranslation}
-                          </p>
-                        ) : null}
-                        <p className="mt-1 text-base font-medium leading-snug">
-                          {displayItem.questionText}
-                        </p>
-                      </div>
-                    ) : null}
-                    <div>
-                      {currentNative ? (
-                        <p className="mb-2 text-lg font-medium text-muted-foreground sm:text-xl">
-                          {currentNative}
-                        </p>
-                      ) : null}
-                      <p
-                        className={cn(
-                          "text-3xl font-semibold leading-snug sm:text-5xl",
-                          libreBaskerville.className,
-                        )}
-                      >
-                        {currentTarget}
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-lg text-muted-foreground">
-                    {t("listenReadyCount", { ready: 0, total: 0 })}
-                  </p>
-                )}
-              </div>
-              {settingsOpen ? (
-                <div className="absolute inset-0 overflow-y-auto">
-                  <ListenSettings
-                    settings={player.settings}
-                    updateSettings={player.updateSettings}
-                    extra={settingsExtra}
-                  />
+          <div className="relative min-h-0 flex-1 overflow-y-auto">
+            <div className={cn("h-full", settingsOpen && "invisible")}>
+              {displayItem?.badges && displayItem.badges.length > 0 ? (
+                <div className="mb-4 flex flex-wrap gap-2">
+                  {displayItem.badges.map((badge) => (
+                    <Badge key={badge} variant="outline">
+                      {badge}
+                    </Badge>
+                  ))}
                 </div>
               ) : null}
-            </div>
 
+              {displayItem ? (
+                <div className="flex min-h-full flex-col justify-center gap-5">
+                  {displayItem.questionText ? (
+                    <div className="cahier-item max-w-xl px-4 py-3">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {t("listenIntro")}
+                      </p>
+                      {displayItem.questionTranslation ? (
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {displayItem.questionTranslation}
+                        </p>
+                      ) : null}
+                      <p className="mt-1 font-medium leading-snug">
+                        {displayItem.questionText}
+                      </p>
+                    </div>
+                  ) : null}
+                  <div>
+                    {currentNative ? (
+                      <p className="mb-2 text-lg text-muted-foreground">
+                        {currentNative}
+                      </p>
+                    ) : null}
+                    <p
+                      className={cn(
+                        "text-3xl font-semibold leading-snug sm:text-4xl",
+                        libreBaskerville.className,
+                      )}
+                    >
+                      {currentTarget}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-lg text-muted-foreground">
+                  {t("listenReadyCount", { ready: 0, total: 0 })}
+                </p>
+              )}
+            </div>
+            {settingsOpen ? (
+              <div className="absolute inset-0 overflow-y-auto">
+                <ListenSettings
+                  settings={player.settings}
+                  updateSettings={player.updateSettings}
+                  extra={settingsExtra}
+                />
+              </div>
+            ) : null}
+          </div>
+
+          <div className="mt-6 shrink-0 space-y-4">
+            <ListenProgress percent={percent} />
             <ListenTransportControls
               canPlay={canPlay}
               canPrev={canPrev}
@@ -307,33 +304,29 @@ export function ListenSession({
               onSettings={toggleSettings}
             />
           </div>
-        </div>
+        </section>
 
-        <div>
-          <ListenProgress percent={percent} />
-          <div className="border-t border-border/60">
-            <ListenQueueHeader
+        <aside className="cahier-card flex min-h-0 flex-1 flex-col overflow-hidden lg:w-[min(26rem,38%)] lg:flex-none">
+          <ListenQueueHeader
+            currentIndex={currentQueueIndex}
+            total={queueItems.length}
+            open={queueOpen}
+            onToggle={() => setQueueOpen((open) => !open)}
+          />
+          {queueOpen ? (
+            <ListenQueueList
+              items={queueItems}
+              currentItemId={player.currentItemId ?? displayItem?.id}
               currentIndex={currentQueueIndex}
-              total={queueItems.length}
-              filters={filters}
-              open={queueOpen}
-              onToggle={() => setQueueOpen((open) => !open)}
+              sessionActive={player.sessionActive}
+              activeRowRef={activeRowRef}
+              onJump={(id) =>
+                player.jumpToItem(id, { paused: player.paused })
+              }
             />
-            {queueOpen ? (
-              <ListenQueueList
-                items={queueItems}
-                currentItemId={player.currentItemId ?? displayItem?.id}
-                currentIndex={currentQueueIndex}
-                sessionActive={player.sessionActive}
-                activeRowRef={activeRowRef}
-                onJump={(id) =>
-                  player.jumpToItem(id, { paused: player.paused })
-                }
-              />
-            ) : null}
-          </div>
-        </div>
-      </section>
+          ) : null}
+        </aside>
+      </div>
     </div>
   );
 }
@@ -341,14 +334,14 @@ export function ListenSession({
 function ListenProgress({ percent }: { percent: number }) {
   return (
     <div
-      className="h-1 bg-primary/10"
+      className="h-1.5 overflow-hidden rounded-full bg-muted"
       role="progressbar"
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={Math.round(percent)}
     >
       <div
-        className="h-full bg-[var(--cahier-red,#d45d5d)]/80 transition-[width] duration-700 ease-linear"
+        className="h-full rounded-full bg-[var(--cahier-red,#d45d5d)] transition-[width] duration-700 ease-linear"
         style={{ width: `${percent}%` }}
       />
     </div>
@@ -358,49 +351,36 @@ function ListenProgress({ percent }: { percent: number }) {
 function ListenQueueHeader({
   currentIndex,
   total,
-  filters,
   open,
   onToggle,
 }: {
   currentIndex: number;
   total: number;
-  filters?: React.ReactNode;
   open: boolean;
   onToggle: () => void;
 }) {
   const t = useTranslations("sentences");
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3 sm:px-10">
-      <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+    <div className="flex shrink-0 items-center justify-between gap-3 px-5 py-4">
+      <span className="text-sm font-medium">
         {t("listenQueue")}
-        <span className="tabular-nums text-[var(--cahier-red,#d45d5d)]">
+        <span className="ml-2 tabular-nums text-[var(--cahier-red,#d45d5d)]">
           {currentIndex >= 0 ? currentIndex + 1 : 0} / {total}
         </span>
       </span>
-      <div className="flex items-center gap-2">
-        {filters ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
-            {filters}
-          </div>
-        ) : null}
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          className="h-8 w-8 rounded-full text-muted-foreground"
-          aria-expanded={open}
-          aria-label={t("listenQueue")}
-          onClick={onToggle}
-        >
-          <X
-            className={cn(
-              "h-4 w-4 transition-transform",
-              open ? "rotate-0" : "rotate-45",
-            )}
-          />
-        </Button>
-      </div>
+      <Button
+        type="button"
+        size="icon"
+        variant="ghost"
+        className="h-8 w-8"
+        aria-expanded={open}
+        aria-label={t("listenQueue")}
+        onClick={onToggle}
+      >
+        <ChevronDown
+          className={cn("h-4 w-4 transition-transform", open && "rotate-180")}
+        />
+      </Button>
     </div>
   );
 }
@@ -421,7 +401,7 @@ function ListenQueueList({
   onJump: (id: string) => void;
 }) {
   return (
-    <ul className="max-h-80 space-y-1 overflow-y-auto border-t border-border/60 px-6 pr-7 pb-4 pt-2 sm:px-10 sm:pr-11">
+    <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto border-t border-border/60 p-3">
       {items.map((item, index) => {
         const active = item.id === currentItemId;
         const past = currentIndex >= 0 && index < currentIndex;
@@ -433,11 +413,9 @@ function ListenQueueList({
               onClick={() => onJump(item.id)}
               disabled={!sessionActive}
               className={cn(
-                "flex w-full items-start gap-3 rounded-lg border-2 px-3 py-2 text-left transition-colors",
-                active
-                  ? "border-primary bg-primary/10"
-                  : "border-transparent hover:bg-muted/60",
-                past && !active ? "opacity-50" : "",
+                "flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors",
+                active ? "cahier-item-selected" : "hover:bg-muted/50",
+                past && !active && "opacity-50",
               )}
             >
               <span className="w-6 shrink-0 pt-0.5 text-xs tabular-nums text-muted-foreground">
@@ -493,85 +471,78 @@ function ListenTransportControls({
   onSettings: () => void;
 }) {
   const t = useTranslations("sentences");
-  const sideBtn = "h-12 w-12 rounded-full [&_svg]:size-5";
   return (
-    <div className="grid grid-cols-3 items-center border-t border-border/60 pt-5 [touch-action:manipulation]">
-      <div className="flex items-center justify-end gap-0.5">
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          className={sideBtn}
-          disabled={!canPlay}
-          onClick={onRepeat}
-          aria-label={t("listenPlayerRepeat")}
-        >
-          <Repeat />
-        </Button>
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          className={sideBtn}
-          disabled={!canPrev}
-          onClick={onPrev}
-          aria-label={t("listenPlayerPrev")}
-        >
-          <SkipBack />
-        </Button>
-      </div>
-      <div className="flex justify-center">
-        <Button
-          type="button"
-          size="icon"
-          className={cn(
-            "h-14 w-14 rounded-full shadow-lg [&_svg]:size-6",
-            (waiting || buffering) && "animate-pulse",
-          )}
-          disabled={!canPlay}
-          onClick={onToggle}
-          aria-label={
-            waiting
-              ? t("listenPlayerNext")
-              : paused || !sessionActive
-                ? t("listenPlayerPlay")
-                : t("listenPlayerPause")
-          }
-        >
-          {paused || waiting || !sessionActive ? (
+    <div className="flex flex-wrap items-center justify-center gap-2 [touch-action:manipulation]">
+      <Button
+        type="button"
+        size="icon"
+        variant="ghost"
+        disabled={!canPlay}
+        onClick={onRepeat}
+        aria-label={t("listenPlayerRepeat")}
+      >
+        <Repeat />
+      </Button>
+      <Button
+        type="button"
+        size="icon"
+        variant="outline"
+        disabled={!canPrev}
+        onClick={onPrev}
+        aria-label={t("listenPlayerPrev")}
+      >
+        <SkipBack />
+      </Button>
+      <Button
+        type="button"
+        className={cn("min-w-28", (waiting || buffering) && "animate-pulse")}
+        disabled={!canPlay}
+        onClick={onToggle}
+        aria-label={
+          waiting
+            ? t("listenPlayerNext")
+            : paused || !sessionActive
+              ? t("listenPlayerPlay")
+              : t("listenPlayerPause")
+        }
+      >
+        {waiting ? (
+          <>
+            <SkipForward />
+            {t("listenPlayerNext")}
+          </>
+        ) : paused || !sessionActive ? (
+          <>
             <Play className="fill-current" />
-          ) : (
+            {t("listenPlayerPlay")}
+          </>
+        ) : (
+          <>
             <Pause className="fill-current" />
-          )}
-        </Button>
-      </div>
-      <div className="flex items-center justify-start gap-0.5">
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          className={sideBtn}
-          disabled={!canNext && !awaitingNext}
-          onClick={onNext}
-          aria-label={t("listenPlayerNext")}
-        >
-          <SkipForward />
-        </Button>
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          className={cn(
-            sideBtn,
-            settingsOpen ? "bg-accent text-accent-foreground" : "",
-          )}
-          aria-expanded={settingsOpen}
-          aria-label={t("listenSettings")}
-          onClick={onSettings}
-        >
-          <Settings />
-        </Button>
-      </div>
+            {t("listenPlayerPause")}
+          </>
+        )}
+      </Button>
+      <Button
+        type="button"
+        size="icon"
+        variant="outline"
+        disabled={!canNext && !awaitingNext}
+        onClick={onNext}
+        aria-label={t("listenPlayerNext")}
+      >
+        <SkipForward />
+      </Button>
+      <Button
+        type="button"
+        size="icon"
+        variant={settingsOpen ? "secondary" : "ghost"}
+        aria-expanded={settingsOpen}
+        aria-label={t("listenSettings")}
+        onClick={onSettings}
+      >
+        <Settings />
+      </Button>
     </div>
   );
 }
