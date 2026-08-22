@@ -16,7 +16,11 @@ function asTrpcError(error: unknown): never {
   if (message === "CSV_EMPTY") {
     throw new TRPCError({ code: "BAD_REQUEST", message: "CSV_EMPTY" });
   }
-  if (message === "CSV_TOO_LARGE" || message === "CSV_TOO_MANY_ROWS") {
+  if (
+    message === "CSV_TOO_LARGE" ||
+    message === "CSV_TOO_MANY_ROWS" ||
+    message === "CSV_MISSING_TRANSLATION"
+  ) {
     throw new TRPCError({ code: "BAD_REQUEST", message });
   }
   if (message === "Satz import batch not found") {

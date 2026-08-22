@@ -57,6 +57,7 @@ export async function createBatchFromCsv(params: {
     existing.map((satz) => [normalizeSatzText(satz.mainText), satz]),
   );
 
+  const targetLang = resolveImportTargetLang(params.targetLang);
   const seen = new Map<string, { rowNumber: number }>();
 
   const drafts = parsed.rows.map((row) => {
@@ -65,6 +66,14 @@ export async function createBatchFromCsv(params: {
     const dbMatch = existingByNorm.get(norm);
     if (!fileDup) seen.set(norm, { rowNumber: row.rowNumber });
 
+    const translations = [
+      {
+        lang: targetLang,
+        text: row.translation.trim(),
+        register: SatzRegister.INFORMAL,
+      },
+    ] as Prisma.InputJsonValue;
+
     if (fileDup || dbMatch) {
       const candidates: DraftCandidate[] = dbMatch
         ? [{ id: dbMatch.id, mainText: dbMatch.mainText, score: 1, llmMatch: true }]
@@ -72,6 +81,7 @@ export async function createBatchFromCsv(params: {
       return {
         rowNumber: row.rowNumber,
         mainText: row.mainText.trim(),
+        translations,
         status: SatzImportItemStatus.SKIPPED_DUPLICATE,
         isDuplicate: true,
         duplicateCandidates: candidates as Prisma.InputJsonValue,
@@ -84,23 +94,17 @@ export async function createBatchFromCsv(params: {
     return {
       rowNumber: row.rowNumber,
       mainText: row.mainText.trim(),
+      translations,
       status: SatzImportItemStatus.PENDING,
       isDuplicate: false,
     };
   });
 
-  const pendingCount = drafts.filter(
-    (d) => d.status === SatzImportItemStatus.PENDING,
-  ).length;
-
   return db.satzImportBatch.create({
     data: {
       filename: params.filename?.trim() || null,
-      targetLang: resolveImportTargetLang(params.targetLang),
-      status:
-        pendingCount === 0
-          ? SatzImportBatchStatus.REVIEW
-          : SatzImportBatchStatus.UPLOADED,
+      targetLang: targetLang,
+      status: SatzImportBatchStatus.UPLOADED,
       items: { create: drafts },
     },
   });
@@ -115,11 +119,20 @@ async function loadThemeDomains() {
   });
 }
 
+function csvTranslationsWithRegister(
+  value: unknown,
+  register: SatzRegister,
+): DraftTranslation[] {
+  const existing = parseDraftTranslations(value);
+  if (existing.length === 0) return existing;
+  return existing.map((item) => ({ ...item, register }));
+}
+
 async function enrichOneDraft(
-  draft: { id: string; mainText: string },
+  draft: { id: string; mainText: string; translations: Prisma.JsonValue | null },
   entryIndex: Awaited<ReturnType<typeof loadEntryVectorIndex>>,
   themes: Array<{ id: string; name: string }>,
-  targetLangs: string[],
+  targetLang: string,
 ) {
   const [vector] = await embedTexts([draft.mainText]);
   if (!vector) {
@@ -147,18 +160,23 @@ async function enrichOneDraft(
     return;
   }
 
+  const csvTranslations = parseDraftTranslations(draft.translations);
+  const translationText =
+    csvTranslations.find((item) => item.lang === targetLang)?.text ??
+    csvTranslations[0]?.text ??
+    "";
+
   const vocabCandidates = rankVocabForSentence(vector, entryIndex);
   const enriched = await enrichSatzImport({
     germanText: draft.mainText,
-    targetLangs,
+    translationText,
+    targetLang,
     themeNames: themes.map((t) => t.name),
     vocabCandidates,
   });
 
   const register = parseRegister(enriched.register);
-  const translations: DraftTranslation[] = Object.entries(enriched.translations).map(
-    ([lang, text]) => ({ lang, text, register }),
-  );
+  const translations = csvTranslationsWithRegister(draft.translations, register);
   const domainIds = resolveThemeNames(enriched.themeNames ?? [], themes);
   const linkedEntryIds = (enriched.linkedEntryIds ?? []).filter((id) =>
     vocabCandidates.some((c) => c.id === id),
@@ -211,7 +229,7 @@ export async function enrichNextDrafts(batchId: string, limit: number) {
     where: { batchId, status: SatzImportItemStatus.PENDING },
     orderBy: { rowNumber: "asc" },
     take: limit,
-    select: { id: true, mainText: true },
+    select: { id: true, mainText: true, translations: true },
   });
 
   if (pending.length === 0) {
@@ -235,9 +253,12 @@ export async function enrichNextDrafts(batchId: string, limit: number) {
   let processed = 0;
   for (const draft of pending) {
     try {
-      await enrichOneDraft(draft, entryIndex, themes, [
+      await enrichOneDraft(
+        draft,
+        entryIndex,
+        themes,
         resolveImportTargetLang(batch.targetLang),
-      ]);
+      );
       processed += 1;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -701,6 +722,7 @@ export async function getBatchView(batchId: string) {
       .length,
     skippedByUser: items.filter((i) => i.skip).length,
     ready: items.filter((i) => i.ready).length,
+    new: items.filter((i) => !i.isDuplicate).length,
   };
 
   return {

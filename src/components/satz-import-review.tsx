@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
   SatzPriority,
@@ -27,7 +26,8 @@ import { useToast } from "~/hooks/use-toast";
 import { resolveErrorCode } from "~/lib/trpc-error";
 import { getTargetLang, resolveImportTargetLang } from "~/lib/languages";
 import { groupDomainsByKind } from "~/lib/domain-catalog";
-import { Loader2, Pencil, Search, X } from "lucide-react";
+import { cn } from "~/lib/utils";
+import { Check, Loader2, Pencil, Search, X } from "lucide-react";
 
 type BatchView = RouterOutputs["satzImport"]["getBatch"];
 type DraftItem = BatchView["items"][number];
@@ -40,8 +40,21 @@ function errorDescription(
   return code ? tErrors(code as "NOT_FOUND") : message;
 }
 
+type FunnelStep = 1 | 2 | 3;
+type ListFilter = "all" | "new" | "duplicates";
+type FinishPhase = "idle" | "commit" | "audio" | "done";
+
+function deriveFunnelStep(status: BatchView["status"]): FunnelStep {
+  if (status === "COMMITTED") return 3;
+  if (status === "ENRICHING" || status === "REVIEW") return 2;
+  return 1;
+}
+
+function itemTranslation(item: DraftItem, lang: string): string {
+  return item.translations.find((tr) => tr.lang === lang)?.text ?? "";
+}
+
 export function SatzImportReview({ batchId }: { batchId: string }) {
-  const router = useRouter();
   const t = useTranslations("sentences");
   const tLang = useTranslations("languages");
   const tCommon = useTranslations("common");
@@ -50,8 +63,14 @@ export function SatzImportReview({ batchId }: { batchId: string }) {
   const { toast } = useToast();
   const utils = api.useUtils();
   const enrichingRef = useRef(false);
+  const [manualStep, setManualStep] = useState<FunnelStep | null>(null);
+  const [enrichStarted, setEnrichStarted] = useState(false);
+  const [listFilter, setListFilter] = useState<ListFilter>("all");
   const [committing, setCommitting] = useState(false);
+  const [finishPhase, setFinishPhase] = useState<FinishPhase>("idle");
   const [commitProgress, setCommitProgress] = useState({ done: 0, total: 0 });
+  const [audioProgress, setAudioProgress] = useState({ done: 0, total: 0 });
+  const [createdCount, setCreatedCount] = useState(0);
 
   const { data: batch, isLoading } = api.satzImport.getBatch.useQuery(
     { id: batchId },
@@ -60,10 +79,36 @@ export function SatzImportReview({ batchId }: { batchId: string }) {
 
   const enrichMutation = api.satzImport.enrichNext.useMutation();
   const commitMutation = api.satzImport.commit.useMutation();
+  const requestAudio = api.satz.requestAudio.useMutation();
+  const processAudio = api.satz.processAudio.useMutation();
 
-  const handleCommit = async () => {
+  const step = manualStep ?? (batch ? deriveFunnelStep(batch.status) : 1);
+
+  const startEnrich = async () => {
+    setManualStep(2);
+    setEnrichStarted(true);
+    try {
+      await enrichMutation.mutateAsync({ batchId, limit: 2 });
+      await utils.satzImport.getBatch.invalidate({ id: batchId });
+    } catch (error) {
+      setEnrichStarted(false);
+      setManualStep(null);
+      toast({
+        title: tToasts("satzImportEnrichError"),
+        description:
+          error instanceof Error
+            ? errorDescription(error.message, tErrors)
+            : undefined,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleFinish = async () => {
     if (!batch || batch.counts.ready === 0 || committing) return;
+    setManualStep(3);
     setCommitting(true);
+    setFinishPhase("commit");
     const createdIds: string[] = [];
     let remaining = batch.counts.ready;
     const total = remaining;
@@ -80,15 +125,46 @@ export function SatzImportReview({ batchId }: { batchId: string }) {
         await utils.satzImport.getBatch.invalidate({ id: batchId });
         if (result.createdCount === 0) break;
       }
+
+      setCreatedCount(createdIds.length);
+      void utils.satz.list.invalidate();
+
+      const satzIds = [...new Set(createdIds)];
+      if (satzIds.length > 0) {
+        setFinishPhase("audio");
+        const requested = await requestAudio.mutateAsync({
+          satzIds,
+          includeQuestions: true,
+          langs: [resolveImportTargetLang(batch.targetLang)],
+        });
+        const audioTotal = requested.requested;
+        setAudioProgress({ done: 0, total: audioTotal });
+        let audioRemaining = audioTotal;
+        let processed = 0;
+        while (audioRemaining > 0) {
+          const result = await processAudio.mutateAsync({ limit: 2 });
+          processed += result.processed;
+          audioRemaining = result.remaining;
+          setAudioProgress({
+            done: Math.min(processed, audioTotal),
+            total: audioTotal,
+          });
+          if (result.processed === 0 && result.failed === 0) break;
+        }
+      }
+
+      setFinishPhase("done");
       toast({
         title: tToasts("satzImportCommitted", { count: createdIds.length }),
       });
-      void utils.satz.list.invalidate();
-      const ids = createdIds.join(",");
-      router.push(ids ? `/sentences/listen?ids=${ids}` : "/sentences");
     } catch (error) {
+      const duringAudio = audioProgress.total > 0;
+      setManualStep(null);
+      setFinishPhase("idle");
       toast({
-        title: tToasts("satzImportCommitError"),
+        title: duringAudio
+          ? tToasts("satzImportAudioError")
+          : tToasts("satzImportCommitError"),
         description:
           error instanceof Error
             ? errorDescription(error.message, tErrors)
@@ -103,8 +179,8 @@ export function SatzImportReview({ batchId }: { batchId: string }) {
   useEffect(() => {
     if (!batch) return;
     if (enrichingRef.current) return;
+    if (batch.status !== "ENRICHING") return;
     if (batch.counts.pending === 0) return;
-    if (batch.status === "COMMITTED") return;
 
     let cancelled = false;
     enrichingRef.current = true;
@@ -141,7 +217,7 @@ export function SatzImportReview({ batchId }: { batchId: string }) {
     return () => {
       cancelled = true;
     };
-    // Intentionally start once per pending batch load, not on every refetch.
+    // Continue enriching only while the batch is in the enrich step.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [batchId, batch?.counts.pending, batch?.status]);
 
@@ -151,70 +227,332 @@ export function SatzImportReview({ batchId }: { batchId: string }) {
 
   const targetLang = resolveImportTargetLang(batch.targetLang);
   const targetMeta = getTargetLang(targetLang);
+  const targetLabel = targetMeta ? tLang(targetMeta.code) : targetLang;
   const total = batch.counts.total || 1;
-  const done = batch.counts.total - batch.counts.pending;
-  const enrichPercent = Math.round((done / total) * 100);
+  const enrichDone = batch.counts.total - batch.counts.pending;
+  const enrichPercent = Math.round((enrichDone / total) * 100);
   const commitPercent =
     commitProgress.total > 0
       ? Math.round((commitProgress.done / commitProgress.total) * 100)
       : 0;
-  const enriching = batch.counts.pending > 0 && batch.status !== "COMMITTED";
+  const audioPercent =
+    audioProgress.total > 0
+      ? Math.round((audioProgress.done / audioProgress.total) * 100)
+      : finishPhase === "done"
+        ? 100
+        : 0;
+  const enriching =
+    batch.counts.pending > 0 &&
+    (enrichStarted ||
+      enrichMutation.isPending ||
+      batch.status === "ENRICHING");
   const busy = enriching || committing;
+  const doneCount =
+    createdCount || batch.counts.committed || batch.counts.ready;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="w-full space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="mb-2 text-4xl font-bold">{t("importReviewTitle")}</h1>
-          <p className="text-muted-foreground">{t("importReviewDesc")}</p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {t("importCounts", {
-              ready: batch.counts.ready,
-              pending: batch.counts.pending,
-              duplicates: batch.counts.skippedDuplicate,
-              committed: batch.counts.committed,
-            })}
+          <h1 className="mb-2 text-4xl font-bold">
+            {step === 1
+              ? t("importStep1Title")
+              : step === 2
+                ? t("importStep2Title")
+                : t("importStep3Title")}
+          </h1>
+          <p className="text-muted-foreground">
+            {step === 1
+              ? t("importStep1Desc")
+              : step === 2
+                ? t("importStep2Desc")
+                : t("importStep3Desc")}
           </p>
         </div>
         <div className="flex gap-2">
           <Button asChild variant="outline">
             <Link href="/sentences">{t("importBack")}</Link>
           </Button>
-          <Button
-            disabled={batch.counts.ready === 0 || busy}
-            onClick={() => void handleCommit()}
-          >
-            {committing ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : null}
-            {batch.counts.ready === 0
-              ? t("importCommitNone")
-              : t("importCommit", { count: batch.counts.ready })}
-          </Button>
+          {step === 1 ? (
+            <Button
+              disabled={batch.counts.total === 0 || enrichMutation.isPending}
+              onClick={() => void startEnrich()}
+            >
+              {enrichMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              {t("importStep2Cta")}
+            </Button>
+          ) : null}
+          {step === 2 ? (
+            <Button
+              disabled={batch.counts.ready === 0 || busy}
+              onClick={() => void handleFinish()}
+            >
+              {committing ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              {batch.counts.ready === 0
+                ? t("importCommitNone")
+                : t("importStep3Cta")}
+            </Button>
+          ) : null}
         </div>
       </div>
 
-      {enriching || committing ? (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            {committing ? t("importCommitting") : t("importEnriching")}
-          </div>
-          <Progress value={committing ? commitPercent : enrichPercent} />
-        </div>
+      <FunnelStepper current={step} />
+
+      {step === 1 ? (
+        <Step1List
+          items={batch.items}
+          targetLang={targetLang}
+          filter={listFilter}
+          onFilterChange={setListFilter}
+          counts={{
+            total: batch.counts.total,
+            new: batch.counts.new,
+            duplicates: batch.counts.skippedDuplicate,
+          }}
+        />
       ) : null}
 
-      <div className="space-y-4">
-        {batch.items.map((item) => (
-          <DraftCard
-            key={`${item.id}-${item.status}`}
-            batchId={batchId}
-            item={item}
-            targetLang={targetLang}
-            targetLabel={targetMeta ? tLang(targetMeta.code) : targetLang}
-          />
+      {step === 2 ? (
+        <>
+          {enriching ? (
+            <div className="cahier-item space-y-3 p-4">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {t("importEnriching")}
+              </div>
+              <Progress value={Math.max(enrichPercent, 4)} />
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {t("importCounts", {
+                ready: batch.counts.ready,
+                pending: batch.counts.pending,
+                duplicates: batch.counts.skippedDuplicate,
+                committed: batch.counts.committed,
+              })}
+            </p>
+          )}
+          <div className="space-y-4">
+            {batch.items.map((item) => (
+              <DraftCard
+                key={`${item.id}-${item.status}`}
+                batchId={batchId}
+                item={item}
+                targetLang={targetLang}
+                targetLabel={targetLabel}
+              />
+            ))}
+          </div>
+        </>
+      ) : null}
+
+      {step === 3 ? (
+        <Step3Audio
+          phase={finishPhase === "idle" && batch.status === "COMMITTED" ? "done" : finishPhase}
+          commitPercent={commitPercent}
+          audioPercent={audioPercent}
+          audioProgress={audioProgress}
+          createdCount={doneCount}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function FunnelStepper({ current }: { current: FunnelStep }) {
+  const t = useTranslations("sentences");
+  const steps: Array<{ id: FunnelStep; label: string }> = [
+    { id: 1, label: t("importStep1") },
+    { id: 2, label: t("importStep2") },
+    { id: 3, label: t("importStep3") },
+  ];
+
+  return (
+    <ol className="flex w-full items-start">
+      {steps.map((item, index) => {
+        const complete = item.id < current;
+        const active = item.id === current;
+        return (
+          <Fragment key={item.id}>
+            <li className="flex shrink-0 flex-col items-center gap-2">
+              <div
+                className={cn(
+                  "flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold",
+                  complete && "bg-primary text-primary-foreground",
+                  active && "bg-primary text-primary-foreground",
+                  !complete && !active && "bg-muted text-muted-foreground",
+                )}
+              >
+                {complete ? <Check className="h-4 w-4" /> : item.id}
+              </div>
+              <span
+                className={cn(
+                  "text-center text-sm",
+                  active ? "font-medium" : "text-muted-foreground",
+                )}
+              >
+                {item.label}
+              </span>
+            </li>
+            {index < steps.length - 1 ? (
+              <li
+                aria-hidden
+                className={cn(
+                  "mt-4 h-px min-w-4 flex-1",
+                  item.id < current ? "bg-primary" : "bg-border",
+                )}
+              />
+            ) : null}
+          </Fragment>
+        );
+      })}
+    </ol>
+  );
+}
+
+function Step1List({
+  items,
+  targetLang,
+  filter,
+  onFilterChange,
+  counts,
+}: {
+  items: DraftItem[];
+  targetLang: string;
+  filter: ListFilter;
+  onFilterChange: (filter: ListFilter) => void;
+  counts: { total: number; new: number; duplicates: number };
+}) {
+  const t = useTranslations("sentences");
+  const filtered = useMemo(() => {
+    if (filter === "new") return items.filter((item) => !item.isDuplicate);
+    if (filter === "duplicates") return items.filter((item) => item.isDuplicate);
+    return items;
+  }, [filter, items]);
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-3">
+        {(
+          [
+            ["all", t("importFilterAll"), counts.total],
+            ["new", t("importFilterNew"), counts.new],
+            ["duplicates", t("importFilterDuplicates"), counts.duplicates],
+          ] as const
+        ).map(([id, label, count]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => onFilterChange(id)}
+            className={cn(
+              "cahier-item flex flex-col items-start gap-1 p-4 text-left",
+              filter === id && "cahier-item-selected ring-2 ring-primary",
+            )}
+          >
+            <span className="text-sm text-muted-foreground">{label}</span>
+            <span className="text-2xl font-semibold">{count}</span>
+          </button>
         ))}
       </div>
+
+      {filtered.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{t("importEmptyFilter")}</p>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map((item) => {
+            const existing = item.duplicateCandidates[0];
+            return (
+              <div key={item.id} className="cahier-item space-y-2 p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    #{item.rowNumber}
+                  </span>
+                  {item.isDuplicate ? (
+                    <Badge variant="destructive">{t("importDuplicate")}</Badge>
+                  ) : (
+                    <Badge>{t("importFilterNew")}</Badge>
+                  )}
+                </div>
+                <p className="text-lg font-semibold">{item.mainText}</p>
+                <p className="text-muted-foreground">
+                  {itemTranslation(item, targetLang)}
+                </p>
+                {existing ? (
+                  <p className="text-sm text-muted-foreground">
+                    {t("importExistingSentence")}:{" "}
+                    <Link
+                      href={`/sentences/${existing.id}/edit`}
+                      className="underline underline-offset-2"
+                    >
+                      {existing.mainText}
+                    </Link>
+                  </p>
+                ) : item.error ? (
+                  <p className="text-sm text-muted-foreground">{item.error}</p>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Step3Audio({
+  phase,
+  commitPercent,
+  audioPercent,
+  audioProgress,
+  createdCount,
+}: {
+  phase: FinishPhase;
+  commitPercent: number;
+  audioPercent: number;
+  audioProgress: { done: number; total: number };
+  createdCount: number;
+}) {
+  const t = useTranslations("sentences");
+
+  if (phase === "done" || phase === "idle") {
+    return (
+      <div className="cahier-item space-y-4 p-6">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
+            <Check className="h-4 w-4" />
+          </div>
+          <h2 className="text-2xl font-semibold">{t("importStep3Done")}</h2>
+        </div>
+        <p className="text-muted-foreground">
+          {t("importStep3DoneDesc", { count: createdCount })}
+        </p>
+        <Button asChild>
+          <Link href="/sentences">{t("importBack")}</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  const percent = phase === "audio" ? audioPercent : commitPercent;
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        {phase === "audio" ? t("importGeneratingAudio") : t("importCommitting")}
+      </div>
+      <Progress value={percent} />
+      {phase === "audio" && audioProgress.total > 0 ? (
+        <p className="text-sm text-muted-foreground">
+          {t("importAudioProgress", {
+            done: audioProgress.done,
+            total: audioProgress.total,
+          })}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -441,52 +779,52 @@ function DraftCard({
         </div>
       ) : null}
 
+      <div className="space-y-3">
+        <h3 className="font-medium">{t("translationsTitle")}</h3>
+        {(() => {
+          const draft = translations[targetLang];
+          return (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary">{targetLang.toUpperCase()}</Badge>
+                <span className="text-sm">{targetLabel}</span>
+              </div>
+              <Input
+                value={draft?.text ?? ""}
+                disabled={locked && item.status !== "SKIPPED_DUPLICATE"}
+                onChange={(e) => {
+                  const text = e.target.value;
+                  const next = {
+                    ...translations,
+                    [targetLang]: {
+                      text,
+                      register: draft?.register ?? register,
+                    },
+                  };
+                  setTranslations(next);
+                  persist({
+                    id: item.id,
+                    translations: [
+                      {
+                        lang: targetLang,
+                        text: next[targetLang]?.text ?? "",
+                        register: next[targetLang]?.register ?? register,
+                      },
+                    ].filter((tr) => tr.text.trim().length > 0),
+                  });
+                }}
+                placeholder={t("translationPlaceholder", {
+                  language: targetLabel,
+                })}
+              />
+            </div>
+          );
+        })()}
+      </div>
+
       {item.status === "ENRICHED" ||
       (item.status === "SKIPPED_DUPLICATE" && allowSimilar) ? (
         <>
-          <div className="space-y-3">
-            <h3 className="font-medium">{t("translationsTitle")}</h3>
-            {(() => {
-              const draft = translations[targetLang];
-              return (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary">{targetLang.toUpperCase()}</Badge>
-                    <span className="text-sm">{targetLabel}</span>
-                  </div>
-                  <Input
-                    value={draft?.text ?? ""}
-                    disabled={locked && item.status !== "SKIPPED_DUPLICATE"}
-                    onChange={(e) => {
-                      const text = e.target.value;
-                      const next = {
-                        ...translations,
-                        [targetLang]: {
-                          text,
-                          register: draft?.register ?? register,
-                        },
-                      };
-                      setTranslations(next);
-                      persist({
-                        id: item.id,
-                        translations: [
-                          {
-                            lang: targetLang,
-                            text: next[targetLang]?.text ?? "",
-                            register: next[targetLang]?.register ?? register,
-                          },
-                        ].filter((tr) => tr.text.trim().length > 0),
-                      });
-                    }}
-                    placeholder={t("translationPlaceholder", {
-                      language: targetLabel,
-                    })}
-                  />
-                </div>
-              );
-            })()}
-          </div>
-
           <div className="space-y-3">
             <h3 className="font-medium">{t("answerToTitle")}</h3>
             <label className="flex items-center gap-2 text-sm">

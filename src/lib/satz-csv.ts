@@ -4,38 +4,13 @@ export const SATZ_CSV_MAX_CHARS = 200_000;
 export type ParsedSatzCsvRow = {
   rowNumber: number;
   mainText: string;
+  translation: string;
 };
 
 export type ParseSatzCsvResult = {
   rows: ParsedSatzCsvRow[];
   skippedEmpty: number;
 };
-
-const NUMBER_HEADERS = new Set([
-  "nummer",
-  "nr",
-  "no",
-  "number",
-  "n",
-  "#",
-  "id",
-  "zeile",
-  "row",
-]);
-
-const SATZ_HEADERS = new Set([
-  "deutscher satz",
-  "deutscher_satz",
-  "satz",
-  "sentence",
-  "deutsch",
-  "text",
-  "haupttext",
-  "maintext",
-  "main_text",
-  "phrase",
-  "frase",
-]);
 
 export function normalizeSatzText(text: string): string {
   return text.trim().replace(/\s+/g, " ").toLowerCase();
@@ -84,40 +59,6 @@ export function parseCsvLine(line: string, delimiter: "," | ";"): string[] {
   return fields.map((field) => field.trim());
 }
 
-function headerKey(value: string): string {
-  return value.replace(/^\uFEFF/, "").trim().toLowerCase();
-}
-
-function looksLikeHeader(cells: string[]): boolean {
-  return cells.some((cell) => {
-    const key = headerKey(cell);
-    return NUMBER_HEADERS.has(key) || SATZ_HEADERS.has(key);
-  });
-}
-
-function columnIndexes(header: string[]): { numberIdx: number; textIdx: number } {
-  let numberIdx = -1;
-  let textIdx = -1;
-  header.forEach((cell, idx) => {
-    const key = headerKey(cell);
-    if (numberIdx < 0 && NUMBER_HEADERS.has(key)) numberIdx = idx;
-    if (textIdx < 0 && SATZ_HEADERS.has(key)) textIdx = idx;
-  });
-  if (textIdx < 0) {
-    textIdx = header.length > 1 ? 1 : 0;
-  }
-  if (numberIdx < 0 && textIdx !== 0) numberIdx = 0;
-  return { numberIdx, textIdx };
-}
-
-function parseRowNumber(raw: string | undefined, fallback: number): number {
-  if (!raw) return fallback;
-  const match = raw.match(/\d+/);
-  if (!match) return fallback;
-  const value = Number.parseInt(match[0]!, 10);
-  return Number.isFinite(value) ? value : fallback;
-}
-
 export function parseSatzCsv(input: string): ParseSatzCsvResult {
   const text = input.replace(/^\uFEFF/, "");
   if (text.length > SATZ_CSV_MAX_CHARS) {
@@ -131,31 +72,26 @@ export function parseSatzCsv(input: string): ParseSatzCsvResult {
 
   const delimiter = detectCsvDelimiter(lines[0]!);
   const firstCells = parseCsvLine(lines[0]!, delimiter);
-  const hasHeader = looksLikeHeader(firstCells);
-  const { numberIdx, textIdx } = hasHeader
-    ? columnIndexes(firstCells)
-    : {
-        numberIdx: firstCells.length > 1 ? 0 : -1,
-        textIdx: firstCells.length > 1 ? 1 : 0,
-      };
+  if (firstCells.length < 2) {
+    throw new Error("CSV_MISSING_TRANSLATION");
+  }
 
-  const dataLines = hasHeader ? lines.slice(1) : lines;
   const rows: ParsedSatzCsvRow[] = [];
   let skippedEmpty = 0;
 
-  for (const line of dataLines) {
+  for (const line of lines) {
     const cells = parseCsvLine(line, delimiter);
-    const mainText = (cells[textIdx] ?? "").trim();
-    if (!mainText) {
+    const mainText = (cells[0] ?? "").trim();
+    const translation = (cells[1] ?? "").trim();
+    if (!mainText || !translation) {
       skippedEmpty += 1;
       continue;
     }
-    const fallbackNumber = rows.length + skippedEmpty + 1;
-    const rowNumber =
-      numberIdx >= 0
-        ? parseRowNumber(cells[numberIdx], fallbackNumber)
-        : fallbackNumber;
-    rows.push({ rowNumber, mainText });
+    rows.push({
+      rowNumber: rows.length + skippedEmpty + 1,
+      mainText,
+      translation,
+    });
     if (rows.length > SATZ_CSV_MAX_ROWS) {
       throw new Error("CSV_TOO_MANY_ROWS");
     }

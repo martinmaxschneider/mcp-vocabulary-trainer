@@ -13,44 +13,70 @@ import {
 } from "~/lib/satz-import";
 
 describe("satz csv", () => {
-  it("detects semicolon delimiters from German Excel headers", () => {
-    expect(detectCsvDelimiter("Nummer;deutscher Satz")).toBe(";");
-    expect(detectCsvDelimiter("Nummer,deutscher Satz")).toBe(",");
+  it("detects semicolon delimiters from the first data row", () => {
+    expect(detectCsvDelimiter("Können Sie das wiederholen?;Can you repeat that?")).toBe(
+      ";",
+    );
+    expect(detectCsvDelimiter("Können Sie das wiederholen?,Can you repeat that?")).toBe(
+      ",",
+    );
   });
 
   it("parses quoted fields with the delimiter inside", () => {
-    expect(parseCsvLine('1;"Hallo, wie geht\'s?"', ";")).toEqual([
-      "1",
+    expect(parseCsvLine('"Hallo, wie geht\'s?";"Hi, how are you?"', ";")).toEqual([
       "Hallo, wie geht's?",
+      "Hi, how are you?",
     ]);
   });
 
-  it("reads Nummer + deutscher Satz columns", () => {
-    const csv = `Nummer;deutscher Satz
-12;Können Sie das wiederholen?
-13;Wo ist der Bahnhof?
+  it("treats the first row as a sentence, never as a header", () => {
+    const csv = `Können Sie das wiederholen?;Can you repeat that?
+Wo ist der Bahnhof?;Where is the station?
 `;
     const result = parseSatzCsv(csv);
     expect(result.skippedEmpty).toBe(0);
     expect(result.rows).toEqual([
-      { rowNumber: 12, mainText: "Können Sie das wiederholen?" },
-      { rowNumber: 13, mainText: "Wo ist der Bahnhof?" },
+      {
+        rowNumber: 1,
+        mainText: "Können Sie das wiederholen?",
+        translation: "Can you repeat that?",
+      },
+      {
+        rowNumber: 2,
+        mainText: "Wo ist der Bahnhof?",
+        translation: "Where is the station?",
+      },
     ]);
   });
 
-  it("accepts a single-column list without header", () => {
-    const result = parseSatzCsv("Guten Morgen\n\nWie spät ist es?");
+  it("accepts a two-column list without header", () => {
+    const result = parseSatzCsv(
+      "Guten Morgen,Good morning\nWie spät ist es?,What time is it?",
+    );
     expect(result.skippedEmpty).toBe(0);
-    expect(result.rows.map((r) => r.mainText)).toEqual([
-      "Guten Morgen",
-      "Wie spät ist es?",
+    expect(result.rows).toEqual([
+      { rowNumber: 1, mainText: "Guten Morgen", translation: "Good morning" },
+      {
+        rowNumber: 2,
+        mainText: "Wie spät ist es?",
+        translation: "What time is it?",
+      },
     ]);
   });
 
-  it("strips a BOM and skips empty sentence cells", () => {
-    const result = parseSatzCsv("\uFEFFNummer;deutscher Satz\n1;\n2;Hallo");
-    expect(result.skippedEmpty).toBe(1);
-    expect(result.rows).toEqual([{ rowNumber: 2, mainText: "Hallo" }]);
+  it("rejects a file without a translation column", () => {
+    expect(() => parseSatzCsv("Guten Morgen\nWie spät ist es?")).toThrow(
+      "CSV_MISSING_TRANSLATION",
+    );
+  });
+
+  it("strips a BOM and skips rows missing a sentence or translation", () => {
+    const result = parseSatzCsv("\uFEFFHallo,Hello\n,Hello\nHallo,\nTschüss,Bye");
+    expect(result.skippedEmpty).toBe(2);
+    expect(result.rows).toEqual([
+      { rowNumber: 1, mainText: "Hallo", translation: "Hello" },
+      { rowNumber: 4, mainText: "Tschüss", translation: "Bye" },
+    ]);
   });
 
   it("normalizes whitespace for duplicate comparison", () => {

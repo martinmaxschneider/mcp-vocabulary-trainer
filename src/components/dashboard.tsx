@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/client";
@@ -32,6 +32,10 @@ import { getTargetLang } from "~/lib/languages";
 import { isConjugatableLang } from "~/lib/conjugation-catalog";
 
 const SHOW_ALL_STORAGE_KEY = "sprachen-dashboard-show-all";
+
+const hydrateSubscribe = () => () => {};
+const getHydratedSnapshot = () => true;
+const getServerHydratedSnapshot = () => false;
 
 type LeitnerTrack = {
   boxes: { new: number };
@@ -69,6 +73,11 @@ export function Dashboard() {
   const tCommon = useTranslations("common");
   const tLang = useTranslations("languages");
   const { focusLang } = useFocusLang();
+  const hydrated = useSyncExternalStore(
+    hydrateSubscribe,
+    getHydratedSnapshot,
+    getServerHydratedSnapshot,
+  );
   const [showAll, setShowAllState] = useState(false);
   const currentLang = getTargetLang(focusLang);
 
@@ -139,7 +148,7 @@ export function Dashboard() {
         </div>
       </div>
 
-      {isLoading || !stats ? (
+      {!hydrated || isLoading || !stats ? (
         <p className="text-muted-foreground">{tCommon("loading")}</p>
       ) : (
         <>

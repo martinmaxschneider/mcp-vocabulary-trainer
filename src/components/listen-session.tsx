@@ -202,7 +202,7 @@ export function ListenSession({
 
       <section className="cahier-card overflow-hidden">
         <div className="space-y-6 p-6 sm:p-10">
-          <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-[#3d4f66]">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
             <span className="flex items-center gap-2 font-semibold uppercase tracking-[0.16em]">
               <Headphones className="h-4 w-4" />
               {t("listenNowPlaying")}
@@ -211,10 +211,10 @@ export function ListenSession({
               </span>
             </span>
             <div className="text-right">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#3d4f66]">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                 {t("listenPlayerLeft")}
               </p>
-              <p className="font-mono text-2xl font-semibold tabular-nums leading-none text-[#1e3a5f]">
+              <p className="font-mono text-2xl font-semibold tabular-nums leading-none">
                 {formatListenClock(player.sessionRemainingMs)}
               </p>
             </div>
@@ -243,29 +243,29 @@ export function ListenSession({
                     )}
                   >
                     {displayItem.questionText ? (
-                      <div className="max-w-[85%] rounded-xl border border-[#3d4f66]/35 bg-[#3d4f66]/10 px-4 py-3">
-                        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#3d4f66]">
+                      <div className="max-w-[85%] rounded-xl border border-border bg-muted/50 px-4 py-3">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
                           {t("listenIntro")}
                         </p>
                         {displayItem.questionTranslation ? (
-                          <p className="mt-1.5 text-sm font-medium text-orange-500/80">
+                          <p className="mt-1.5 text-sm font-medium text-muted-foreground">
                             {displayItem.questionTranslation}
                           </p>
                         ) : null}
-                        <p className="mt-1 text-base font-medium leading-snug text-[#1e3a5f]">
+                        <p className="mt-1 text-base font-medium leading-snug">
                           {displayItem.questionText}
                         </p>
                       </div>
                     ) : null}
                     <div>
                       {currentNative ? (
-                        <p className="mb-2 text-lg font-medium text-orange-500/80 sm:text-xl">
+                        <p className="mb-2 text-lg font-medium text-muted-foreground sm:text-xl">
                           {currentNative}
                         </p>
                       ) : null}
                       <p
                         className={cn(
-                          "text-3xl font-semibold leading-snug text-[#1e3a5f] sm:text-5xl",
+                          "text-3xl font-semibold leading-snug sm:text-5xl",
                           libreBaskerville.className,
                         )}
                       >
@@ -274,7 +274,7 @@ export function ListenSession({
                     </div>
                   </div>
                 ) : (
-                  <p className="text-lg text-[#3d4f66]">
+                  <p className="text-lg text-muted-foreground">
                     {t("listenReadyCount", { ready: 0, total: 0 })}
                   </p>
                 )}
@@ -341,7 +341,7 @@ export function ListenSession({
 function ListenProgress({ percent }: { percent: number }) {
   return (
     <div
-      className="h-1 bg-[var(--cahier-ink,#1e3a5f)]/8 dark:bg-white/10"
+      className="h-1 bg-primary/10"
       role="progressbar"
       aria-valuemin={0}
       aria-valuemax={100}
@@ -371,7 +371,7 @@ function ListenQueueHeader({
   const t = useTranslations("sentences");
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3 sm:px-10">
-      <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#3d4f66]">
+      <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
         {t("listenQueue")}
         <span className="tabular-nums text-[var(--cahier-red,#d45d5d)]">
           {currentIndex >= 0 ? currentIndex + 1 : 0} / {total}
@@ -380,7 +380,7 @@ function ListenQueueHeader({
       <div className="flex items-center gap-2">
         {filters ? (
           <div className="flex flex-wrap items-center gap-2">
-            <SlidersHorizontal className="h-3.5 w-3.5 text-[#3d4f66]" />
+            <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
             {filters}
           </div>
         ) : null}
@@ -388,7 +388,7 @@ function ListenQueueHeader({
           type="button"
           size="icon"
           variant="ghost"
-          className="h-8 w-8 rounded-full text-[#3d4f66]"
+          className="h-8 w-8 rounded-full text-muted-foreground"
           aria-expanded={open}
           aria-label={t("listenQueue")}
           onClick={onToggle}
@@ -435,20 +435,20 @@ function ListenQueueList({
               className={cn(
                 "flex w-full items-start gap-3 rounded-lg border-2 px-3 py-2 text-left transition-colors",
                 active
-                  ? "border-[#1e3a5f] bg-[#1e3a5f]/10"
+                  ? "border-primary bg-primary/10"
                   : "border-transparent hover:bg-muted/60",
                 past && !active ? "opacity-50" : "",
               )}
             >
-              <span className="w-6 shrink-0 pt-0.5 text-xs tabular-nums text-[#3d4f66]">
+              <span className="w-6 shrink-0 pt-0.5 text-xs tabular-nums text-muted-foreground">
                 {index + 1}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium text-[#1e3a5f]">
+                <span className="block truncate font-medium">
                   {listenTargetText(item)}
                 </span>
                 {listenNativeText(item) ? (
-                  <span className="mt-0.5 block truncate text-sm text-[#3d4f66]">
+                  <span className="mt-0.5 block truncate text-sm text-muted-foreground">
                     {listenNativeText(item)}
                   </span>
                 ) : null}
@@ -592,7 +592,7 @@ function ListenSettings({
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3">
             <Label htmlFor="listen-pause">{t("listenPause")}</Label>
-            <span className="text-sm tabular-nums text-[#3d4f66]">
+            <span className="text-sm tabular-nums text-muted-foreground">
               {(settings.pauseMs / 1000).toFixed(1)}s
             </span>
           </div>
@@ -614,7 +614,7 @@ function ListenSettings({
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3">
             <Label htmlFor="listen-speed">{t("listenSpeed")}</Label>
-            <span className="text-sm tabular-nums text-[#3d4f66]">
+            <span className="text-sm tabular-nums text-muted-foreground">
               {settings.playbackRate.toFixed(2).replace(/\.?0+$/, "")}×
             </span>
           </div>
@@ -700,10 +700,10 @@ function ListenSettings({
           }
         />
         <span className="space-y-0.5">
-          <span className="block font-medium text-[#1e3a5f]">
+          <span className="block font-medium">
             {t("listenMainLangOnce")}
           </span>
-          <span className="block text-[#3d4f66]">
+          <span className="block text-muted-foreground">
             {t("listenMainLangOnceHint")}
           </span>
         </span>

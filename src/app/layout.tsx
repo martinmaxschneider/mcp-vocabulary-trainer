@@ -9,6 +9,7 @@ import { TRPCReactProvider } from "~/trpc/client";
 import { Toaster } from "~/components/ui/toaster";
 import { ThemeProvider } from "~/components/theme-provider";
 import { FocusLangProvider } from "~/components/focus-lang-provider";
+import { ServiceWorkerCleanup } from "~/components/service-worker-cleanup";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -46,6 +47,7 @@ export default async function RootLayout({
         >
           <NextIntlClientProvider locale={locale} messages={messages}>
             <FocusLangProvider>
+              <ServiceWorkerCleanup />
               <TRPCReactProvider>{children}</TRPCReactProvider>
               <Toaster />
             </FocusLangProvider>

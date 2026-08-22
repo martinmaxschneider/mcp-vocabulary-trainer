@@ -527,7 +527,7 @@ ${candidateLines}`;
 }
 
 const satzImportEnrichSchema = z.object({
-  translations: z.record(z.string(), z.string()),
+  translations: z.record(z.string(), z.string()).optional(),
   adjustedSource: z.string().nullable().optional(),
   register: z.enum(["INFORMAL", "FORMAL"]).optional(),
   priority: z.enum(["DAILY", "WEEKLY", "OCCASIONAL", "RARE"]).optional(),
@@ -547,20 +547,19 @@ export type SatzImportVocabCandidate = {
   score: number;
 };
 
-/** One LLM call: translation + theme pick + vocab pick. Never send the full corpus. */
+/** One LLM call: theme pick + vocab pick + Q/A. Translation comes from the CSV. */
 export async function enrichSatzImport(params: {
   germanText: string;
-  targetLangs: string[];
+  translationText: string;
+  targetLang: string;
   themeNames: string[];
   vocabCandidates: SatzImportVocabCandidate[];
 }): Promise<SatzImportEnrichResult> {
   const allowedThemes = new Set(params.themeNames);
   const allowedEntryIds = new Set(params.vocabCandidates.map((c) => c.id));
-  const allowedLangs = new Set(params.targetLangs);
+  const allowedLangs = new Set([params.targetLang]);
+  const targetName = getLanguageName(params.targetLang);
 
-  const langLines = params.targetLangs
-    .map((code) => `- ${code}: ${getLanguageName(code)}`)
-    .join("\n");
   const themeLines = params.themeNames.map((name) => `- ${name}`).join("\n");
   const vocabLines =
     params.vocabCandidates.length > 0
@@ -572,12 +571,12 @@ export async function enrichSatzImport(params: {
           .join("\n")
       : "(keine Kandidaten)";
 
-  const systemPrompt = `Du reichst einen deutschen Alltagssatz für Language Islands an.
-Arbeite nur mit der gelieferten Themenliste und den gelieferten Vokabel-Kandidaten. Es gibt keine weiteren Themen oder Wörter.
+  const systemPrompt = `Du reichst ein bestehendes Satzpaar (Deutsch + ${targetName}) für Language Islands an.
+Die Übersetzung ist vorgegeben und darf NICHT geändert oder neu erzeugt werden. Arbeite nur mit der gelieferten Themenliste und den gelieferten Vokabel-Kandidaten. Es gibt keine weiteren Themen oder Wörter.
 
 Regeln:
-- Übersetze natürlich in jede genannte Zielsprache — gesprochene Alltagssprache, KEIN Lehrbuch-/Schriftsprache-Register (z. B. FR: „pour aller à…" statt „puis-je me rendre à…", „acheter" statt „se procurer").
-- adjustedSource: Prüfe NACH dem Übersetzen, ob der deutsche Satz die natürliche Rückübersetzung deiner Übersetzungen ist (gleicher Sprechakt, gleiche Konstruktion, gleiches Tempus). Wenn ja: null. Wenn die natürliche Übersetzung die Konstruktion wechselt: liefere EINEN deutschen Satz, der zu ALLEN Übersetzungen passt. Verbiege NIEMALS die Übersetzung, damit sie zum deutschen Satz passt — die Übersetzung bleibt natürlich, der deutsche Satz wird angepasst.
+- Übersetze den Hauptsatz NICHT. Die ${targetName}-Übersetzung steht fest.
+- adjustedSource: Prüfe, ob der deutsche Satz die natürliche Rückübersetzung der gegebenen ${targetName}-Übersetzung ist (gleicher Sprechakt, gleiche Konstruktion, gleiches Tempus). Wenn ja: null. Wenn die gegebene Übersetzung die Konstruktion wechselt: liefere EINEN deutschen Satz, der zur gegebenen Übersetzung passt. Verbiege NIEMALS die Übersetzung.
 
 Beispiele für adjustedSource:
 1. Deutscher Satz: "Gibt es das auch in einer anderen Farbe?"
@@ -597,11 +596,10 @@ Beispiele für adjustedSource:
 - linkedEntryIds: nur ids der gelieferten Vokabeln, die wirklich im Satz vorkommen.
 - isAnswer: true, wenn der Satz typischerweise eine Antwort auf eine Alltagssfrage ist (nicht selbst die Frage).
 - question: die natürliche deutsche Frage dazu, sonst null. Immer mit Fragezeichen.
-- questionTranslations: Übersetzung dieser Frage in jede Zielsprache, nur wenn isAnswer.
+- questionTranslations: Übersetzung dieser Frage nach ${targetName} (${params.targetLang}), nur wenn isAnswer.
 
 Gib nur JSON zurück:
 {
-  "translations": { "<lang>": "<text>" },
   "adjustedSource": string | null,
   "register": "INFORMAL" | "FORMAL",
   "priority": "DAILY" | "WEEKLY" | "OCCASIONAL" | "RARE",
@@ -614,9 +612,7 @@ Gib nur JSON zurück:
 }`;
 
   const userPrompt = `Deutscher Satz: ${JSON.stringify(params.germanText)}
-
-Zielsprachen:
-${langLines}
+${targetName} (${params.targetLang}): ${JSON.stringify(params.translationText)}
 
 Themen:
 ${themeLines}
@@ -639,11 +635,6 @@ ${vocabLines}`;
   }
 
   const parsed = satzImportEnrichSchema.parse(JSON.parse(content) as unknown);
-  const translations = Object.fromEntries(
-    Object.entries(parsed.translations)
-      .filter(([lang, text]) => allowedLangs.has(lang) && text.trim().length > 0)
-      .map(([lang, text]) => [lang, text.trim()]),
-  );
 
   const questionTranslations = Object.fromEntries(
     Object.entries(parsed.questionTranslations ?? {})
@@ -661,7 +652,7 @@ ${vocabLines}`;
 
   return {
     ...parsed,
-    translations,
+    translations: {},
     adjustedSource,
     themeNames: (parsed.themeNames ?? []).filter((name) => allowedThemes.has(name)),
     linkedEntryIds: (parsed.linkedEntryIds ?? []).filter((id) =>

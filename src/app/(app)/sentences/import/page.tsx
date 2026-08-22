@@ -71,6 +71,9 @@ export default function SentenceImportPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
+            {t("importLangNotice", { language: tLang(focusLang) })}
+          </div>
           <input
             ref={fileRef}
             type="file"
