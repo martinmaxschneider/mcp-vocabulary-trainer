@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { AudioStatus, SatzPriority } from "@prisma/client";
-import { api } from "~/trpc/client";
+import { api, type RouterOutputs } from "~/trpc/client";
 import { Button } from "~/components/ui/button";
 import {
   Select,
@@ -42,6 +42,12 @@ const libreBaskerville = Libre_Baskerville({
 });
 
 type ReviewState = "setup" | "active" | "summary";
+type SatzQueue = RouterOutputs["satzReview"]["queue"];
+
+const SESSION_QUERY_OPTS = {
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+} as const;
 
 const PRIORITIES: SatzPriority[] = [
   "DAILY",
@@ -69,6 +75,7 @@ export function SatzReview() {
   const [revealed, setRevealed] = useState(false);
   const [index, setIndex] = useState(0);
   const [completedBoxes, setCompletedBoxes] = useState<number[]>([]);
+  const [sessionQueue, setSessionQueue] = useState<SatzQueue | null>(null);
   const [session, setSession] = useState({
     answers: 0,
     correct: 0,
@@ -80,23 +87,32 @@ export function SatzReview() {
   const filters = {
     targetLang: focusLang,
     domainId: domainId === "all" ? undefined : domainId,
-    priority:
-      priority === "all" ? undefined : (priority as SatzPriority),
+    priority: priority === "all" ? undefined : (priority as SatzPriority),
     box: box === "all" ? undefined : Number(box),
   };
+
+  const queueInput = useMemo(
+    () => ({
+      ...filters,
+      limit: 30,
+      practice: practiceMode || undefined,
+    }),
+    [focusLang, domainId, priority, box, practiceMode],
+  );
 
   const { data: domains } = api.domain.list.useQuery();
   const statsQuery = api.satzReview.stats.useQuery(filters, {
     enabled: state === "setup",
   });
-  const queueInput = {
-    ...filters,
-    limit: 30,
-    practice: practiceMode || undefined,
-  };
   const queueQuery = api.satzReview.queue.useQuery(queueInput, {
-    enabled: state === "active",
+    enabled: state === "active" && sessionQueue === null,
+    refetchOnMount: "always",
+    ...SESSION_QUERY_OPTS,
   });
+  const utils = api.useUtils();
+  const sessionStartedAtRef = useRef(0);
+  const reviewedIdsRef = useRef(new Set<string>());
+  const loadingMoreRef = useRef(false);
 
   const reportSession = api.gamification.reportSession.useMutation({
     onSuccess: (data) => {
@@ -119,12 +135,11 @@ export function SatzReview() {
         streak: data.gamification?.streak ?? prev.streak,
       }));
       setCompletedBoxes((prev) => [...prev, data.boxBefore]);
+      reviewedIdsRef.current.add(data.satzId);
       setRevealed(false);
       setIndex((prev) => prev + 1);
     },
   });
-
-  const utils = api.useUtils();
 
   const themeDomains = useMemo(
     () =>
@@ -136,32 +151,85 @@ export function SatzReview() {
     [domains],
   );
 
-  const cards = queueQuery.data?.cards ?? [];
-  const card = cards[index];
-  const remaining = remainingBoxCounts(
-    queueQuery.data?.boxCounts,
-    completedBoxes,
-  );
-
   useEffect(() => {
-    if (state !== "active" || queueQuery.isLoading || card) return;
+    if (state !== "active" || sessionQueue) return;
+    if (!queueQuery.isSuccess || queueQuery.isFetching || !queueQuery.data) {
+      return;
+    }
+    if (queueQuery.dataUpdatedAt <= sessionStartedAtRef.current) return;
+    setSessionQueue(queueQuery.data);
+  }, [
+    state,
+    sessionQueue,
+    queueQuery.isSuccess,
+    queueQuery.isFetching,
+    queueQuery.data,
+    queueQuery.dataUpdatedAt,
+  ]);
+
+  const cards = sessionQueue?.cards ?? [];
+  const card = cards[index];
+  const remaining = remainingBoxCounts(sessionQueue?.boxCounts, completedBoxes);
+  const queueLoading =
+    state === "active" && sessionQueue === null && !queueQuery.isError;
+
+  const finishSession = useCallback(() => {
     if (session.answers > 0 && !reportedSessionRef.current) {
       reportedSessionRef.current = true;
       reportSession.mutate({
         answers: session.answers,
         correct: session.correct,
       });
+      setState("summary");
     }
-    setState("summary");
-  }, [state, queueQuery.isLoading, card, session.answers, session.correct]);
+  }, [session.answers, session.correct, reportSession]);
+
+  useEffect(() => {
+    if (state !== "active" || sessionQueue === null || card) return;
+    if (session.answers === 0) return;
+    if (loadingMoreRef.current) return;
+
+    let cancelled = false;
+    loadingMoreRef.current = true;
+    void utils.satzReview.queue
+      .fetch(queueInput)
+      .then((data) => {
+        if (cancelled) return;
+        const nextCards = data.cards.filter(
+          (entry) => !reviewedIdsRef.current.has(entry.satzId),
+        );
+        if (nextCards.length === 0) {
+          finishSession();
+          return;
+        }
+        setIndex(0);
+        setRevealed(false);
+        setSessionQueue({ ...data, cards: nextCards });
+      })
+      .catch(() => {
+        if (!cancelled) finishSession();
+      })
+      .finally(() => {
+        if (!cancelled) loadingMoreRef.current = false;
+      });
+
+    return () => {
+      cancelled = true;
+      loadingMoreRef.current = false;
+    };
+  }, [state, sessionQueue, card, session.answers, queueInput, utils, finishSession]);
 
   const start = (practice = false) => {
     setPracticeMode(practice);
     setIndex(0);
     setRevealed(false);
     setCompletedBoxes([]);
+    setSessionQueue(null);
     setSession({ answers: 0, correct: 0, xp: 0, streak: 0 });
     reportedSessionRef.current = false;
+    reviewedIdsRef.current = new Set();
+    loadingMoreRef.current = false;
+    sessionStartedAtRef.current = Date.now();
     setState("active");
   };
 
@@ -182,7 +250,10 @@ export function SatzReview() {
           perfect={
             session.answers > 0 && session.correct === session.answers
           }
-          onDone={() => setState("setup")}
+          onDone={() => {
+            setSessionQueue(null);
+            setState("setup");
+          }}
         />
       </div>
     );
@@ -279,11 +350,38 @@ export function SatzReview() {
     );
   }
 
-  const totalAvailable = queueQuery.data?.totalAvailable ?? cards.length;
+  const totalAvailable = sessionQueue?.totalAvailable ?? cards.length;
   const cardsLeft = Math.max(0, totalAvailable - session.answers - 1);
   const focusMeta = getTargetLang(focusLang);
 
-  if (queueQuery.isLoading) {
+  if (queueQuery.isError && sessionQueue === null) {
+    return (
+      <div className="mx-auto max-w-3xl">
+        <div className="cahier-card py-16 text-center">
+          <h2
+            className={cn(
+              "mb-2 text-2xl font-bold text-[#1e3a5f]",
+              libreBaskerville.className,
+            )}
+          >
+            {tReview("submitError")}
+          </h2>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setSessionQueue(null);
+              setState("setup");
+            }}
+            className="text-[#1e3a5f]"
+          >
+            {tReview("backToSetup")}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (queueLoading) {
     return (
       <div className="mx-auto max-w-3xl">
         <div className="cahier-card py-16 text-center">
@@ -309,7 +407,10 @@ export function SatzReview() {
           <p className="mb-6 text-slate-600">{tReview("allCaughtUpDesc")}</p>
           <Button
             variant="ghost"
-            onClick={() => setState("setup")}
+            onClick={() => {
+              setSessionQueue(null);
+              setState("setup");
+            }}
             className="text-[#1e3a5f]"
           >
             {tReview("backToSetup")}
@@ -350,7 +451,10 @@ export function SatzReview() {
           {focusMeta?.flag} {tLang(focusLang)}
         </>
       }
-      onBack={() => setState("setup")}
+      onBack={() => {
+        setSessionQueue(null);
+        setState("setup");
+      }}
       remainingBoxes={remaining}
       cardKey={card.satzId}
       badges={[
@@ -378,7 +482,7 @@ export function SatzReview() {
           satzId={card.satzId}
           targetLang={focusLang}
           onApplied={({ fix, newText }) => {
-            utils.satzReview.queue.setData(queueInput, (old) => {
+            setSessionQueue((old) => {
               if (!old) return old;
               return {
                 ...old,
