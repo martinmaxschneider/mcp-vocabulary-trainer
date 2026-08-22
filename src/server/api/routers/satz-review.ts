@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { SatzPriority, type Prisma } from "@prisma/client";
+import { MediaKind, SatzPriority, type Prisma } from "@prisma/client";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { applyLeitnerResult, MAX_BOX, MIN_BOX } from "~/lib/leitner";
 import { recordActivity } from "~/server/gamification";
@@ -20,12 +20,16 @@ function addBoxCount(counts: BoxCounts, box: number, amount: number) {
 function satzFilterWhere(input: {
   domainId?: string;
   priority?: SatzPriority;
+  mediaKind?: MediaKind;
+  mediaWorkId?: string;
 }): Prisma.SatzWhereInput {
   return {
     ...(input.domainId && {
       domains: { some: { domainId: input.domainId } },
     }),
     ...(input.priority && { priority: input.priority }),
+    ...(input.mediaWorkId && { mediaWorkId: input.mediaWorkId }),
+    ...(input.mediaKind && { mediaWork: { is: { kind: input.mediaKind } } }),
   };
 }
 
@@ -33,6 +37,8 @@ const reviewFilterSchema = {
   targetLang: z.string().min(1),
   domainId: z.string().optional(),
   priority: z.nativeEnum(SatzPriority).optional(),
+  mediaKind: z.nativeEnum(MediaKind).optional(),
+  mediaWorkId: z.string().optional(),
   box: z.number().int().min(MIN_BOX).max(MAX_BOX).optional(),
 };
 

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { AudioStatus, SatzPriority } from "@prisma/client";
+import { AudioStatus, MediaKind, SatzPriority } from "@prisma/client";
 import { api, type RouterOutputs } from "~/trpc/client";
 import { Button } from "~/components/ui/button";
 import {
@@ -23,6 +23,8 @@ import { useFocusLang } from "~/components/focus-lang-provider";
 import { useCelebrate } from "~/components/gamification-provider";
 import { CELEBRATIONS } from "~/lib/gamification-config";
 import { groupDomainsByKind } from "~/lib/domain-catalog";
+import { MEDIA_KINDS } from "~/lib/media-work";
+import { mediaWorkLabel } from "~/components/media-work-picker";
 import { getTargetLang, SOURCE_LANG } from "~/lib/languages";
 import { playbackUrls } from "~/lib/satz-tts";
 import { MAX_BOX, MIN_BOX } from "~/lib/leitner";
@@ -72,6 +74,8 @@ export function SatzReview() {
   const [domainId, setDomainId] = useState<string>("all");
   const [priority, setPriority] = useState<string>("all");
   const [box, setBox] = useState<string>("all");
+  const [mediaKind, setMediaKind] = useState<string>("all");
+  const [mediaWorkId, setMediaWorkId] = useState<string>("all");
   const [revealed, setRevealed] = useState(false);
   const [index, setIndex] = useState(0);
   const [completedBoxes, setCompletedBoxes] = useState<number[]>([]);
@@ -88,6 +92,8 @@ export function SatzReview() {
     targetLang: focusLang,
     domainId: domainId === "all" ? undefined : domainId,
     priority: priority === "all" ? undefined : (priority as SatzPriority),
+    mediaKind: mediaKind === "all" ? undefined : (mediaKind as MediaKind),
+    mediaWorkId: mediaWorkId === "all" ? undefined : mediaWorkId,
     box: box === "all" ? undefined : Number(box),
   };
 
@@ -97,10 +103,14 @@ export function SatzReview() {
       limit: 30,
       practice: practiceMode || undefined,
     }),
-    [focusLang, domainId, priority, box, practiceMode],
+    [focusLang, domainId, priority, box, mediaKind, mediaWorkId, practiceMode],
   );
 
   const { data: domains } = api.domain.list.useQuery();
+  const { data: mediaWorks } = api.mediaWork.list.useQuery({
+    kind: mediaKind !== "all" ? (mediaKind as MediaKind) : undefined,
+    limit: 100,
+  });
   const statsQuery = api.satzReview.stats.useQuery(filters, {
     enabled: state === "setup",
   });
@@ -328,6 +338,44 @@ export function SatzReview() {
                       </SelectItem>
                     );
                   })}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>{t("reviewFilterMediaKind")}</Label>
+              <Select
+                value={mediaKind}
+                onValueChange={(value) => {
+                  setMediaKind(value);
+                  setMediaWorkId("all");
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t("filterAllMediaKinds")}</SelectItem>
+                  {MEDIA_KINDS.map((kind) => (
+                    <SelectItem key={kind} value={kind}>
+                      {t(`mediaKind${kind}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>{t("reviewFilterMediaWork")}</Label>
+              <Select value={mediaWorkId} onValueChange={setMediaWorkId}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t("filterAllMediaWorks")}</SelectItem>
+                  {(mediaWorks?.items ?? []).map((work) => (
+                    <SelectItem key={work.id} value={work.id}>
+                      {mediaWorkLabel(work, (kind) => t(`mediaKind${kind}`))}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

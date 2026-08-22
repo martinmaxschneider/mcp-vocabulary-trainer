@@ -454,6 +454,35 @@ model Embedding {
   @@index([ownerType])
 }
 
+enum MediaKind {
+  SONG
+  FILM
+  SERIES
+  VIDEO
+  BOOK
+  PODCAST
+  OTHER
+}
+
+/// Quote origin (song, film, video, …) — optional, separate from Domain themes.
+model MediaWork {
+  id        String    @id @default(cuid())
+  kind      MediaKind
+  title     String
+  /// lowercase/trim for find-or-create uniqueness
+  titleKey  String
+  creator   String?
+  year      Int?
+  url       String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  saetze        Satz[]
+  importDrafts  SatzImportDraft[]
+
+  @@unique([kind, titleKey])
+  @@index([kind])
+}
+
 enum SatzSource {
   PERSONAL
   GENERIC
@@ -498,6 +527,8 @@ model Satz {
   mainAudioStatus     AudioStatus @default(NONE)
   mainAudioUrl        String?
   mainAudioDurationMs Int?
+  mediaWorkId     String?
+  mediaWork       MediaWork?      @relation(fields: [mediaWorkId], references: [id], onDelete: SetNull)
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
@@ -510,6 +541,7 @@ model Satz {
   @@index([answerToId])
   @@index([updatedAt])
   @@index([source, priority])
+  @@index([mediaWorkId])
 }
 
 model SatzProgress {
@@ -644,6 +676,8 @@ model SatzImportDraft {
   source   SatzSource            @default(GENERIC)
   priority SatzPriority          @default(OCCASIONAL)
   register SatzRegister          @default(INFORMAL)
+  mediaWorkId String?
+  mediaWork   MediaWork?         @relation(fields: [mediaWorkId], references: [id], onDelete: SetNull)
 
   /// [{ lang, text, register }]
   translations Json?
@@ -676,6 +710,7 @@ model SatzImportDraft {
 
   @@index([batchId, status])
   @@index([batchId, rowNumber])
+  @@index([mediaWorkId])
 }
 
 enum DailyPackageStatus {

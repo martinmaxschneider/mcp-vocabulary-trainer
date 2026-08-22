@@ -38,6 +38,10 @@ import { isEntryCreated } from "~/lib/entry-create";
 import { drainAudioQueue } from "~/lib/process-audio-queue";
 import { playbackUrls } from "~/lib/satz-tts";
 import { Loader2, Save, Search, Sparkles, Volume2, X } from "lucide-react";
+import {
+  MediaWorkPicker,
+  type MediaWorkSummary,
+} from "~/components/media-work-picker";
 
 type TranslationDraft = {
   text: string;
@@ -61,6 +65,7 @@ export type SatzFormValues = {
   grammarTopicIds: string[];
   translations: Record<string, TranslationDraft>;
   answerTo: { id: string; mainText: string } | null;
+  mediaWork: MediaWorkSummary | null;
 };
 
 function emptyTranslations(): Record<string, TranslationDraft> {
@@ -84,6 +89,7 @@ export function emptySatzFormValues(domainId?: string): SatzFormValues {
     grammarTopicIds: [],
     translations: emptyTranslations(),
     answerTo: null,
+    mediaWork: null,
   };
 }
 
@@ -331,6 +337,7 @@ export function SatzForm({
       grammarTopicIds: values.grammarTopicIds,
       translations,
       answerToId: values.answerTo?.id,
+      mediaWorkId: values.mediaWork?.id ?? null,
     };
 
     if (mode === "create") {
@@ -477,6 +484,12 @@ export function SatzForm({
           </Select>
         </div>
       </div>
+
+      <MediaWorkPicker
+        value={values.mediaWork}
+        onChange={(mediaWork) => setValues((prev) => ({ ...prev, mediaWork }))}
+        disabled={busy}
+      />
 
       <div className="space-y-3">
         <h3 className="font-medium">{t("translationsTitle")}</h3>
@@ -781,6 +794,7 @@ export function SatzForm({
             domainIds: values.domainIds,
             linkedEntryIds: values.linkedEntries.map((e) => e.id),
             grammarTopicIds: values.grammarTopicIds,
+            mediaWorkId: values.mediaWork?.id ?? null,
             translations: Object.entries(values.translations)
               .filter(([, draft]) => draft.text.trim())
               .map(([lang, draft]) => ({

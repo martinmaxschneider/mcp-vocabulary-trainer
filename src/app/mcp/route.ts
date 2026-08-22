@@ -5,6 +5,7 @@ import { z } from "zod";
 import {
   AudioStatus,
   EntryType,
+  MediaKind,
   SatzPriority,
   SatzRegister,
   SatzSource,
@@ -167,6 +168,7 @@ const handler = createMcpHandler(
       domainIds: z.array(z.string()).optional(),
       linkedEntryIds: z.array(z.string()).optional(),
       grammarTopicIds: z.array(z.string()).optional(),
+      mediaWorkId: z.string().nullable().optional(),
       translations: z.array(z.object(satzTranslationToolSchema)).min(1),
       allowSimilar: z.boolean().optional(),
     };
@@ -183,12 +185,14 @@ const handler = createMcpHandler(
 
     server.tool(
       "list_saetze",
-      "Listet Sätze (optional gefiltert nach domainId, source, priority, shadowingStatus, box+targetLang, query).",
+      "Listet Sätze (optional gefiltert nach domainId, source, priority, shadowingStatus, mediaKind, mediaWorkId, box+targetLang, query).",
       {
         domainId: z.string().optional(),
         source: z.nativeEnum(SatzSource).optional(),
         priority: z.nativeEnum(SatzPriority).optional(),
         shadowingStatus: z.nativeEnum(ShadowingStatus).optional(),
+        mediaKind: z.nativeEnum(MediaKind).optional(),
+        mediaWorkId: z.string().optional(),
         box: z.number().int().min(MIN_BOX).max(MAX_BOX).optional(),
         targetLang: z.string().optional(),
         query: z.string().optional(),
@@ -217,8 +221,9 @@ const handler = createMcpHandler(
 
     server.tool(
       "create_satz",
-      "Legt einen Satz an (deutscher mainText, Übersetzungen nur für aktive Zielsprachen, optional trigger/source/priority). " +
+      "Legt einen Satz an (deutscher mainText, Übersetzungen nur für aktive Zielsprachen, optional trigger/source/priority/mediaWorkId). " +
         "domainIds nur THEME oder SPECIAL (nicht Grammatik-Buckets). " +
+        "mediaWorkId ist optional (Zitat aus Lied/Film/Video). " +
         "linkedEntryIds = Vokabeln im Satz, grammarTopicIds = Grammatik-Kapitel. " +
         "register pro Übersetzung: INFORMAL (Standard) oder FORMAL. " +
         "Vor dem Speichern: Embedding-Ähnlichkeit gegen bestehende Sätze. Bei vermutetem Duplikat kommt created:false mit candidates — dann allowSimilar:true setzen.",
@@ -237,7 +242,8 @@ const handler = createMcpHandler(
     server.tool(
       "update_satz",
       "Aktualisiert einen Satz. translations ersetzt die komplette Übersetzungsliste, wenn gesetzt. " +
-        "domainIds / linkedEntryIds / grammarTopicIds ersetzen die jeweilige Zuordnung, wenn gesetzt.",
+        "domainIds / linkedEntryIds / grammarTopicIds ersetzen die jeweilige Zuordnung, wenn gesetzt. " +
+        "mediaWorkId setzen oder null zum Lösen.",
       {
         id: z.string(),
         mainText: z.string().min(1).optional(),
@@ -249,6 +255,7 @@ const handler = createMcpHandler(
         domainIds: z.array(z.string()).optional(),
         linkedEntryIds: z.array(z.string()).optional(),
         grammarTopicIds: z.array(z.string()).optional(),
+        mediaWorkId: z.string().nullable().optional(),
         translations: z.array(z.object(satzTranslationToolSchema)).optional(),
       },
       async (args) => {
@@ -313,6 +320,40 @@ const handler = createMcpHandler(
           return jsonResult(
             await api.satz.assignGrammarTopics({ satzId, grammarTopicIds }),
           );
+        } catch (e) {
+          return errorResult(e instanceof Error ? e.message : String(e));
+        }
+      },
+    );
+
+    server.tool(
+      "list_media_works",
+      "Listet Medienwerke (Lied/Film/Serie/Video/Buch/Podcast). Optional nach kind und query filtern.",
+      {
+        query: z.string().optional(),
+        kind: z.nativeEnum(MediaKind).optional(),
+        limit: z.number().min(1).max(100).default(30),
+      },
+      async (args) => {
+        const api = await getCaller();
+        return jsonResult(await api.mediaWork.list(args));
+      },
+    );
+
+    server.tool(
+      "ensure_media_work",
+      "Findet oder legt ein Medienwerk an (gleiche kind+titleKey werden zusammengeführt). Optional creator, year, url.",
+      {
+        kind: z.nativeEnum(MediaKind),
+        title: z.string().min(1),
+        creator: z.string().nullable().optional(),
+        year: z.number().int().min(1000).max(2100).nullable().optional(),
+        url: z.string().nullable().optional(),
+      },
+      async (args) => {
+        const api = await getCaller();
+        try {
+          return jsonResult(await api.mediaWork.ensure(args));
         } catch (e) {
           return errorResult(e instanceof Error ? e.message : String(e));
         }

@@ -35,6 +35,7 @@ Wo ist der Bahnhof?;Where is the station?
 `;
     const result = parseSatzCsv(csv);
     expect(result.skippedEmpty).toBe(0);
+    expect(result.hasHeader).toBe(false);
     expect(result.rows).toEqual([
       {
         rowNumber: 1,
@@ -54,6 +55,7 @@ Wo ist der Bahnhof?;Where is the station?
       "Guten Morgen,Good morning\nWie spät ist es?,What time is it?",
     );
     expect(result.skippedEmpty).toBe(0);
+    expect(result.hasHeader).toBe(false);
     expect(result.rows).toEqual([
       { rowNumber: 1, mainText: "Guten Morgen", translation: "Good morning" },
       {
@@ -73,9 +75,62 @@ Wo ist der Bahnhof?;Where is the station?
   it("strips a BOM and skips rows missing a sentence or translation", () => {
     const result = parseSatzCsv("\uFEFFHallo,Hello\n,Hello\nHallo,\nTschüss,Bye");
     expect(result.skippedEmpty).toBe(2);
+    expect(result.hasHeader).toBe(false);
     expect(result.rows).toEqual([
       { rowNumber: 1, mainText: "Hallo", translation: "Hello" },
       { rowNumber: 4, mainText: "Tschüss", translation: "Bye" },
+    ]);
+  });
+
+  it("parses optional media columns when a header row is present", () => {
+    const csv = `deutsch;französisch;mediaKind;mediaTitle;mediaCreator;mediaUrl
+Quand il me prend dans ses bras;When he takes me in his arms;SONG;La Vie en Rose;Édith Piaf;
+Wo kommst du her?;Where are you from?;VIDEO;Super Easy German 1;Easy German;https://www.youtube.com/watch?v=abc123
+Hallo.;Hello.;
+`;
+    const result = parseSatzCsv(csv);
+    expect(result.hasHeader).toBe(true);
+    expect(result.rows).toEqual([
+      {
+        rowNumber: 2,
+        mainText: "Quand il me prend dans ses bras",
+        translation: "When he takes me in his arms",
+        mediaKind: "SONG",
+        mediaTitle: "La Vie en Rose",
+        mediaCreator: "Édith Piaf",
+      },
+      {
+        rowNumber: 3,
+        mainText: "Wo kommst du her?",
+        translation: "Where are you from?",
+        mediaKind: "VIDEO",
+        mediaTitle: "Super Easy German 1",
+        mediaCreator: "Easy German",
+        mediaUrl: "https://www.youtube.com/watch?v=abc123",
+      },
+      {
+        rowNumber: 4,
+        mainText: "Hallo.",
+        translation: "Hello.",
+      },
+    ]);
+  });
+
+  it("does not treat a two-column sentence starting with Kind as a header", () => {
+    const result = parseSatzCsv("Kind,Child");
+    expect(result.hasHeader).toBe(false);
+    expect(result.rows).toEqual([
+      { rowNumber: 1, mainText: "Kind", translation: "Child" },
+    ]);
+  });
+
+  it("ignores extra columns when there is no header", () => {
+    const result = parseSatzCsv(
+      "Guten Morgen,Good morning,SONG,La Vie en Rose",
+    );
+    expect(result.hasHeader).toBe(false);
+    expect(result.rows).toEqual([
+      { rowNumber: 1, mainText: "Guten Morgen", translation: "Good morning" },
     ]);
   });
 

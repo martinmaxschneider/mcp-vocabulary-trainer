@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import {
   AudioStatus,
   DomainKind,
+  MediaKind,
   SatzPriority,
   SatzRegister,
   SatzSource,
@@ -33,6 +34,7 @@ import {
   processRequestedAudio,
   requestSatzAudio,
 } from "~/server/services/tts";
+import { assertMediaWorkId } from "~/server/services/media-work";
 
 const SATZ_DOMAIN_KINDS: DomainKind[] = [DomainKind.THEME, DomainKind.SPECIAL];
 
@@ -56,6 +58,7 @@ export const createSatzInputSchema = z.object({
   domainIds: z.array(z.string()).optional(),
   linkedEntryIds: z.array(z.string()).optional(),
   grammarTopicIds: z.array(z.string()).optional(),
+  mediaWorkId: z.string().nullable().optional(),
   translations: z.array(satzTranslationInputSchema).min(1),
   allowSimilar: z.boolean().optional(),
 });
@@ -84,6 +87,7 @@ const satzInclude = {
   },
   answers: { select: { id: true, mainText: true } },
   progresses: true,
+  mediaWork: true,
 } as const;
 
 type DbClient = typeof db | Prisma.TransactionClient;
@@ -229,6 +233,8 @@ export const satzRouter = createTRPCRouter({
           source: z.nativeEnum(SatzSource).optional(),
           priority: z.nativeEnum(SatzPriority).optional(),
           shadowingStatus: z.nativeEnum(ShadowingStatus).optional(),
+          mediaKind: z.nativeEnum(MediaKind).optional(),
+          mediaWorkId: z.string().optional(),
           box: z.number().int().min(MIN_BOX).max(MAX_BOX).optional(),
           targetLang: z.string().optional(),
           query: z.string().optional(),
@@ -250,6 +256,8 @@ export const satzRouter = createTRPCRouter({
         ...(input?.shadowingStatus && {
           shadowingStatus: input.shadowingStatus,
         }),
+        ...(input?.mediaWorkId && { mediaWorkId: input.mediaWorkId }),
+        ...(input?.mediaKind && { mediaWork: { is: { kind: input.mediaKind } } }),
         ...boxFilter,
         ...(query && {
           OR: [
@@ -332,6 +340,16 @@ export const satzRouter = createTRPCRouter({
 
       const domainIds = resolveIds(fields.domainId, fields.domainIds);
       await assertSatzDomainIds(ctx.db, domainIds);
+      if (fields.mediaWorkId) {
+        try {
+          await assertMediaWorkId(fields.mediaWorkId, ctx.db);
+        } catch {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "MEDIA_WORK_NOT_FOUND",
+          });
+        }
+      }
       if (fields.answerToId) {
         const question = await ctx.db.satz.findUnique({
           where: { id: fields.answerToId },
@@ -354,6 +372,7 @@ export const satzRouter = createTRPCRouter({
           priority: fields.priority ?? SatzPriority.OCCASIONAL,
           shadowingStatus: fields.shadowingStatus ?? ShadowingStatus.NOT_STARTED,
           answerToId: fields.answerToId,
+          mediaWorkId: fields.mediaWorkId ?? null,
           translations: {
             create: fields.translations.map((t) => ({
               lang: t.lang,
@@ -408,6 +427,7 @@ export const satzRouter = createTRPCRouter({
         domainIds: z.array(z.string()).optional(),
         linkedEntryIds: z.array(z.string()).optional(),
         grammarTopicIds: z.array(z.string()).optional(),
+        mediaWorkId: z.string().nullable().optional(),
         translations: z.array(satzTranslationInputSchema).optional(),
       }),
     )
@@ -437,6 +457,16 @@ export const satzRouter = createTRPCRouter({
           });
         }
       }
+      if (input.mediaWorkId) {
+        try {
+          await assertMediaWorkId(input.mediaWorkId, ctx.db);
+        } catch {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "MEDIA_WORK_NOT_FOUND",
+          });
+        }
+      }
 
       await ctx.db.satz.update({
         where: { id: input.id },
@@ -452,6 +482,9 @@ export const satzRouter = createTRPCRouter({
           }),
           ...(input.answerToId !== undefined && {
             answerToId: input.answerToId,
+          }),
+          ...(input.mediaWorkId !== undefined && {
+            mediaWorkId: input.mediaWorkId,
           }),
         },
       });

@@ -28,6 +28,11 @@ import { getTargetLang, resolveImportTargetLang } from "~/lib/languages";
 import { groupDomainsByKind } from "~/lib/domain-catalog";
 import { cn } from "~/lib/utils";
 import { Check, Loader2, Pencil, Search, X } from "lucide-react";
+import {
+  MediaWorkPicker,
+  mediaWorkLabel,
+  type MediaWorkSummary,
+} from "~/components/media-work-picker";
 
 type BatchView = RouterOutputs["satzImport"]["getBatch"];
 type DraftItem = BatchView["items"][number];
@@ -336,10 +341,11 @@ export function SatzImportReview({ batchId }: { batchId: string }) {
               })}
             </p>
           )}
+          <ImportMediaBatchBar batchId={batchId} />
           <div className="space-y-4">
             {batch.items.map((item) => (
               <DraftCard
-                key={`${item.id}-${item.status}`}
+                key={`${item.id}-${item.status}-${item.mediaWorkId ?? "none"}`}
                 batchId={batchId}
                 item={item}
                 targetLang={targetLang}
@@ -359,6 +365,54 @@ export function SatzImportReview({ batchId }: { batchId: string }) {
           createdCount={doneCount}
         />
       ) : null}
+    </div>
+  );
+}
+
+function ImportMediaBatchBar({ batchId }: { batchId: string }) {
+  const t = useTranslations("sentences");
+  const tToasts = useTranslations("toasts");
+  const tErrors = useTranslations("errors.codes");
+  const { toast } = useToast();
+  const utils = api.useUtils();
+  const [mediaWork, setMediaWork] = useState<MediaWorkSummary | null>(null);
+  const applyMutation = api.satzImport.applyMediaWork.useMutation({
+    onSuccess: () => {
+      void utils.satzImport.getBatch.invalidate({ id: batchId });
+      toast({ title: tToasts("satzImportMediaApplied") });
+    },
+    onError: (error) => {
+      toast({
+        title: tToasts("satzImportMediaApplyError"),
+        description: errorDescription(error.message, tErrors),
+        variant: "destructive",
+      });
+    },
+  });
+
+  return (
+    <div className="cahier-item space-y-4 p-4">
+      <div>
+        <h3 className="font-medium">{t("importMediaBatchTitle")}</h3>
+        <p className="text-sm text-muted-foreground">{t("importMediaBatchHint")}</p>
+      </div>
+      <MediaWorkPicker value={mediaWork} onChange={setMediaWork} />
+      <Button
+        type="button"
+        variant="outline"
+        disabled={applyMutation.isPending}
+        onClick={() =>
+          applyMutation.mutate({
+            batchId,
+            mediaWorkId: mediaWork?.id ?? null,
+          })
+        }
+      >
+        {applyMutation.isPending ? (
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        ) : null}
+        {t("mediaApplyAll")}
+      </Button>
     </div>
   );
 }
@@ -476,6 +530,13 @@ function Step1List({
                   ) : (
                     <Badge>{t("importFilterNew")}</Badge>
                   )}
+                  {item.mediaWork ? (
+                    <Badge variant="secondary">
+                      {mediaWorkLabel(item.mediaWork, (kind) =>
+                        t(`mediaKind${kind}`),
+                      )}
+                    </Badge>
+                  ) : null}
                 </div>
                 <p className="text-lg font-semibold">{item.mainText}</p>
                 <p className="text-muted-foreground">
@@ -600,6 +661,9 @@ function DraftCard({
   const [answerToId, setAnswerToId] = useState(item.answerToId);
   const [suggestedQuestion, setSuggestedQuestion] = useState(
     item.suggestedQuestionText ?? "",
+  );
+  const [mediaWork, setMediaWork] = useState<MediaWorkSummary | null>(
+    item.mediaWork,
   );
   const [translations, setTranslations] = useState<
     Record<string, { text: string; register: SatzRegister }>
@@ -1010,6 +1074,18 @@ function DraftCard({
               placeholder={t("triggerPlaceholder")}
             />
           </div>
+
+          <MediaWorkPicker
+            value={mediaWork}
+            disabled={locked}
+            onChange={(next) => {
+              setMediaWork(next);
+              updateMutation.mutate({
+                id: item.id,
+                mediaWorkId: next?.id ?? null,
+              });
+            }}
+          />
 
           <div className="space-y-3">
             <h3 className="font-medium">{t("domainsTitle")}</h3>

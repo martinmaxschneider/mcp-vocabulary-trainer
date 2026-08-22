@@ -8,6 +8,7 @@ import {
   createBatchFromCsv,
   enrichNextDrafts,
   getBatchView,
+  applyMediaWorkToBatch,
   updateImportDraft,
 } from "~/server/services/satz-import";
 
@@ -46,6 +47,12 @@ function asTrpcError(error: unknown): never {
       code: "BAD_REQUEST",
       message: "SATZ_IMPORT_NOTHING_TO_COMMIT",
     });
+  }
+  if (message === "MEDIA_WORK_NOT_FOUND") {
+    throw new TRPCError({ code: "NOT_FOUND", message });
+  }
+  if (message === "MEDIA_WORK_TITLE_REQUIRED") {
+    throw new TRPCError({ code: "BAD_REQUEST", message });
   }
   throw new TRPCError({ code: "BAD_REQUEST", message });
 }
@@ -133,6 +140,7 @@ export const satzImportRouter = createTRPCRouter({
         answerToId: z.string().nullable().optional(),
         suggestedQuestionText: z.string().nullable().optional(),
         questionTranslations: z.array(satzTranslationInputSchema).optional(),
+        mediaWorkId: z.string().nullable().optional(),
       }),
     )
     .mutation(async ({ input }) => {
@@ -152,6 +160,22 @@ export const satzImportRouter = createTRPCRouter({
           })),
         });
         return { success: true };
+      } catch (error) {
+        asTrpcError(error);
+      }
+    }),
+
+  applyMediaWork: publicProcedure
+    .input(
+      z.object({
+        batchId: z.string(),
+        mediaWorkId: z.string().nullable(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      try {
+        await applyMediaWorkToBatch(input.batchId, input.mediaWorkId);
+        return getBatchView(input.batchId);
       } catch (error) {
         asTrpcError(error);
       }

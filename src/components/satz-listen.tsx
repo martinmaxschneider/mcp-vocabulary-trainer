@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { AudioStatus, SatzPriority } from "@prisma/client";
+import { AudioStatus, MediaKind, SatzPriority } from "@prisma/client";
 import { api } from "~/trpc/client";
 import { Label } from "~/components/ui/label";
 import {
@@ -17,6 +17,8 @@ import { ListenSession } from "~/components/listen-session";
 import { useFocusLang } from "~/components/focus-lang-provider";
 import { useToast } from "~/hooks/use-toast";
 import { groupDomainsByKind } from "~/lib/domain-catalog";
+import { MEDIA_KINDS } from "~/lib/media-work";
+import { mediaWorkLabel } from "~/components/media-work-picker";
 import { MAX_BOX, MIN_BOX } from "~/lib/leitner";
 import { drainAudioQueue } from "~/lib/process-audio-queue";
 import { playbackClips } from "~/lib/satz-tts";
@@ -49,13 +51,21 @@ export function SatzListen() {
   const [domainId, setDomainId] = useState("all");
   const [priority, setPriority] = useState("all");
   const [box, setBox] = useState("all");
+  const [mediaKind, setMediaKind] = useState("all");
+  const [mediaWorkId, setMediaWorkId] = useState("all");
   const [generating, setGenerating] = useState(false);
 
   const { data: domains } = api.domain.list.useQuery();
+  const { data: mediaWorks } = api.mediaWork.list.useQuery({
+    kind: mediaKind !== "all" ? (mediaKind as MediaKind) : undefined,
+    limit: 100,
+  });
   const { data, isLoading } = api.satz.list.useQuery({
     ...(ids ? { ids } : {}),
     ...(!ids && domainId !== "all" ? { domainId } : {}),
     ...(!ids && priority !== "all" ? { priority: priority as SatzPriority } : {}),
+    ...(!ids && mediaKind !== "all" ? { mediaKind: mediaKind as MediaKind } : {}),
+    ...(!ids && mediaWorkId !== "all" ? { mediaWorkId } : {}),
     ...(!ids && box !== "all"
       ? { box: Number(box), targetLang: focusLang }
       : {}),
@@ -225,6 +235,44 @@ export function SatzListen() {
                       </SelectItem>
                     );
                   })}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>{t("reviewFilterMediaKind")}</Label>
+              <Select
+                value={mediaKind}
+                onValueChange={(value) => {
+                  setMediaKind(value);
+                  setMediaWorkId("all");
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t("filterAllMediaKinds")}</SelectItem>
+                  {MEDIA_KINDS.map((kind) => (
+                    <SelectItem key={kind} value={kind}>
+                      {t(`mediaKind${kind}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>{t("reviewFilterMediaWork")}</Label>
+              <Select value={mediaWorkId} onValueChange={setMediaWorkId}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t("filterAllMediaWorks")}</SelectItem>
+                  {(mediaWorks?.items ?? []).map((work) => (
+                    <SelectItem key={work.id} value={work.id}>
+                      {mediaWorkLabel(work, (kind) => t(`mediaKind${kind}`))}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

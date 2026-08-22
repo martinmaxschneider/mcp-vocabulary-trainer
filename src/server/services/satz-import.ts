@@ -1,6 +1,7 @@
 import {
   AudioStatus,
   DomainKind,
+  MediaKind,
   Prisma,
   SatzImportBatchStatus,
   SatzImportItemStatus,
@@ -35,6 +36,7 @@ import {
 } from "~/server/services/embeddings";
 import { enrichSatzImport } from "~/server/services/openai";
 import { resolveAnswerQuestion } from "~/server/services/satz-question";
+import { assertMediaWorkId, ensureMediaWork } from "~/server/services/media-work";
 
 type DbClient = typeof db | Prisma.TransactionClient;
 
@@ -59,8 +61,10 @@ export async function createBatchFromCsv(params: {
 
   const targetLang = resolveImportTargetLang(params.targetLang);
   const seen = new Map<string, { rowNumber: number }>();
+  const mediaIdByKey = new Map<string, string>();
 
-  const drafts = parsed.rows.map((row) => {
+  const drafts = [];
+  for (const row of parsed.rows) {
     const norm = normalizeSatzText(row.mainText);
     const fileDup = seen.get(norm);
     const dbMatch = existingByNorm.get(norm);
@@ -74,31 +78,53 @@ export async function createBatchFromCsv(params: {
       },
     ] as Prisma.InputJsonValue;
 
+    let mediaWorkId: string | undefined;
+    if (row.mediaKind && row.mediaTitle) {
+      const key = `${row.mediaKind}:${row.mediaTitle.trim().toLowerCase()}`;
+      const cached = mediaIdByKey.get(key);
+      if (cached) {
+        mediaWorkId = cached;
+      } else {
+        const work = await ensureMediaWork({
+          kind: row.mediaKind as MediaKind,
+          title: row.mediaTitle,
+          creator: row.mediaCreator,
+          url: row.mediaUrl,
+          year: row.mediaYear,
+        });
+        mediaIdByKey.set(key, work.id);
+        mediaWorkId = work.id;
+      }
+    }
+
     if (fileDup || dbMatch) {
       const candidates: DraftCandidate[] = dbMatch
         ? [{ id: dbMatch.id, mainText: dbMatch.mainText, score: 1, llmMatch: true }]
         : [];
-      return {
+      drafts.push({
         rowNumber: row.rowNumber,
         mainText: row.mainText.trim(),
         translations,
         status: SatzImportItemStatus.SKIPPED_DUPLICATE,
         isDuplicate: true,
         duplicateCandidates: candidates as Prisma.InputJsonValue,
+        ...(mediaWorkId && { mediaWorkId }),
         error: fileDup
           ? `Exact duplicate of row ${fileDup.rowNumber}`
           : "Exact duplicate of an existing sentence",
-      };
+      });
+      continue;
     }
 
-    return {
+    drafts.push({
       rowNumber: row.rowNumber,
       mainText: row.mainText.trim(),
       translations,
       status: SatzImportItemStatus.PENDING,
       isDuplicate: false,
-    };
-  });
+      ...(mediaWorkId && { mediaWorkId }),
+    });
+  }
 
   return db.satzImportBatch.create({
     data: {
@@ -305,6 +331,7 @@ export type DraftUpdateInput = {
   answerToId?: string | null;
   suggestedQuestionText?: string | null;
   questionTranslations?: DraftTranslation[];
+  mediaWorkId?: string | null;
 };
 
 export async function updateImportDraft(id: string, input: DraftUpdateInput) {
@@ -330,6 +357,9 @@ export async function updateImportDraft(id: string, input: DraftUpdateInput) {
   }
   if (input.answerToId) {
     await assertAnswerToId(db, input.answerToId);
+  }
+  if (input.mediaWorkId) {
+    await assertMediaWorkId(input.mediaWorkId, db);
   }
   if (input.mainText !== undefined && !input.mainText.trim()) {
     throw new Error("CSV_EMPTY");
@@ -384,6 +414,7 @@ export async function updateImportDraft(id: string, input: DraftUpdateInput) {
       ...(input.questionTranslations && {
         questionTranslations: input.questionTranslations as Prisma.InputJsonValue,
       }),
+      ...(input.mediaWorkId !== undefined && { mediaWorkId: input.mediaWorkId }),
     },
   });
   await maybeCloseBatch(existing.batchId);
@@ -440,6 +471,32 @@ async function assertAnswerToId(client: DbClient, answerToId: string | null) {
   if (!question) {
     throw new Error("answerToId does not match an existing Satz");
   }
+}
+
+export async function applyMediaWorkToBatch(
+  batchId: string,
+  mediaWorkId: string | null,
+) {
+  const batch = await db.satzImportBatch.findUnique({
+    where: { id: batchId },
+    select: { id: true, status: true },
+  });
+  if (!batch) {
+    throw new Error("Satz import batch not found");
+  }
+  if (batch.status === SatzImportBatchStatus.COMMITTED) {
+    throw new Error("Satz import batch already committed");
+  }
+  if (mediaWorkId) {
+    await assertMediaWorkId(mediaWorkId, db);
+  }
+  await db.satzImportDraft.updateMany({
+    where: {
+      batchId,
+      status: { not: SatzImportItemStatus.COMMITTED },
+    },
+    data: { mediaWorkId },
+  });
 }
 
 async function persistSatzEmbeddingSafe(satzId: string, mainText: string) {
@@ -525,6 +582,7 @@ export async function commitImportBatch(
               ...(domainIds.length > 0 && {
                 domains: { create: domainIds.map((domainId) => ({ domainId })) },
               }),
+              ...(draft.mediaWorkId && { mediaWorkId: draft.mediaWorkId }),
             },
           });
           await persistSatzEmbeddingSafe(question.id, question.mainText);
@@ -547,6 +605,7 @@ export async function commitImportBatch(
         priority: draft.priority,
         shadowingStatus: ShadowingStatus.NOT_STARTED,
         answerToId,
+        mediaWorkId: draft.mediaWorkId,
         translations: {
           create: translations.map((t) => ({
             lang: t.lang,
@@ -642,8 +701,15 @@ export async function getBatchView(batchId: string) {
         .filter((id): id is string => Boolean(id)),
     ),
   ];
+  const mediaWorkIds = [
+    ...new Set(
+      batch.items
+        .map((item) => item.mediaWorkId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
 
-  const [domains, entries, questions] = await Promise.all([
+  const [domains, entries, questions, mediaWorks] = await Promise.all([
     domainIds.length
       ? db.domain.findMany({
           where: { id: { in: domainIds } },
@@ -662,10 +728,24 @@ export async function getBatchView(batchId: string) {
           select: { id: true, mainText: true },
         })
       : Promise.resolve([]),
+    mediaWorkIds.length
+      ? db.mediaWork.findMany({
+          where: { id: { in: mediaWorkIds } },
+          select: {
+            id: true,
+            kind: true,
+            title: true,
+            creator: true,
+            year: true,
+            url: true,
+          },
+        })
+      : Promise.resolve([]),
   ]);
   const domainById = new Map(domains.map((d) => [d.id, d]));
   const entryById = new Map(entries.map((e) => [e.id, e]));
   const questionById = new Map(questions.map((q) => [q.id, q]));
+  const mediaWorkById = new Map(mediaWorks.map((w) => [w.id, w]));
 
   const items = batch.items.map((item) => {
     const translations = parseDraftTranslations(item.translations);
@@ -706,6 +786,10 @@ export async function getBatchView(batchId: string) {
       questionCandidates: parseDraftCandidates(item.questionCandidates),
       error: item.error,
       committedSatzId: item.committedSatzId,
+      mediaWorkId: item.mediaWorkId,
+      mediaWork: item.mediaWorkId
+        ? mediaWorkById.get(item.mediaWorkId) ?? null
+        : null,
       ready: isDraftReadyToCommit(item),
     };
   });

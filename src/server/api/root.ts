@@ -14,6 +14,7 @@ import { satzRouter } from "~/server/api/routers/satz";
 import { satzImportRouter } from "~/server/api/routers/satz-import";
 import { satzReviewRouter } from "~/server/api/routers/satz-review";
 import { dailyRouter } from "~/server/api/routers/daily";
+import { mediaWorkRouter } from "~/server/api/routers/media-work";
 
 /**
  * This is the primary router for your server.
@@ -36,6 +37,7 @@ export const appRouter = createTRPCRouter({
   satzImport: satzImportRouter,
   satzReview: satzReviewRouter,
   daily: dailyRouter,
+  mediaWork: mediaWorkRouter,
 });
 
 // export type definition of API

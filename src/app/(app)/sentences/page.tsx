@@ -15,6 +15,14 @@ import {
   CardHeader,
   CardTitle,
 } from "~/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
+import { Label } from "~/components/ui/label";
 import { BookOpen, Dumbbell, Headphones, LayoutGrid, List, Loader2, Pencil, Plus, Trash2, Upload, Volume2 } from "lucide-react";
 import { SatzAudioButton } from "~/components/satz-audio-button";
 import { Checkbox } from "~/components/ui/checkbox";
@@ -23,10 +31,17 @@ import { resolveErrorCode } from "~/lib/trpc-error";
 import { playbackUrls } from "~/lib/satz-tts";
 import { SOURCE_LANG } from "~/lib/languages";
 import { useFocusLang } from "~/components/focus-lang-provider";
+import { MEDIA_KINDS } from "~/lib/media-work";
+import {
+  mediaWorkLabel,
+} from "~/components/media-work-picker";
+import { MediaKind } from "@prisma/client";
 
 function SentencesPageInner() {
   const searchParams = useSearchParams();
   const domainId = searchParams.get("domainId") ?? undefined;
+  const initialMediaKind = searchParams.get("mediaKind") ?? "all";
+  const initialMediaWorkId = searchParams.get("mediaWorkId") ?? "all";
   const t = useTranslations("sentences");
   const tLang = useTranslations("languages");
   const tCommon = useTranslations("common");
@@ -35,6 +50,8 @@ function SentencesPageInner() {
   const { toast } = useToast();
   const { focusLang } = useFocusLang();
   const [query, setQuery] = useState("");
+  const [mediaKind, setMediaKind] = useState(initialMediaKind);
+  const [mediaWorkId, setMediaWorkId] = useState(initialMediaWorkId);
   const [view, setView] = useState<"cards" | "list">("cards");
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [generatingBulk, setGeneratingBulk] = useState(false);
@@ -44,6 +61,12 @@ function SentencesPageInner() {
   const { data, isLoading } = api.satz.list.useQuery({
     ...(query.trim() ? { query: query.trim() } : {}),
     ...(domainId ? { domainId } : {}),
+    ...(mediaKind !== "all" ? { mediaKind: mediaKind as MediaKind } : {}),
+    ...(mediaWorkId !== "all" ? { mediaWorkId } : {}),
+    limit: 100,
+  });
+  const { data: mediaWorks } = api.mediaWork.list.useQuery({
+    kind: mediaKind !== "all" ? (mediaKind as MediaKind) : undefined,
     limit: 100,
   });
 
@@ -207,6 +230,46 @@ function SentencesPageInner() {
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t("searchPlaceholder")}
         />
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">{t("mediaKindLabel")}</Label>
+            <Select
+              value={mediaKind}
+              onValueChange={(value) => {
+                setMediaKind(value);
+                setMediaWorkId("all");
+              }}
+            >
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t("filterAllMediaKinds")}</SelectItem>
+                {MEDIA_KINDS.map((kind) => (
+                  <SelectItem key={kind} value={kind}>
+                    {t(`mediaKind${kind}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">{t("mediaLabel")}</Label>
+            <Select value={mediaWorkId} onValueChange={setMediaWorkId}>
+              <SelectTrigger className="w-56">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t("filterAllMediaWorks")}</SelectItem>
+                {(mediaWorks?.items ?? []).map((work) => (
+                  <SelectItem key={work.id} value={work.id}>
+                    {mediaWorkLabel(work, (kind) => t(`mediaKind${kind}`))}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
         {items.length > 0 ? (
           <div className="flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2 text-sm">
@@ -374,7 +437,16 @@ function SentencesPageInner() {
                     onCheckedChange={() => toggleSelected(satz.id)}
                     aria-label={satz.mainText}
                   />
-                  <p className="font-medium">{satz.mainText}</p>
+                  <div className="min-w-0">
+                    <p className="font-medium">{satz.mainText}</p>
+                    {satz.mediaWork ? (
+                      <Badge variant="secondary" className="mt-1">
+                        {mediaWorkLabel(satz.mediaWork, (kind) =>
+                          t(`mediaKind${kind}`),
+                        )}
+                      </Badge>
+                    ) : null}
+                  </div>
                   <p className="font-medium">
                     {translation?.text ?? (
                       <span className="text-muted-foreground">—</span>
@@ -411,6 +483,13 @@ function SentencesPageInner() {
                         </p>
                       ) : null}
                       <div className="flex flex-wrap gap-1 pt-1">
+                        {satz.mediaWork ? (
+                          <Badge>
+                            {mediaWorkLabel(satz.mediaWork, (kind) =>
+                              t(`mediaKind${kind}`),
+                            )}
+                          </Badge>
+                        ) : null}
                         {satz.domains.map((link) => (
                           <Badge key={link.id} variant="outline">
                             {link.domain.name}
